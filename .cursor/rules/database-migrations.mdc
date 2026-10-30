@@ -1,0 +1,14 @@
+---
+description: Every database schema change must be a recorded Prisma migration
+globs: api/prisma/**,api/src/**/*.ts
+alwaysApply: false
+---
+
+# Database changes
+
+- Never run `prisma db push` or edit the database by hand. Schema changes are Prisma migrations in `api/prisma/migrations/`.
+- Workflow: edit `api/prisma/schema.prisma`, run `npm run db:new -- <name>` in `api`, read and annotate the SQL, add an entry to `api/prisma/CHANGELOG.md`, run `npm run db:deploy`, check `npm run db:status` shows no drift, then commit schema, migration, changelog and `api/prisma/apply-log.md` together.
+- Never edit a migration that was already applied. Add a new one.
+- Anything destructive (drop, type change, new required column) needs a hand written data step and a stated reversal in the changelog.
+- Demo data goes in seed scripts (`api/scripts/seed-*.ts`), not in migrations.
+- Use ASCII `-` only, never long dashes.

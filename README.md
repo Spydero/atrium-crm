@@ -23,7 +23,7 @@ createdb atrium   # if needed
 cd api
 cp .env.example .env   # or use existing .env
 npm install
-npx prisma db push
+npm run db:deploy      # applies migrations, backs up first, logs to prisma/apply-log.md
 npm run db:seed
 npm run dev            # http://localhost:4000
 ```
@@ -80,6 +80,12 @@ Also: `owner@atrium.demo`, `manager@atrium.demo` (same password).
 - Compare to the previous period (change, percentage and a comparison line), average line, peak and active periods
 - Hover any bar for the date span, share of the period, running total, change vs previous, and a source or outcome breakdown; click a bar to pin it
 - Demo history: `cd api && npx tsx scripts/seed-history.ts` (about 250 leads, viewings and deals over 12 months)
+
+**Database migrations**
+- Every schema change is a Prisma migration in `api/prisma/migrations/` (never `db push`)
+- `api/prisma/CHANGELOG.md` explains each change (purpose, tables, data impact, risk, reversal)
+- `api/prisma/apply-log.md` records every run: when, who, commit, database, result
+- `npm run db:status` (drift check), `npm run db:history` (what the database recorded), `npm run db:deploy`, `npm run db:new -- name`
 
 Messaging (WhatsApp) is deferred until Meta Cloud API credentials - no mock inbox.
 

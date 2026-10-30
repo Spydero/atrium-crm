@@ -6,8 +6,11 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "tsx src/index.ts",
-    "db:migrate": "prisma migrate dev",
-    "db:push": "prisma db push",
+    "db:new": "prisma migrate dev --create-only --name",
+    "db:deploy": "tsx scripts/db-tools.ts deploy",
+    "db:status": "tsx scripts/db-tools.ts status",
+    "db:history": "tsx scripts/db-tools.ts history",
+    "db:push": "echo 'db push is disabled: it changes the database without a record. Use npm run db:new -- <name> then npm run db:deploy (see prisma/CHANGELOG.md)' && exit 1",
     "db:seed": "tsx src/seed.ts",
     "db:generate": "prisma generate",
     "test": "tsx --test tests/*.test.ts",

@@ -125,6 +125,11 @@ Docs: [Better Auth](https://www.better-auth.com/) · [Prisma adapter](https://ww
 4. UI: `web/src/components/TrendChart.tsx` on the dashboard
 5. Tests: `api/tests/dashboardTrend.test.ts`, browser test `web/scripts/trend-ui-test.mjs`
 
+### Database migrations (from V1.5 onward)
+1. Prisma Migrate with a baseline of three migrations rebuilt from git history; the main database was marked as applied after a replay on a scratch database matched `schema.prisma`
+2. `db:new`, `db:deploy` (backup, apply, audit entry in `prisma/apply-log.md`), `db:status` (applied, pending, drift), `db:history`
+3. Human record in `prisma/CHANGELOG.md`; `db:push` is disabled; the rule is also in `.cursor/rules/database-migrations.mdc`
+
 ### Later (after V1.5)
 - Google login, Google Calendar OAuth
 - WhatsApp via Meta Cloud API only (no mock inbox)
