@@ -64,17 +64,21 @@ model Verification {
 }
 
 model Organization {
-  id        String    @id @default(cuid())
-  name      String
-  slug      String    @unique
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  users     User[]
-  listings  Listing[]
-  leads     Lead[]
-  events    CalendarEvent[]
-  shortlists Shortlist[]
-  portalBudgets PortalBudget[]
+  id             String    @id @default(cuid())
+  name           String
+  slug           String    @unique
+  currencyCode   String    @default("AED")
+  currencyLabel  String    @default("AED")
+  defaultCity    String    @default("")
+  enabledPortals String[]  @default(["BAYUT", "PROPERTY_FINDER", "DUBIZZLE", "SKYLOOV"])
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  users          User[]
+  listings       Listing[]
+  leads          Lead[]
+  events         CalendarEvent[]
+  shortlists     Shortlist[]
+  portalBudgets  PortalBudget[]
 }
 
 enum ListingStatus {
@@ -122,8 +126,11 @@ model Listing {
   areaSqft       Int           @default(0)
   community      String
   building       String?
-  city           String        @default("Dubai")
+  city           String        @default("")
   address        String?
+  lat            Float?
+  lng            Float?
+  placeId        String?
   coverUrl       String?
   photoUrls      String[]      @default([])
   createdAt      DateTime      @default(now())

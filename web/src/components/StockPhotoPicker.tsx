@@ -71,23 +71,27 @@ export function StockPhotoPicker({ selectedUrl, onSelect, initialQuery }: Props)
         <div className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">
           Stock photos {provider ? `(${provider})` : ""}
         </div>
-        <form
-          className="flex min-w-0 flex-1 justify-end gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            load();
-          }}
-        >
+        <div className="flex min-w-0 flex-1 justify-end gap-2">
           <input
             className="field min-w-0 max-w-[200px] flex-1 py-1.5 text-sm"
             value={q}
             onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                load();
+              }
+            }}
             placeholder="villa pool, office…"
           />
-          <button type="submit" className="btn-ghost shrink-0 px-2.5 py-1.5 text-xs">
+          <button
+            type="button"
+            className="btn-ghost shrink-0 px-2.5 py-1.5 text-xs"
+            onClick={() => load()}
+          >
             {loading ? "…" : "Search"}
           </button>
-        </form>
+        </div>
       </div>
 
       {places.length > 0 && (

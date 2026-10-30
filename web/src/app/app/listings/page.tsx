@@ -1,9 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { BedDouble, Bath, Maximize2, MapPin } from "lucide-react";
-import { api, formatAed, portalLabel, PORTALS } from "@/lib/api";
+import Link from "next/link";
+import { BedDouble, Bath, Maximize2, MapPin, FileDown } from "lucide-react";
+import { api, formatAed, portalLabel, PORTALS, type OrgSettings } from "@/lib/api";
 import { StockPhotoPicker } from "@/components/StockPhotoPicker";
+import { PlaceInput, type PlaceValue } from "@/components/PlaceInput";
+import { ListingMap, ListingMapEmpty } from "@/components/ListingMap";
 
 type Portal = { portal: string; status: string };
 type Listing = {
@@ -11,6 +14,10 @@ type Listing = {
   title: string;
   community: string;
   city: string;
+  address?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  placeId?: string | null;
   priceAed: number;
   beds: number;
   baths: number;
@@ -48,10 +55,18 @@ export default function ListingsPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [testingEnabled, setTestingEnabled] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [defaultCity, setDefaultCity] = useState("");
+  const [enabledPortals, setEnabledPortals] = useState<string[]>([...PORTALS]);
+  const [editPlace, setEditPlace] = useState<PlaceValue | null>(null);
+  const [savingPlace, setSavingPlace] = useState(false);
   const [form, setForm] = useState({
     title: "",
     community: "",
     city: "",
+    address: "",
+    lat: null as number | null,
+    lng: null as number | null,
+    placeId: null as string | null,
     priceAed: 0,
     beds: 2,
     baths: 2,
@@ -79,12 +94,23 @@ export default function ListingsPage() {
     api<{ testingEnabled: boolean }>("/api/testing/status")
       .then((s) => setTestingEnabled(s.testingEnabled))
       .catch(() => setTestingEnabled(false));
+    api<OrgSettings>("/api/settings")
+      .then((s) => {
+        setDefaultCity(s.defaultCity || "");
+        if (s.enabledPortals?.length) setEnabledPortals(s.enabledPortals);
+      })
+      .catch(() => {});
   }, [load]);
 
   useEffect(() => {
-    const places = [...new Set(listings.map((l) => l.community).filter(Boolean))].sort();
-    if (places.length) setCommunities(places);
-  }, [listings]);
+    // Inventory-derived communities only (not a hardcoded place list)
+    api<Listing[]>("/api/listings")
+      .then((all) => {
+        const places = [...new Set(all.map((l) => l.community).filter(Boolean))].sort();
+        setCommunities(places);
+      })
+      .catch(() => {});
+  }, [listings.length]);
 
   function clearFilters() {
     setQ("");
@@ -105,7 +131,11 @@ export default function ListingsPage() {
       body: JSON.stringify({
         title: form.title,
         community: form.community,
-        city: form.city || undefined,
+        city: form.city || defaultCity || undefined,
+        address: form.address || null,
+        lat: form.lat,
+        lng: form.lng,
+        placeId: form.placeId,
         priceAed: form.priceAed,
         beds: form.beds,
         baths: form.baths,
@@ -120,7 +150,11 @@ export default function ListingsPage() {
     setForm({
       title: "",
       community: "",
-      city: "",
+      city: defaultCity,
+      address: "",
+      lat: null,
+      lng: null,
+      placeId: null,
       priceAed: 0,
       beds: 2,
       baths: 2,
@@ -129,6 +163,41 @@ export default function ListingsPage() {
     });
     await load();
     setSelected(created);
+    setEditPlace({
+      community: created.community,
+      city: created.city || "",
+      address: created.address || "",
+      lat: created.lat ?? null,
+      lng: created.lng ?? null,
+      placeId: created.placeId ?? null,
+    });
+  }
+
+  function setPlace(next: PlaceValue) {
+    setForm((f) => ({
+      ...f,
+      community: next.community,
+      city: next.city,
+      address: next.address || f.address,
+      lat: next.lat,
+      lng: next.lng,
+      placeId: next.placeId,
+    }));
+  }
+
+  async function downloadBrochure(id: string, title: string) {
+    const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+    const res = await fetch(`${API_BASE}/api/listings/${id}/brochure.pdf`, {
+      credentials: "include",
+    });
+    if (!res.ok) throw new Error("Brochure download failed");
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${title.replace(/[^a-zA-Z0-9._-]+/g, "_") || "listing"}-brochure.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   async function uploadPhoto(listingId: string, file: File) {
@@ -285,7 +354,17 @@ export default function ListingsPage() {
             <button
               key={l.id}
               type="button"
-              onClick={() => setSelected(l)}
+              onClick={() => {
+                setSelected(l);
+                setEditPlace({
+                  community: l.community,
+                  city: l.city || "",
+                  address: l.address || "",
+                  lat: l.lat ?? null,
+                  lng: l.lng ?? null,
+                  placeId: l.placeId ?? null,
+                });
+              }}
               className="group overflow-hidden rounded-[var(--radius)] border border-line bg-paper text-left transition hover:border-ink/20 hover:shadow-[0_8px_24px_rgba(16,20,24,0.06)]"
             >
               <div className="relative h-[168px] overflow-hidden bg-[#dfe3e8]">
@@ -416,6 +495,92 @@ export default function ListingsPage() {
                     }}
                   />
                 </label>
+                <button
+                  type="button"
+                  className="btn-ghost inline-flex items-center gap-1.5 text-sm"
+                  onClick={() =>
+                    downloadBrochure(selected.id, selected.title).catch(() => {})
+                  }
+                >
+                  <FileDown size={14} /> Download brochure
+                </button>
+              </div>
+
+              <div className="mt-5">
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <div className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">
+                    Map
+                  </div>
+                  <Link
+                    href="/app/map"
+                    className="text-xs font-semibold text-accent hover:underline"
+                  >
+                    Open inventory map
+                  </Link>
+                </div>
+                {(editPlace?.lat ?? selected.lat) != null &&
+                (editPlace?.lng ?? selected.lng) != null ? (
+                  <ListingMap
+                    lat={(editPlace?.lat ?? selected.lat) as number}
+                    lng={(editPlace?.lng ?? selected.lng) as number}
+                    label={selected.title}
+                    height={260}
+                  />
+                ) : (
+                  <ListingMapEmpty />
+                )}
+                <div className="mt-3 space-y-2">
+                  <PlaceInput
+                    defaultCity={defaultCity}
+                    value={
+                      editPlace || {
+                        community: selected.community,
+                        city: selected.city || "",
+                        address: selected.address || "",
+                        lat: selected.lat ?? null,
+                        lng: selected.lng ?? null,
+                        placeId: selected.placeId ?? null,
+                      }
+                    }
+                    onChange={setEditPlace}
+                  />
+                  <button
+                    type="button"
+                    className="btn-primary text-sm"
+                    disabled={savingPlace || !editPlace?.community}
+                    onClick={async () => {
+                      if (!editPlace) return;
+                      setSavingPlace(true);
+                      try {
+                        const updated = await api<Listing>(`/api/listings/${selected.id}`, {
+                          method: "PATCH",
+                          body: JSON.stringify({
+                            community: editPlace.community,
+                            city: editPlace.city,
+                            address: editPlace.address || null,
+                            lat: editPlace.lat,
+                            lng: editPlace.lng,
+                            placeId: editPlace.placeId,
+                          }),
+                        });
+                        setSelected(updated);
+                        setEditPlace({
+                          community: updated.community,
+                          city: updated.city || "",
+                          address: updated.address || "",
+                          lat: updated.lat ?? null,
+                          lng: updated.lng ?? null,
+                          placeId: updated.placeId ?? null,
+                        });
+                        await load();
+                      } finally {
+                        setSavingPlace(false);
+                      }
+                    }}
+                  >
+                    {savingPlace ? "Saving…" : "Save location"}
+                  </button>
+                </div>
               </div>
 
               <div className="mt-5">
@@ -423,7 +588,7 @@ export default function ListingsPage() {
                   Portals
                 </div>
                 <div className="grid gap-2 sm:grid-cols-2">
-                  {PORTALS.map((portal) => {
+                  {enabledPortals.map((portal) => {
                     const row = selected.portals.find((p) => p.portal === portal);
                     const status = row?.status || "OFF";
                     return (
@@ -475,21 +640,18 @@ export default function ListingsPage() {
               onChange={(e) => setForm({ ...form, title: e.target.value })}
               required
             />
-            <div className="grid grid-cols-2 gap-2">
-              <input
-                className="field w-full"
-                placeholder="Community / area"
-                value={form.community}
-                onChange={(e) => setForm({ ...form, community: e.target.value })}
-                required
-              />
-              <input
-                className="field w-full"
-                placeholder="City"
-                value={form.city}
-                onChange={(e) => setForm({ ...form, city: e.target.value })}
-              />
-            </div>
+            <PlaceInput
+              defaultCity={defaultCity}
+              value={{
+                community: form.community,
+                city: form.city,
+                address: form.address,
+                lat: form.lat,
+                lng: form.lng,
+                placeId: form.placeId,
+              }}
+              onChange={setPlace}
+            />
             <input
               type="number"
               className="field w-full"

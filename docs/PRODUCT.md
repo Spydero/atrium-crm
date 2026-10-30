@@ -185,8 +185,8 @@ Shipped in phases. **V1.0** = first shippable demo of the core loop.
 ### F. Documents & analytics
 | Feature | End state | Phase |
 |---------|-----------|-------|
-| Brochure PDF from listing | After V1 |
-| Dashboards (portal/agent performance) | After V1 |
+| Brochure PDF from listing | **V1.1** |
+| Dashboards (portal/agent performance) | **V1.1** (Reports) |
 | Off-plan catalog (seeded) | Optional later |
 
 ### G. AI (last)
@@ -213,11 +213,36 @@ Shipped in phases. **V1.0** = first shippable demo of the core loop.
 7. **Money Map** - simple source → viewings/wins (+ mock cost) panel  
 8. **Viewing OS + Shortlist link** - complete viewing + feedback; shareable shortlist URL  
 
-**Out of V1**
+**Out of V1.0**
 - Google login / Google Calendar  
 - Real portal / WhatsApp / Meta APIs  
 - AI  
-- Native mobile, brochure PDF, deep analytics  
+- Native mobile  
+
+---
+
+## V1.1 scope (Docs, Analytics, places + maps)
+
+**Organize**
+1. Grouped sidebar: Work / Inventory / Insights / Admin  
+2. Org **Settings**: currency label, default city hint, enabled portals (not hardcoded product DNA)
+
+**Places + maps (no paid keys)**
+3. Listing `lat` / `lng` / `placeId`  
+4. Nominatim place search proxy + manual community/city always allowed  
+5. Leaflet + OSM map on listing detail, inventory Map page, and public shortlist when coords exist (no Mapbox/Google key required)  
+6. Community filters from **inventory**, not a fixed city list  
+
+**Docs + analytics**
+7. Listing brochure PDF download  
+8. Reports page: leads by stage/source, viewing outcomes, wins by source, listing/portal stats, agent load  
+
+**Explicitly deferred**
+- Messaging: Meta Cloud API only later - **no mock WhatsApp inbox**, no Slack, no Discord  
+- Google login / Calendar sync  
+- AI  
+
+Copy rule: never use em/en dashes in product or docs; ASCII `-` only.
 
 ---
 

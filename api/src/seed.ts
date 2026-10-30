@@ -21,10 +21,15 @@ async function main() {
   await prisma.user.deleteMany();
   await prisma.organization.deleteMany();
 
+  // Demo seed pack (UAE sample data only - not product geography)
   const org = await prisma.organization.create({
     data: {
       name: "Levante Demo Realty",
       slug: "levante-demo",
+      currencyCode: "AED",
+      currencyLabel: "AED",
+      defaultCity: "Dubai",
+      enabledPortals: ["BAYUT", "PROPERTY_FINDER", "DUBIZZLE", "SKYLOOV"],
       portalBudgets: {
         create: [
           { portal: "BAYUT", monthlySpendAed: 18000 },
@@ -80,6 +85,9 @@ async function main() {
       title: "Marina Vista 2BR",
       community: "Dubai Marina",
       building: "Marina Gate",
+      city: "Dubai",
+      lat: 25.0805,
+      lng: 55.1403,
       priceAed: 2100000,
       beds: 2,
       baths: 2,
@@ -92,6 +100,9 @@ async function main() {
       title: "Palm Frond Villa",
       community: "Palm Jumeirah",
       building: "Frond N",
+      city: "Dubai",
+      lat: 25.1124,
+      lng: 55.139,
       priceAed: 14500000,
       beds: 5,
       baths: 6,
@@ -104,6 +115,9 @@ async function main() {
       title: "Downtown Skyline 1BR",
       community: "Downtown Dubai",
       building: "Boulevard Point",
+      city: "Dubai",
+      lat: 25.1972,
+      lng: 55.2744,
       priceAed: 1750000,
       beds: 1,
       baths: 2,
@@ -116,6 +130,9 @@ async function main() {
       title: "JVC Family Townhouse",
       community: "Jumeirah Village Circle",
       building: "Circle Villas",
+      city: "Dubai",
+      lat: 25.042,
+      lng: 55.2003,
       priceAed: 3200000,
       beds: 3,
       baths: 4,
@@ -128,6 +145,9 @@ async function main() {
       title: "Business Bay Office",
       community: "Business Bay",
       building: "Bay Square",
+      city: "Dubai",
+      lat: 25.185,
+      lng: 55.273,
       priceAed: 2800000,
       beds: 0,
       baths: 2,
@@ -140,6 +160,9 @@ async function main() {
       title: "Hills Estate 3BR",
       community: "Dubai Hills Estate",
       building: "Park Heights",
+      city: "Dubai",
+      lat: 25.108,
+      lng: 55.245,
       priceAed: 4950000,
       beds: 3,
       baths: 4,
@@ -163,6 +186,9 @@ async function main() {
         description: `${d.beds} bedroom ${d.propertyType.toLowerCase()} in ${d.community}. Ready for viewing.`,
         community: d.community,
         building: d.building,
+        city: d.city,
+        lat: d.lat,
+        lng: d.lng,
         priceAed: d.priceAed,
         beds: d.beds,
         baths: d.baths,
@@ -171,7 +197,7 @@ async function main() {
         status: d.status,
         coverUrl: cover,
         photoUrls: [cover],
-        address: `${d.building}, ${d.community}, Dubai`,
+        address: `${d.building}, ${d.community}, ${d.city}`,
         portals: {
           create: (Object.entries(d.portals) as [keyof typeof d.portals, string][]).map(
             ([portal, status]) => ({

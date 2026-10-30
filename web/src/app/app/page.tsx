@@ -27,6 +27,12 @@ import {
   YAxis,
 } from "recharts";
 import { api, formatAed, portalLabel } from "@/lib/api";
+import {
+  DateRangeFilter,
+  dateRangeQuery,
+  defaultDateRange,
+  type DateRangeValue,
+} from "@/components/DateRangeFilter";
 
 type StageRow = { stage: string; count: number; valueAed: number };
 type SourceRow = { source: string; count: number };
@@ -61,6 +67,14 @@ type Kpis = {
   newLeadsChart: ChartPoint[];
   newLeadsWeek: number;
   peakDay: { label: string; count: number } | null;
+  range?: {
+    preset: string;
+    from: string;
+    to: string;
+    label: string;
+    days: number;
+    granularity: "day" | "week";
+  };
   pipelineByStage: StageRow[];
   sourceMix: SourceRow[];
   upcomingViewings: Viewing[];
@@ -124,11 +138,12 @@ export default function DashboardPage() {
   const [hoverSource, setHoverSource] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const [dateRange, setDateRange] = useState<DateRangeValue>(() => defaultDateRange("7d"));
 
-  async function loadKpis() {
+  async function loadKpis(range: DateRangeValue = dateRange) {
     setRefreshing(true);
     try {
-      const data = await api<Kpis>("/api/dashboard/kpis");
+      const data = await api<Kpis>(`/api/dashboard/kpis?${dateRangeQuery(range)}`);
       setKpis(data);
       setError("");
     } catch (e) {
@@ -140,8 +155,9 @@ export default function DashboardPage() {
   }
 
   useEffect(() => {
-    loadKpis();
-  }, []);
+    loadKpis(dateRange);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dateRange.preset, dateRange.from, dateRange.to]);
 
   const maxSource = useMemo(
     () => Math.max(1, ...(kpis?.sourceMix.map((s) => s.count) || [1])),
@@ -197,7 +213,7 @@ export default function DashboardPage() {
     {
       label: "Open leads",
       value: String(kpis.openLeads),
-      hint: `${kpis.newLeadsWeek} new this week`,
+      hint: `${kpis.newLeadsWeek} new in range`,
       href: "/app/leads",
       icon: Users,
       accent: false,
@@ -222,9 +238,11 @@ export default function DashboardPage() {
       label: "Active listings",
       value: String(kpis.listingsActive),
       hint:
-        kpis.listingsDraft > 0
-          ? `${kpis.listingsDraft} still draft`
-          : "Inventory live",
+        kpis.viewingsWeek > 0
+          ? `${kpis.viewingsWeek} viewings in range`
+          : kpis.listingsDraft > 0
+            ? `${kpis.listingsDraft} still draft`
+            : "Inventory live",
       href: "/app/listings",
       icon: Building2,
       accent: false,
@@ -243,11 +261,12 @@ export default function DashboardPage() {
             Pipeline health, viewings, and what needs a reply today.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <DateRangeFilter value={dateRange} onChange={setDateRange} />
           <button
             type="button"
             className="btn-ghost text-sm"
-            onClick={() => loadKpis()}
+            onClick={() => loadKpis(dateRange)}
             disabled={refreshing}
           >
             {refreshing ? "Refreshing…" : "Refresh"}
@@ -309,7 +328,8 @@ export default function DashboardPage() {
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">
-                New leads · last 7 days
+                New leads · {kpis.range?.label || "selected range"}
+                {kpis.range?.granularity === "week" ? " (weekly)" : ""}
               </div>
               <div className="font-display mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-2xl font-bold tracking-[-0.03em]">
                 <span>
@@ -317,7 +337,7 @@ export default function DashboardPage() {
                   <span className="ml-1.5 text-sm font-semibold text-muted">captured</span>
                 </span>
                 <span className="text-sm font-semibold text-muted">
-                  avg {chartAvg}/day
+                  avg {chartAvg}/{kpis.range?.granularity === "week" ? "week" : "day"}
                 </span>
                 {kpis.peakDay && kpis.peakDay.count > 0 && (
                   <span className="rounded bg-accent-soft px-2 py-0.5 text-xs font-bold text-accent">
@@ -405,7 +425,7 @@ export default function DashboardPage() {
             </span>
             <span className="inline-flex items-center gap-1.5">
               <span className="inline-block h-0.5 w-4 border-t-2 border-dashed border-mark" />{" "}
-              7-day average
+              Period average
             </span>
           </div>
         </div>

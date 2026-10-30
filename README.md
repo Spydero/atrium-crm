@@ -1,6 +1,6 @@
-# Atrium  Brokerage OS (V1)
+# Atrium - Brokerage OS (V1.1)
 
-Internal CRM for real-estate brokerages: **listings**, **leads** (with Lead Fuse), **calendar / Viewing OS**, **Money Map**, and **client shortlist links**.
+Internal CRM for real-estate brokerages: **listings**, **leads** (with Lead Fuse), **calendar / Viewing OS**, **Money Map**, **Reports**, **Settings**, maps/places, and **client shortlist links**.
 
 ## Stack
 
@@ -43,13 +43,24 @@ npm run dev            # http://localhost:3000
 
 Also: `owner@atrium.demo`, `manager@atrium.demo` (same password).
 
-## V1 features
+## Features
 
+**V1.0**
 - Auth (Better Auth email/password)
-- Listings CRUD + filters + mock portal publish (Bayut / PF / Dubizzle / Skyloov)
+- Listings CRUD + filters + mock portal publish
 - Leads kanban + notes/activity + **Lead Fuse** + simulate portal lead + Smart Match
 - Calendar with viewing complete + feedback
-- Money Map (source ROI + at-risk AED)
+- Money Map (source ROI + at-risk value)
 - Public shortlist page `/s/[token]`
+
+**V1.1**
+- Grouped nav: Work / Inventory / Insights / Admin
+- Org Settings (currency, default city, enabled portals)
+- Real place search (Nominatim) + Leaflet/OSM maps (listing detail, inventory Map page, shortlists)
+- Date-range filters on Dashboard and Reports
+- Reports dashboard
+- Listing brochure PDF download
+
+Messaging (WhatsApp) is deferred until Meta Cloud API credentials - no mock inbox.
 
 See `docs/PRODUCT.md` and `docs/STACK.md`.

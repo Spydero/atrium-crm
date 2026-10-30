@@ -1,6 +1,10 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma.js";
 import { requireAuth, type AuthedRequest } from "../middleware/requireAuth.js";
+import {
+  buildChartBuckets,
+  resolveDateRange,
+} from "../lib/dateRange.js";
 
 export const dashboardRouter = Router();
 dashboardRouter.use(requireAuth);
@@ -15,24 +19,15 @@ dashboardRouter.get("/kpis", async (req: AuthedRequest, res) => {
   const organizationId = orgId(req);
   if (!organizationId) return res.status(400).json({ error: "No organization" });
 
+  const range = resolveDateRange(req.query);
   const now = new Date();
-  const localKey = (d: Date) => {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
-  };
-  // Match chart window: start of (today − 6 days) through now
-  const weekAgo = new Date(now);
-  weekAgo.setHours(0, 0, 0, 0);
-  weekAgo.setDate(weekAgo.getDate() - 6);
   const weekAhead = new Date(now);
   weekAhead.setDate(weekAhead.getDate() + 7);
 
   const [
     openLeads,
     pipeline,
-    viewingsWeek,
+    viewingsInRange,
     won,
     lost,
     listingsActive,
@@ -54,7 +49,7 @@ dashboardRouter.get("/kpis", async (req: AuthedRequest, res) => {
       where: {
         organizationId,
         type: "VIEWING",
-        startsAt: { gte: weekAgo, lte: weekAhead },
+        startsAt: { gte: range.from, lte: range.to },
       },
     }),
     prisma.lead.count({ where: { organizationId, stage: "WON" } }),
@@ -66,7 +61,10 @@ dashboardRouter.get("/kpis", async (req: AuthedRequest, res) => {
       where: { organizationId, status: "DRAFT" },
     }),
     prisma.lead.findMany({
-      where: { organizationId, createdAt: { gte: weekAgo } },
+      where: {
+        organizationId,
+        createdAt: { gte: range.from, lte: range.to },
+      },
       select: { createdAt: true },
     }),
     prisma.lead.groupBy({
@@ -76,7 +74,10 @@ dashboardRouter.get("/kpis", async (req: AuthedRequest, res) => {
       _sum: { dealValueAed: true },
     }),
     prisma.leadSourceEvent.findMany({
-      where: { lead: { organizationId } },
+      where: {
+        lead: { organizationId },
+        createdAt: { gte: range.from, lte: range.to },
+      },
       select: { source: true, leadId: true },
     }),
     prisma.calendarEvent.findMany({
@@ -113,28 +114,14 @@ dashboardRouter.get("/kpis", async (req: AuthedRequest, res) => {
   const winRateOpen =
     openLeads + won > 0 ? Math.round((won / (openLeads + won)) * 100) : 0;
 
-  // Rolling last 7 calendar days (oldest → newest) with real date labels
-  const chart: { day: string; label: string; count: number; date: string }[] = [];
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(now);
-    d.setHours(0, 0, 0, 0);
-    d.setDate(d.getDate() - i);
-    chart.push({
-      day: d.toLocaleDateString("en-US", { weekday: "short" }),
-      label: d.toLocaleDateString("en-US", { weekday: "short", day: "numeric" }),
-      count: 0,
-      date: localKey(d),
-    });
-  }
-  for (const l of leads) {
-    const created = new Date(l.createdAt);
-    const row = chart.find((c) => c.date === localKey(created));
-    if (row) row.count += 1;
-  }
+  const chart = buildChartBuckets(
+    range,
+    leads.map((l) => new Date(l.createdAt)),
+  );
 
   const peak = chart.reduce(
     (best, row) => (row.count > best.count ? row : best),
-    chart[0],
+    chart[0] || { label: "-", count: 0, day: "", date: "" },
   );
 
   const pipelineByStage = STAGES.filter((s) => s !== "LOST").map((stage) => {
@@ -164,7 +151,7 @@ dashboardRouter.get("/kpis", async (req: AuthedRequest, res) => {
   res.json({
     openLeads,
     pipelineAed: pipeline._sum.dealValueAed ?? 0,
-    viewingsWeek,
+    viewingsWeek: viewingsInRange,
     closeRate,
     winRateOpen,
     won,
@@ -174,6 +161,14 @@ dashboardRouter.get("/kpis", async (req: AuthedRequest, res) => {
     newLeadsChart: chart,
     newLeadsWeek: leads.length,
     peakDay: peak ? { label: peak.label, count: peak.count } : null,
+    range: {
+      preset: range.preset,
+      from: range.fromKey,
+      to: range.toKey,
+      label: range.label,
+      days: range.days,
+      granularity: range.granularity,
+    },
     pipelineByStage,
     sourceMix,
     upcomingViewings: upcomingViewings.map((v) => ({

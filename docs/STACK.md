@@ -94,9 +94,16 @@ Docs: [Better Auth](https://www.better-auth.com/) · [Prisma adapter](https://ww
 6. In-app calendar
 7. Seed demo data
 
-### Later (not V1.0)
+### V1.1 - Docs, analytics, places + maps
+1. Grouped AppShell nav (Work / Inventory / Insights / Admin)
+2. Org settings (currency, default city, enabled portals)
+3. Nominatim places search + listing lat/lng; Leaflet maps
+4. Reports aggregates API + `/app/reports`
+5. Listing brochure PDF (`pdfkit`)
+
+### Later (after V1.1)
 - Google login, Google Calendar OAuth
-- WhatsApp inbox UI, brochure PDF, deep analytics
+- WhatsApp via Meta Cloud API only (no mock inbox)
 - AI agent (last)
 
 ---

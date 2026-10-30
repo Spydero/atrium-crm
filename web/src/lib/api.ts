@@ -48,10 +48,28 @@ export async function api<T>(
   return res.json() as Promise<T>;
 }
 
-export function formatAed(n: number) {
-  if (n >= 1_000_000) return `AED ${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 1 : 2)}M`;
-  return `AED ${n.toLocaleString()}`;
+export function formatMoney(n: number, currencyLabel = "AED") {
+  if (n >= 1_000_000) {
+    return `${currencyLabel} ${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 1 : 2)}M`;
+  }
+  return `${currencyLabel} ${n.toLocaleString()}`;
 }
+
+/** @deprecated Prefer formatMoney with org currencyLabel */
+export function formatAed(n: number) {
+  return formatMoney(n, "AED");
+}
+
+export type OrgSettings = {
+  id: string;
+  name: string;
+  slug: string;
+  currencyCode: string;
+  currencyLabel: string;
+  defaultCity: string;
+  enabledPortals: string[];
+  availablePortals?: string[];
+};
 
 export const STAGES = ["NEW", "QUALIFIED", "VIEWING", "OFFER", "WON", "LOST"] as const;
 export const PORTALS = ["BAYUT", "PROPERTY_FINDER", "DUBIZZLE", "SKYLOOV"] as const;

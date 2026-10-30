@@ -54,10 +54,11 @@ StorageAdapter (local → Cloudinary)
 | When | Integration | Approach |
 |------|-------------|----------|
 | Now | Uploads + `TESTING_ENABLED` stock picker | Own listing fields (city/area). Photos: **upload** always, plus a **local curated catalog** (~48 place-tagged images) for demos - no third-party photo API keys (Unsplash/Pexels/Pixabay are often paused or rate-limited). |
-| Soon | Maps | Nominatim or Mapbox; store coords on listing |
+| V1.1 | Maps + geocode | Nominatim search proxy + Leaflet/OSM tiles; store `lat`/`lng`/`placeId` on listing. Manual address always allowed. |
+| V1.1 | Brochure PDF | Server-side `pdfkit` from listing + org name |
 | Later | Google Calendar | OAuth; our `CalendarEvent` remains canonical |
 | Later | Real portals | Official partner APIs only; mock adapters until then |
-| Later | WhatsApp | Meta Cloud API only; our Conversation/Message tables |
+| Later | WhatsApp | Meta Cloud API only when credentials exist; Conversation/Message tables. **No mock inbox, Slack, or Discord.** |
 | Last | AI | Our rules + audit; LLM as a service behind a flag |
 
 Mock adapters today = same UI and org settings as production. Credentials appear in org settings when available; until then simulate.

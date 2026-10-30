@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { formatAed } from "@/lib/api";
+import { ListingMap } from "@/components/ListingMap";
 
 type PublicShortlist = {
   title: string;
@@ -17,9 +18,12 @@ type PublicShortlist = {
       baths: number;
       areaSqft: number;
       community: string;
+      city?: string | null;
       coverUrl: string | null;
       propertyType: string;
       description: string;
+      lat?: number | null;
+      lng?: number | null;
     };
   }[];
 };
@@ -106,11 +110,22 @@ export default function PublicShortlistPage() {
               <div className="p-4">
                 <h2 className="font-bold">{listing.title}</h2>
                 <p className="text-sm text-muted">
-                  {listing.community} · {listing.beds} bed · {listing.areaSqft} sqft
+                  {[listing.community, listing.city].filter(Boolean).join(", ")} ·{" "}
+                  {listing.beds} bed · {listing.areaSqft} sqft
                 </p>
                 <p className="font-display mt-2 text-xl font-bold tracking-[-0.02em]">
                   {formatAed(listing.priceAed)}
                 </p>
+                {listing.lat != null && listing.lng != null && (
+                  <div className="mt-3">
+                    <ListingMap
+                      lat={listing.lat}
+                      lng={listing.lng}
+                      label={listing.title}
+                      height={140}
+                    />
+                  </div>
+                )}
               </div>
             </article>
           ))}

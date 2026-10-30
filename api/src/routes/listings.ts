@@ -37,6 +37,9 @@ const listingBody = z.object({
   building: z.string().optional().nullable(),
   city: z.string().optional(),
   address: z.string().optional().nullable(),
+  lat: z.coerce.number().min(-90).max(90).optional().nullable(),
+  lng: z.coerce.number().min(-180).max(180).optional().nullable(),
+  placeId: z.string().optional().nullable(),
   coverUrl: z.string().optional().nullable(),
   photoUrls: z.array(z.string()).optional(),
 });
@@ -135,6 +138,9 @@ listingsRouter.post("/", async (req: AuthedRequest, res) => {
       building: data.building ?? null,
       city: data.city ?? "",
       address: data.address ?? null,
+      lat: data.lat ?? null,
+      lng: data.lng ?? null,
+      placeId: data.placeId ?? null,
       coverUrl: data.coverUrl ?? null,
       photoUrls: data.photoUrls ?? [],
       portals: {
@@ -167,6 +173,27 @@ listingsRouter.patch("/:id", async (req: AuthedRequest, res) => {
     include: { portals: true },
   });
   res.json(listing);
+});
+
+listingsRouter.get("/:id/brochure.pdf", async (req: AuthedRequest, res) => {
+  const organizationId = orgId(req);
+  const listing = await prisma.listing.findFirst({
+    where: { id: req.params.id, organizationId: organizationId ?? undefined },
+    include: {
+      organization: { select: { name: true, currencyLabel: true } },
+    },
+  });
+  if (!listing) return res.status(404).json({ error: "Not found" });
+
+  const { buildBrochurePdf } = await import("../lib/brochure.js");
+  const pdf = await buildBrochurePdf(listing);
+  const safe = listing.title.replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 60);
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="${safe || "listing"}-brochure.pdf"`,
+  );
+  res.send(pdf);
 });
 
 listingsRouter.post(
