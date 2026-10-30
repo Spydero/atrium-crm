@@ -53,7 +53,7 @@ StorageAdapter (local → Cloudinary)
 
 | When | Integration | Approach |
 |------|-------------|----------|
-| Now | Uploads + `TESTING_ENABLED` stock picker | Own listing fields (city/area). Photos: upload always; Unsplash/Picsum only when testing flag is on |
+| Now | Uploads + `TESTING_ENABLED` stock picker | Own listing fields (city/area). Photos: **upload** always, plus a **local curated catalog** (~48 place-tagged images) for demos — no third-party photo API keys (Unsplash/Pexels/Pixabay are often paused or rate-limited). |
 | Soon | Maps | Nominatim or Mapbox; store coords on listing |
 | Later | Google Calendar | OAuth; our `CalendarEvent` remains canonical |
 | Later | Real portals | Official partner APIs only; mock adapters until then |

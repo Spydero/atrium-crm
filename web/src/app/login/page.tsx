@@ -22,7 +22,8 @@ export default function LoginPage() {
       setError(err.message || "Login failed");
       return;
     }
-    router.push("/app/leads");
+    const next = new URLSearchParams(window.location.search).get("next");
+    router.push(next && next.startsWith("/app") ? next : "/app");
   }
 
   return (

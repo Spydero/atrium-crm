@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/requireAuth.js";
+import { DEMO_PLACES, searchCatalog } from "../data/stockCatalog.js";
 
 export const testingRouter = Router();
 
@@ -7,27 +8,27 @@ function testingEnabled() {
   return String(process.env.TESTING_ENABLED || "").toLowerCase() === "true";
 }
 
-/** Public-ish config for the web app (no secrets). */
 testingRouter.get("/status", (_req, res) => {
   res.json({
     testingEnabled: testingEnabled(),
-    photoProvider: process.env.UNSPLASH_ACCESS_KEY ? "unsplash" : "picsum",
+    photoProvider: "local",
   });
 });
 
-type StockPhoto = {
-  id: string;
-  url: string;
-  thumb: string;
-  photographer?: string;
-  attribution?: string;
-};
+testingRouter.get("/places", requireAuth, (_req, res) => {
+  if (!testingEnabled()) {
+    return res.status(403).json({ error: "Testing disabled" });
+  }
+  res.json({
+    places: DEMO_PLACES,
+    provider: "local",
+    note: "Local catalog — no API keys. Pick a place or search tags.",
+  });
+});
 
 /**
- * Stock photos for TESTING only.
- * - With UNSPLASH_ACCESS_KEY: search Unsplash (free developer key).
- * - Without key: Lorem Picsum list (no signup) so demos still work.
- * Location/place is NEVER taken from these APIs — only the image URL.
+ * Stock photos for TESTING only — local curated catalog (no third-party APIs).
+ * Place names stay yours; we only return image URLs.
  */
 testingRouter.get("/photos", requireAuth, async (req, res) => {
   if (!testingEnabled()) {
@@ -36,69 +37,21 @@ testingRouter.get("/photos", requireAuth, async (req, res) => {
     });
   }
 
-  const q = String(req.query.q || "modern apartment interior").trim();
+  const q = String(req.query.q || "apartment living").trim();
   const page = Math.max(1, Number(req.query.page) || 1);
-  const key = process.env.UNSPLASH_ACCESS_KEY;
+  const { photos, total } = searchCatalog(q, page, 12);
 
-  try {
-    if (key) {
-      const url = new URL("https://api.unsplash.com/search/photos");
-      url.searchParams.set("query", q);
-      url.searchParams.set("page", String(page));
-      url.searchParams.set("per_page", "12");
-      url.searchParams.set("orientation", "landscape");
-
-      const r = await fetch(url, {
-        headers: { Authorization: `Client-ID ${key}` },
-      });
-      if (!r.ok) {
-        const text = await r.text();
-        return res.status(502).json({ error: "Unsplash request failed", detail: text.slice(0, 200) });
-      }
-      const data = (await r.json()) as {
-        results: {
-          id: string;
-          urls: { regular: string; small: string };
-          user: { name: string };
-          links: { html: string };
-        }[];
-      };
-      const photos: StockPhoto[] = data.results.map((p) => ({
-        id: p.id,
-        url: p.urls.regular,
-        thumb: p.urls.small,
-        photographer: p.user.name,
-        attribution: `Photo by ${p.user.name} on Unsplash`,
-      }));
-      return res.json({ provider: "unsplash", query: q, photos });
-    }
-
-    // Zero-config fallback: Picsum (no API key)
-    const r = await fetch(`https://picsum.photos/v2/list?page=${page}&limit=12`);
-    if (!r.ok) {
-      return res.status(502).json({ error: "Picsum request failed" });
-    }
-    const data = (await r.json()) as {
-      id: string;
-      author: string;
-      download_url: string;
-    }[];
-    const photos: StockPhoto[] = data.map((p) => ({
+  res.json({
+    provider: "local",
+    query: q,
+    total,
+    photos: photos.map((p) => ({
       id: p.id,
-      url: `https://picsum.photos/id/${p.id}/1200/800`,
-      thumb: `https://picsum.photos/id/${p.id}/400/280`,
-      photographer: p.author,
-      attribution: `Photo by ${p.author} on Picsum`,
-    }));
-    return res.json({
-      provider: "picsum",
-      query: q,
-      photos,
-      note: "Add UNSPLASH_ACCESS_KEY for keyword search. Picsum is a random gallery fallback.",
-    });
-  } catch (e) {
-    return res.status(500).json({
-      error: e instanceof Error ? e.message : "Failed to load stock photos",
-    });
-  }
+      url: p.url,
+      thumb: p.thumb,
+      photographer: p.label,
+      attribution: p.label,
+    })),
+    note: "Built-in catalog (~48 property photos). No Unsplash/Pexels/Pixabay keys needed.",
+  });
 });

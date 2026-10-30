@@ -1,7 +1,8 @@
 # Atrium — Stack & V1 decisions
 
 Working product name: **Atrium** (rename anytime).  
-UI direction: **Cove** shell; Signal-style lead drawer later (no AI yet).
+UI: dark shell + gulf accent (evolving). Signal-style lead drawer later (no AI yet).  
+**Market: dynamic / org-configured. Not Dubai-only.** UAE names in seed are demo data only.
 
 ---
 
@@ -71,11 +72,16 @@ Docs: [Better Auth](https://www.better-auth.com/) · [Prisma adapter](https://ww
 
 ## Domain modules — when
 
+### Market config (direction)
+- Per-org settings: currency, default city/regions, portal catalog, lead sources  
+- Portals as data/adapters, not hardwired product features  
+- Seed packs (e.g. `demo-uae.json`, `demo-india.json`) optional for demos  
+
 ### V1.0 — Must ship (agreed)
 1. Auth (Better Auth: email + password; **Google login later**)
-2. App shell (Cove sidebar)
+2. App shell
 3. **Listings** — mandatory: CRUD, photos, status, beds/baths/price/area
-4. Mock portal publish toggles (Bayut / PF / Dubizzle / Skyloov — fake statuses)
+4. Mock portal publish (org-configured portal list; seed may show sample portals)
 5. **Leads** kanban linked to listings
 6. **Calendar** — in-app follow-ups / viewings / calls. **Google Calendar sync later**
 

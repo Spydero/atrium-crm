@@ -1,6 +1,7 @@
 import "dotenv/config";
 import { prisma } from "./lib/prisma.js";
 import { auth } from "./lib/auth.js";
+import { coverForPlace } from "./data/stockCatalog.js";
 
 async function main() {
   console.log("Seeding Atrium…");
@@ -73,15 +74,6 @@ async function main() {
   const agent = await prisma.user.findUniqueOrThrow({
     where: { email: "agent@atrium.demo" },
   });
-
-  const covers = [
-    "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800&q=80",
-    "https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?w=800&q=80",
-    "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=800&q=80",
-    "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&q=80",
-    "https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=800&q=80",
-    "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&q=80",
-  ];
 
   const listingDefs = [
     {
@@ -161,6 +153,9 @@ async function main() {
   const listings = [];
   for (let i = 0; i < listingDefs.length; i++) {
     const d = listingDefs[i];
+    const stock = coverForPlace(d.community, d.propertyType, i);
+    const cover = stock.url;
+    console.log(`  photo · ${d.community}: ${stock.label}`);
     const listing = await prisma.listing.create({
       data: {
         organizationId: org.id,
@@ -174,8 +169,8 @@ async function main() {
         areaSqft: d.areaSqft,
         propertyType: d.propertyType,
         status: d.status,
-        coverUrl: covers[i],
-        photoUrls: [covers[i]],
+        coverUrl: cover,
+        photoUrls: [cover],
         address: `${d.building}, ${d.community}, Dubai`,
         portals: {
           create: (Object.entries(d.portals) as [keyof typeof d.portals, string][]).map(
@@ -319,22 +314,35 @@ async function main() {
     },
   });
 
+  // Spread lead createdAt across the week so the dashboard chart looks alive
+  const leadRows = await prisma.lead.findMany({ where: { organizationId: org.id }, orderBy: { name: "asc" } });
+  for (let i = 0; i < leadRows.length; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() - ((i * 2) % 7));
+    d.setHours(9 + i, 15, 0, 0);
+    await prisma.lead.update({ where: { id: leadRows[i].id }, data: { createdAt: d } });
+  }
+
   const now = new Date();
-  const tomorrow = new Date(now);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  tomorrow.setHours(11, 0, 0, 0);
+  function atDay(offset: number, hour: number, minute = 0) {
+    const d = new Date(now);
+    d.setDate(d.getDate() + offset);
+    d.setHours(hour, minute, 0, 0);
+    return d;
+  }
 
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
-  yesterday.setHours(16, 0, 0, 0);
+  const priya = await prisma.lead.findFirstOrThrow({ where: { name: "Priya Sharma" } });
+  const james = await prisma.lead.findFirstOrThrow({ where: { name: "James Whitfield" } });
+  const fatima = await prisma.lead.findFirstOrThrow({ where: { name: "Fatima Noor" } });
 
+  // Spread across days so the month view is usable (not one crowded cell)
   await prisma.calendarEvent.create({
     data: {
       organizationId: org.id,
       title: `Viewing · ${marina.title}`,
       type: "VIEWING",
-      startsAt: tomorrow,
-      endsAt: new Date(tomorrow.getTime() + 60 * 60 * 1000),
+      startsAt: atDay(1, 11),
+      endsAt: atDay(1, 12),
       leadId: khalid.id,
       listingId: marina.id,
       outcome: "SCHEDULED",
@@ -346,9 +354,9 @@ async function main() {
       organizationId: org.id,
       title: `Viewing · ${hills.title}`,
       type: "VIEWING",
-      startsAt: yesterday,
-      endsAt: new Date(yesterday.getTime() + 60 * 60 * 1000),
-      leadId: (await prisma.lead.findFirst({ where: { name: "Priya Sharma" } }))!.id,
+      startsAt: atDay(-2, 16),
+      endsAt: atDay(-2, 17),
+      leadId: priya.id,
       listingId: hills.id,
       outcome: "COMPLETED",
       feedbackFit: "good",
@@ -361,8 +369,35 @@ async function main() {
       organizationId: org.id,
       title: "Follow-up call · James Whitfield",
       type: "CALL",
-      startsAt: yesterday,
-      leadId: (await prisma.lead.findFirst({ where: { name: "James Whitfield" } }))!.id,
+      startsAt: atDay(2, 10, 30),
+      leadId: james.id,
+      listingId: listings[1].id,
+      outcome: "SCHEDULED",
+    },
+  });
+
+  await prisma.calendarEvent.create({
+    data: {
+      organizationId: org.id,
+      title: `Viewing · ${listings[2].title}`,
+      type: "VIEWING",
+      startsAt: atDay(3, 15),
+      endsAt: atDay(3, 16),
+      leadId: fatima.id,
+      listingId: listings[2].id,
+      outcome: "SCHEDULED",
+    },
+  });
+
+  // Overdue viewing → dashboard "Needs attention"
+  await prisma.calendarEvent.create({
+    data: {
+      organizationId: org.id,
+      title: `Viewing · ${listings[1].title}`,
+      type: "VIEWING",
+      startsAt: atDay(-1, 16),
+      endsAt: atDay(-1, 17),
+      leadId: james.id,
       listingId: listings[1].id,
       outcome: "SCHEDULED",
     },

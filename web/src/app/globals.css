@@ -147,6 +147,32 @@ textarea {
     letter-spacing: 0.04em;
     text-transform: uppercase;
   }
+
+  .filter-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--line);
+    background: var(--paper);
+    color: var(--ink);
+    border-radius: 999px;
+    padding: 0.4rem 0.85rem;
+    font-size: 0.8125rem;
+    font-weight: 650;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+  }
+
+  .filter-chip:hover {
+    border-color: color-mix(in srgb, var(--ink) 28%, var(--line));
+  }
+
+  .filter-chip[data-on="true"] {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
 }
 
 @keyframes rise {

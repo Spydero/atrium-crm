@@ -15,14 +15,21 @@ export default function ProtectedLayout({
   const [name, setName] = useState("");
 
   useEffect(() => {
+    let cancelled = false;
     authClient.getSession().then(({ data }) => {
+      if (cancelled) return;
       if (!data?.session) {
         router.replace("/login");
         return;
       }
       setName(data.user.name);
       setReady(true);
+    }).catch(() => {
+      if (!cancelled) router.replace("/login");
     });
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
   if (!ready) {

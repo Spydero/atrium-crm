@@ -1,33 +1,50 @@
 # Atrium — Product goal
 
-Working name: **Atrium** (rename anytime).  
-Audience for *this build*: showcase / portfolio / demo of a brokerage CRM.  
-Market skin: UAE-style (AED, Bayut/PF/Dubizzle/Skyloov names, WhatsApp-heavy workflow) — architecture works for other markets later.
+**Product name: Atrium**  
+Showcase / portfolio demo of a **market-agnostic** brokerage OS.  
+Inspiration only: products like Ruby CRM. **Not a Dubai clone.** Location, currency, portals, and labels come from org config, not from the product’s DNA.  
+Integration stance: own the core, rent the pipes (see `docs/INTEGRATIONS.md`).
+
+---
+
+## Market stance: dynamic, not Dubai-only
+
+Atrium is a **brokerage operating system**. A brokerage in Dubai, Bangalore, London, or anywhere else should run the same app with different settings:
+
+| Configurable per org | Not hardcoded into the product |
+|----------------------|--------------------------------|
+| Currency + money format | `AED` / Bayut / Dubai Marina |
+| Default city / regions | UAE portal names in enums |
+| Portal list (labels + adapters) | “Simulate Bayut” as a product feature |
+| Lead sources | WhatsApp-only as the only channel story |
+| Pipeline stage labels (optional) | Copy that assumes one country |
+
+**Demo seed** may use one sample market (e.g. UAE or India pack) so screens look real. That is **data**, not product scope. Swap the seed pack; the app stays the same.
 
 ---
 
 ## The problem
 
-Dubai (and similar) real-estate agents don’t lose deals because they lack listings. They lose them because **work is split across tools**:
+Brokerages lose deals because **work is split across tools**, everywhere:
 
-| Pain | What happens today |
-|------|--------------------|
-| **Leads scattered** | Inquiries land on Bayut, PropertyFinder, Dubizzle, Skyloov, Meta ads, WhatsApp — different inboxes, different people |
-| **Listings duplicated** | Same property re-entered / re-published per portal; status drifts (“live on PF, dead on Bayut”) |
-| **Follow-ups die** | Viewings and callbacks live in personal calendars or chat memory; nothing owns the next step |
-| **No single pipeline** | Manager can’t see: what’s new, who’s lagging, what’s about to close |
-| **Chat ≠ CRM** | The real conversation is on WhatsApp; the CRM (if any) is a graveyard of notes nobody updates |
+| Pain | What happens |
+|------|----------------|
+| **Leads scattered** | Portal enquiries, ads, chat, walk-ins land in different places |
+| **Listings duplicated** | Same property re-published per portal; status drifts |
+| **Follow-ups die** | Viewings live in personal calendars or chat memory |
+| **No single pipeline** | Managers can’t see what’s new, lagging, or about to close |
+| **Chat ≠ CRM** | Real conversations happen outside the system of record |
 
-Ruby CRM sells the “all-in-one” answer to that. We are building a **credible version of that product story** — without paid portal/WhatsApp production APIs — so the demo proves: *one place for listings, leads, and the calendar of next actions*.
+We build one place for **listings, leads, calendar of next actions, and source ROI**. Signature features (Lead Fuse, Money Map, Viewing OS + shortlists) are market-independent.
 
 ---
 
 ## Why we’re building this
 
-1. **Show a real product**, not a CRUD toy — pipeline + listings + calendar is the brokerage daily loop.  
-2. **Compete on clarity/UI** — Cove shell; Ruby’s marketing is strong, UI is not the bar.  
-3. **Prove architecture** — mock portal adapters today → real APIs later without rewrite.  
-4. **AI last on purpose** — AI only matters if the CRM underneath already holds leads, listings, and follow-ups.
+1. Real product loop (inventory → lead → viewing → close), not a CRUD toy.  
+2. Stronger UI than typical RE CRM demos.  
+3. Architecture that is **config-driven** (portals/currency/regions), so we never paint ourselves into one city.  
+4. AI last: only after the CRM loop and fuse/ROI features exist.
 
 ---
 
@@ -35,23 +52,24 @@ Ruby CRM sells the “all-in-one” answer to that. We are building a **credible
 
 | Who | Job to be done |
 |-----|----------------|
-| **Agent** | See my leads, update stage, know next viewing/call, manage my listings |
-| **Manager / admin** | See team pipeline, assign leads, control listing publish state |
-| **You (builder)** | Demo end-to-end: listing → lead → follow-up → closed |
+| **Agent** | Leads, viewings, listings for their desk |
+| **Manager / admin** | Pipeline, assignment, portal publish, Money Map |
+| **Brokerage** | Configure market (currency, portals, regions) once |
+| **You (builder)** | Demo the loop with any seed pack |
 
-Not for: becoming a public mega-portal like Bayut/PropertyFinder. Not for: enterprise SSO / multi-country compliance in V1.
+Not for: becoming a consumer property portal. Not for: locking the brand to one geography.
 
-**Listing discovery (important split)**  
-- **Agents / managers — yes, full inventory search.** Filters (price, beds, area, type, status, portal live/not) are core CRM work: find stock, match a buyer, pick for a viewing.  
-- **Buyers — curated, not a marketplace.** They don’t log into Atrium to “browse the city.” They get a **shared shortlist** (and optionally a light **public brokerage catalogue** of *this agency’s* live listings with simple filters). We sell the brokerage’s stock + service, not portal scale.
+**Listing discovery**  
+- Agents: full inventory search/filters (price, beds, area, status, portal).  
+- Buyers: curated shortlist link for *this brokerage’s* picks, not city-wide browse.
 
 ---
 
 ## What “done” means (north star)
 
-> An agent logs in, publishes a listing to mock portals, receives a lead on that listing, moves it through a pipeline, and never misses the next viewing because it’s on the in-app calendar — all in one product.
+> An agent logs in, publishes a listing to the org’s configured portals, gets a lead on that listing, moves it through the pipeline, and keeps the next viewing on the in-app calendar. Currency and portal names come from org settings.
 
-AI, Google login, Google Calendar sync, and real WhatsApp are **amplifiers** on top of that loop — not the loop itself.
+AI, Google login, calendar sync, and real messaging APIs are amplifiers later.
 
 ---
 

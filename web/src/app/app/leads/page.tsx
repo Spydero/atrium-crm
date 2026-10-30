@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { api, formatAed, portalLabel, STAGES } from "@/lib/api";
 
 type Lead = {
@@ -32,6 +33,8 @@ export default function LeadsPage() {
   const [matches, setMatches] = useState<{ score: number; listing: { id: string; title: string; priceAed: number; community: string } }[]>([]);
   const [note, setNote] = useState("");
   const [msg, setMsg] = useState("");
+  const [testingEnabled, setTestingEnabled] = useState(false);
+  const [showDemoTools, setShowDemoTools] = useState(false);
 
   const load = useCallback(async () => {
     const [l, li] = await Promise.all([
@@ -44,6 +47,9 @@ export default function LeadsPage() {
 
   useEffect(() => {
     load().catch(console.error);
+    api<{ testingEnabled: boolean }>("/api/testing/status")
+      .then((s) => setTestingEnabled(s.testingEnabled))
+      .catch(() => setTestingEnabled(false));
   }, [load]);
 
   const columns = useMemo(() => {
@@ -123,20 +129,52 @@ export default function LeadsPage() {
 
   return (
     <div className="animate-rise space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-display text-[1.75rem] font-bold tracking-[-0.04em]">Leads</h1>
-        <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => simulate("BAYUT")} className="btn-ghost">
-            Simulate Bayut
-          </button>
-          <button
-            type="button"
-            onClick={() => simulate("PROPERTY_FINDER")}
-            className="btn-primary"
-          >
-            Simulate PF (same phone)
-          </button>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="font-display text-[1.75rem] font-bold tracking-[-0.04em]">Leads</h1>
+          <p className="mt-0.5 text-sm text-muted">
+            {leads.length} in pipeline · drag cards to move stages
+          </p>
         </div>
+        {testingEnabled && (
+          <div className="relative">
+            <button
+              type="button"
+              className="btn-ghost inline-flex items-center gap-1.5 text-sm"
+              onClick={() => setShowDemoTools((v) => !v)}
+            >
+              Demo tools
+              <ChevronDown size={14} className={showDemoTools ? "rotate-180" : ""} />
+            </button>
+            {showDemoTools && (
+              <div className="absolute right-0 z-20 mt-1.5 w-64 space-y-1.5 rounded-[var(--radius)] border border-line bg-paper p-2 shadow-[0_12px_32px_rgba(16,20,24,0.12)]">
+                <p className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">
+                  Lead Fuse test
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    simulate("BAYUT");
+                    setShowDemoTools(false);
+                  }}
+                  className="btn-ghost w-full justify-start text-left text-sm"
+                >
+                  New Bayut enquiry
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    simulate("PROPERTY_FINDER");
+                    setShowDemoTools(false);
+                  }}
+                  className="btn-ghost w-full justify-start text-left text-sm"
+                >
+                  Same phone via PropertyFinder
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {msg && (

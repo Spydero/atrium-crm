@@ -42,6 +42,9 @@ export default function ListingsPage() {
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [community, setCommunity] = useState("");
+  const [status, setStatus] = useState("");
+  const [propertyType, setPropertyType] = useState("");
+  const [communities, setCommunities] = useState<string[]>([]);
   const [showCreate, setShowCreate] = useState(false);
   const [testingEnabled, setTestingEnabled] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -63,16 +66,37 @@ export default function ListingsPage() {
     if (minPrice) params.set("minPrice", minPrice);
     if (maxPrice) params.set("maxPrice", maxPrice);
     if (community) params.set("community", community);
+    if (status) params.set("status", status);
+    if (propertyType) params.set("propertyType", propertyType);
     const data = await api<Listing[]>(`/api/listings?${params}`);
     setListings(data);
-  }, [q, beds, minPrice, maxPrice, community]);
+  }, [q, beds, minPrice, maxPrice, community, status, propertyType]);
 
   useEffect(() => {
-    load().catch(console.error);
+    load().catch(() => {
+      /* 401 redirects via api() */
+    });
     api<{ testingEnabled: boolean }>("/api/testing/status")
       .then((s) => setTestingEnabled(s.testingEnabled))
       .catch(() => setTestingEnabled(false));
   }, [load]);
+
+  useEffect(() => {
+    const places = [...new Set(listings.map((l) => l.community).filter(Boolean))].sort();
+    if (places.length) setCommunities(places);
+  }, [listings]);
+
+  function clearFilters() {
+    setQ("");
+    setBeds("");
+    setMinPrice("");
+    setMaxPrice("");
+    setCommunity("");
+    setStatus("");
+    setPropertyType("");
+  }
+
+  const hasFilters = Boolean(q || beds || minPrice || maxPrice || community || status || propertyType);
 
   async function createListing(e: React.FormEvent) {
     e.preventDefault();
@@ -154,42 +178,103 @@ export default function ListingsPage() {
         </button>
       </div>
 
-      <div className="toolbar">
-        <input
-          className="field min-w-0 flex-1"
-          style={{ minWidth: 200 }}
-          placeholder="Search title or area"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-        />
-        <input
-          className="field shrink-0"
-          style={{ width: 112 }}
-          placeholder="Min price"
-          value={minPrice}
-          onChange={(e) => setMinPrice(e.target.value)}
-        />
-        <input
-          className="field shrink-0"
-          style={{ width: 112 }}
-          placeholder="Max price"
-          value={maxPrice}
-          onChange={(e) => setMaxPrice(e.target.value)}
-        />
-        <input
-          className="field shrink-0"
-          style={{ width: 72 }}
-          placeholder="Beds"
-          value={beds}
-          onChange={(e) => setBeds(e.target.value)}
-        />
-        <input
-          className="field shrink-0"
-          style={{ width: 150 }}
-          placeholder="Community"
-          value={community}
-          onChange={(e) => setCommunity(e.target.value)}
-        />
+      <div className="space-y-3">
+        <div className="toolbar">
+          <input
+            className="field min-w-0 flex-1"
+            style={{ minWidth: 200 }}
+            placeholder="Location, building, or title"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+          <input
+            className="field shrink-0"
+            style={{ width: 118 }}
+            placeholder="Min price"
+            value={minPrice}
+            onChange={(e) => setMinPrice(e.target.value)}
+          />
+          <input
+            className="field shrink-0"
+            style={{ width: 118 }}
+            placeholder="Max price"
+            value={maxPrice}
+            onChange={(e) => setMaxPrice(e.target.value)}
+          />
+          <select
+            className="field shrink-0"
+            style={{ width: 168 }}
+            value={community}
+            onChange={(e) => setCommunity(e.target.value)}
+          >
+            <option value="">All communities</option>
+            {communities.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+          {hasFilters && (
+            <button type="button" className="btn-ghost shrink-0 px-3 py-2 text-sm" onClick={clearFilters}>
+              Clear
+            </button>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {[
+            { value: "", label: "All" },
+            { value: "ACTIVE", label: "Active" },
+            { value: "DRAFT", label: "Draft" },
+            { value: "RESERVED", label: "Reserved" },
+          ].map((opt) => (
+            <button
+              key={opt.label}
+              type="button"
+              className="filter-chip"
+              data-on={status === opt.value}
+              onClick={() => setStatus(opt.value)}
+            >
+              {opt.label}
+            </button>
+          ))}
+          <span className="mx-1 h-4 w-px bg-line" />
+          {[
+            { value: "", label: "Any type" },
+            { value: "APARTMENT", label: "Apartment" },
+            { value: "VILLA", label: "Villa" },
+            { value: "TOWNHOUSE", label: "Townhouse" },
+            { value: "OFFICE", label: "Office" },
+          ].map((opt) => (
+            <button
+              key={opt.label}
+              type="button"
+              className="filter-chip"
+              data-on={propertyType === opt.value}
+              onClick={() => setPropertyType(opt.value)}
+            >
+              {opt.label}
+            </button>
+          ))}
+          <span className="mx-1 h-4 w-px bg-line" />
+          {[
+            { value: "", label: "Any beds" },
+            { value: "1", label: "1+" },
+            { value: "2", label: "2+" },
+            { value: "3", label: "3+" },
+            { value: "4", label: "4+" },
+          ].map((opt) => (
+            <button
+              key={`beds-${opt.label}`}
+              type="button"
+              className="filter-chip"
+              data-on={beds === opt.value}
+              onClick={() => setBeds(opt.value)}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -414,27 +499,42 @@ export default function ListingsPage() {
               required
             />
             <div className="grid grid-cols-3 gap-2">
-              <input
-                type="number"
-                className="field w-full"
-                placeholder="Beds"
-                value={form.beds}
-                onChange={(e) => setForm({ ...form, beds: Number(e.target.value) })}
-              />
-              <input
-                type="number"
-                className="field w-full"
-                placeholder="Baths"
-                value={form.baths}
-                onChange={(e) => setForm({ ...form, baths: Number(e.target.value) })}
-              />
-              <input
-                type="number"
-                className="field w-full"
-                placeholder="Sqft"
-                value={form.areaSqft}
-                onChange={(e) => setForm({ ...form, areaSqft: Number(e.target.value) })}
-              />
+              <label className="space-y-1">
+                <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
+                  Beds
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  className="field w-full"
+                  value={form.beds}
+                  onChange={(e) => setForm({ ...form, beds: Number(e.target.value) })}
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
+                  Baths
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  className="field w-full"
+                  value={form.baths}
+                  onChange={(e) => setForm({ ...form, baths: Number(e.target.value) })}
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
+                  Sqft
+                </span>
+                <input
+                  type="number"
+                  min={0}
+                  className="field w-full"
+                  value={form.areaSqft}
+                  onChange={(e) => setForm({ ...form, areaSqft: Number(e.target.value) })}
+                />
+              </label>
             </div>
 
             {form.coverUrl && (
@@ -447,7 +547,8 @@ export default function ListingsPage() {
             {testingEnabled ? (
               <StockPhotoPicker
                 selectedUrl={form.coverUrl || null}
-                onSelect={(url) => setForm({ ...form, coverUrl: url })}
+                onSelect={(url) => setForm((f) => ({ ...f, coverUrl: url }))}
+                initialQuery="apartment living"
               />
             ) : (
               <p className="text-xs text-muted">
