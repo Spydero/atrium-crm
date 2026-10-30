@@ -9,7 +9,9 @@
     "db:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "db:seed": "tsx src/seed.ts",
-    "db:generate": "prisma generate"
+    "db:generate": "prisma generate",
+    "test": "tsx --test tests/*.test.ts",
+    "test:unit": "tsx --test tests/leadTools.test.ts"
   },
   "keywords": [],
   "author": "",

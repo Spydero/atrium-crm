@@ -164,7 +164,7 @@ Shipped in phases. **V1.0** = first shippable demo of the core loop.
 | KPI strip | Open leads, pipeline AED, viewings count | **V1** |
 | Simulate inbound portal lead | Button / stub webhook for demo | **V1** |
 | Lead scoring / SLA timers | Signal-style polish | Later |
-| Duplicate merge, bulk ops | Later | Later |
+| Duplicate merge, bulk ops | Select mode + bulk stage/assign; duplicate review and merge | **V1.2** |
 
 ### D. Calendar & follow-ups
 | Feature | End state | Phase |
@@ -243,6 +243,20 @@ Shipped in phases. **V1.0** = first shippable demo of the core loop.
 - AI  
 
 Copy rule: never use em/en dashes in product or docs; ASCII `-` only.
+
+---
+
+## V1.2 scope (Lead tools: bulk actions + duplicate merge)
+
+1. Select mode on the Leads board with a bulk bar: move to stage, assign to a teammate, unassign
+2. Bulk actions are idempotent, org scoped, and write an activity entry per lead that changed
+3. Duplicate detection: shared phone (last 9 digits, so "+971 50..." and "050..." match) or shared email, grouped transitively
+4. Review dialog lists each group, flags the suggested lead to keep (furthest stage, then most history, then oldest)
+5. Merge dialog compares leads side by side; you choose the lead to keep
+6. Merge moves sources, notes, activity and calendar events to the kept lead, fills blank fields, unions communities, keeps the earliest created date, and records the other lead's phone and email in a note
+7. Not included: bulk delete, "not a duplicate" dismissal, fuzzy name matching
+
+Lead Fuse still fuses exact same-phone enquiries on arrival; merge handles what slips through (different formats, same email, manual entries).
 
 ---
 

@@ -124,7 +124,7 @@ try {
 
   await page.getByRole("button", { name: /add listing/i }).click();
   await page.waitForTimeout(400);
-  const placeSearch = await page.getByPlaceholder(/search a real place/i).isVisible();
+  const placeSearch = await page.getByPlaceholder(/search a real place/i).last().isVisible();
   if (!log(placeSearch, "PlaceInput on create modal")) failed++;
   await page.screenshot({ path: path.join(OUT, "test-11-listing-create-place.png") });
 } catch (err) {

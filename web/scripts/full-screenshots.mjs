@@ -103,7 +103,7 @@ try {
   // Create listing + place search
   await page.getByRole("button", { name: /add listing/i }).click();
   await page.waitForTimeout(400);
-  const placeInput = page.getByPlaceholder(/search a real place/i);
+  const placeInput = page.getByPlaceholder(/search a real place/i).last();
   log(await placeInput.isVisible(), "Place search field on create");
   await placeInput.fill("Indiranagar Bangalore");
   await page.waitForTimeout(1200);

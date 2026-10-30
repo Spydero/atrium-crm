@@ -62,6 +62,11 @@ Also: `owner@atrium.demo`, `manager@atrium.demo` (same password).
 - Formal listing brochure PDF (framed photograph, price band, specification table, OSM map, photograph page)
 - Exports: formal two-page Reports PDF (executive summary, ruled tables), plus CSV for Reports, Leads and Listings (Export menu on each page)
 
+**V1.2**
+- Bulk actions on the Leads board: Select mode, move many leads to a stage, assign or unassign owners
+- Duplicate detection (same phone in any format, or same email) with a review dialog and count badge
+- Merge leads: pick the lead to keep; sources, notes, activity and calendar events move across and blanks are filled
+
 Messaging (WhatsApp) is deferred until Meta Cloud API credentials - no mock inbox.
 
 See `docs/PRODUCT.md` and `docs/STACK.md`.

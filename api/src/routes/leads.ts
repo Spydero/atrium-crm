@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { requireAuth, type AuthedRequest } from "../middleware/requireAuth.js";
 import { csvFilename, labelize, toCsv } from "../lib/csv.js";
+import { groupDuplicates, mergeLeadFields, mergedFromNote, suggestPrimary } from "../lib/leadTools.js";
 
 export const leadsRouter = Router();
 leadsRouter.use(requireAuth);
@@ -112,6 +113,244 @@ leadsRouter.post("/simulate", async (req: AuthedRequest, res) => {
   });
 
   res.status(201).json({ fused: false, lead });
+});
+
+// ---------------------------------------------------------------------------
+// Bulk actions + duplicate merge. All registered before /:id routes.
+// ---------------------------------------------------------------------------
+
+const STAGE_ENUM = z.enum(["NEW", "QUALIFIED", "VIEWING", "OFFER", "WON", "LOST"]);
+
+const summaryInclude = {
+  listing: { select: { id: true, title: true } },
+  assignedTo: { select: { id: true, name: true } },
+  sources: { select: { source: true } },
+  _count: { select: { sources: true, notes: true, events: true, activities: true } },
+} as const;
+
+type SummaryRow = Awaited<ReturnType<typeof loadSummaries>>[number];
+
+async function loadSummaries(organizationId: string, ids?: string[]) {
+  const rows = await prisma.lead.findMany({
+    where: { organizationId, ...(ids ? { id: { in: ids } } : {}) },
+    include: summaryInclude,
+    orderBy: { createdAt: "asc" },
+  });
+  return rows.map((l) => ({
+    id: l.id,
+    name: l.name,
+    phone: l.phone,
+    email: l.email,
+    stage: l.stage,
+    primarySource: l.primarySource,
+    sources: [...new Set(l.sources.map((s) => s.source))],
+    sourcesCount: l._count.sources,
+    notesCount: l._count.notes,
+    eventsCount: l._count.events,
+    activitiesCount: l._count.activities,
+    listing: l.listing,
+    assignedTo: l.assignedTo,
+    budgetMin: l.budgetMin,
+    budgetMax: l.budgetMax,
+    bedsWanted: l.bedsWanted,
+    dealValueAed: l.dealValueAed,
+    createdAt: l.createdAt,
+  }));
+}
+
+/** Team members the org can assign leads to. */
+leadsRouter.get("/agents", async (req: AuthedRequest, res) => {
+  const organizationId = orgId(req);
+  if (!organizationId) return res.status(400).json({ error: "No organization" });
+  const users = await prisma.user.findMany({
+    where: { organizationId },
+    select: { id: true, name: true, role: true },
+    orderBy: { name: "asc" },
+  });
+  res.json(users);
+});
+
+/** Groups of leads that look like the same person (shared phone or email). */
+leadsRouter.get("/duplicates", async (req: AuthedRequest, res) => {
+  const organizationId = orgId(req);
+  if (!organizationId) return res.status(400).json({ error: "No organization" });
+  const all = await loadSummaries(organizationId);
+  const groups = groupDuplicates<SummaryRow>(all).map((g, i) => ({
+    key: `${i}-${g.suggestedPrimaryId}`,
+    reasons: g.reasons,
+    suggestedPrimaryId: g.suggestedPrimaryId,
+    leads: g.leads,
+  }));
+  res.json({ count: groups.length, leadCount: groups.reduce((s, g) => s + g.leads.length, 0), groups });
+});
+
+/** Side-by-side data for a manual merge of selected leads. */
+leadsRouter.get("/compare", async (req: AuthedRequest, res) => {
+  const organizationId = orgId(req);
+  if (!organizationId) return res.status(400).json({ error: "No organization" });
+  const ids = String(req.query.ids || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const unique = [...new Set(ids)];
+  if (unique.length < 2 || unique.length > 10) {
+    return res.status(400).json({ error: "Select between 2 and 10 leads to compare" });
+  }
+  const leads = await loadSummaries(organizationId, unique);
+  if (leads.length !== unique.length) {
+    return res.status(404).json({ error: "One or more leads were not found" });
+  }
+  res.json({ suggestedPrimaryId: suggestPrimary(leads).id, leads });
+});
+
+/** Change stage or owner for many leads at once. */
+leadsRouter.post("/bulk", async (req: AuthedRequest, res) => {
+  const organizationId = orgId(req);
+  if (!organizationId) return res.status(400).json({ error: "No organization" });
+
+  const schema = z.discriminatedUnion("action", [
+    z.object({ action: z.literal("stage"), ids: z.array(z.string()).min(1).max(200), stage: STAGE_ENUM }),
+    z.object({ action: z.literal("assign"), ids: z.array(z.string()).min(1).max(200), assignedToId: z.string().min(1) }),
+    z.object({ action: z.literal("unassign"), ids: z.array(z.string()).min(1).max(200) }),
+  ]);
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(parsed.error.flatten());
+  const body = parsed.data;
+
+  const ids = [...new Set(body.ids)];
+  const leads = await prisma.lead.findMany({
+    where: { id: { in: ids }, organizationId },
+    select: { id: true, stage: true, assignedToId: true, assignedTo: { select: { name: true } } },
+  });
+  if (leads.length !== ids.length) {
+    return res.status(404).json({ error: "One or more leads were not found" });
+  }
+  const actorId = userId(req) ?? null;
+
+  if (body.action === "stage") {
+    const changed = leads.filter((l) => l.stage !== body.stage);
+    if (changed.length) {
+      await prisma.$transaction([
+        prisma.lead.updateMany({
+          where: { id: { in: changed.map((l) => l.id) }, organizationId },
+          data: { stage: body.stage },
+        }),
+        prisma.activityEvent.createMany({
+          data: changed.map((l) => ({
+            leadId: l.id,
+            actorId,
+            type: "stage",
+            body: `Stage moved ${l.stage} → ${body.stage} (bulk)`,
+          })),
+        }),
+      ]);
+    }
+    return res.json({ action: "stage", updated: changed.length, unchanged: leads.length - changed.length });
+  }
+
+  let target: { id: string; name: string } | null = null;
+  if (body.action === "assign") {
+    target = await prisma.user.findFirst({
+      where: { id: body.assignedToId, organizationId },
+      select: { id: true, name: true },
+    });
+    if (!target) return res.status(400).json({ error: "That agent is not in your organization" });
+  }
+  const targetId = target?.id ?? null;
+  const changed = leads.filter((l) => l.assignedToId !== targetId);
+  if (changed.length) {
+    await prisma.$transaction([
+      prisma.lead.updateMany({
+        where: { id: { in: changed.map((l) => l.id) }, organizationId },
+        data: { assignedToId: targetId },
+      }),
+      prisma.activityEvent.createMany({
+        data: changed.map((l) => ({
+          leadId: l.id,
+          actorId,
+          type: "assigned",
+          body: target
+            ? `Assigned to ${target.name}${l.assignedTo ? ` (was ${l.assignedTo.name})` : ""} (bulk)`
+            : `Unassigned${l.assignedTo ? ` (was ${l.assignedTo.name})` : ""} (bulk)`,
+        })),
+      }),
+    ]);
+  }
+  res.json({
+    action: body.action,
+    updated: changed.length,
+    unchanged: leads.length - changed.length,
+    assignedTo: target,
+  });
+});
+
+/** Merge duplicate leads into one. Keeps the primary, moves all history across. */
+leadsRouter.post("/merge", async (req: AuthedRequest, res) => {
+  const organizationId = orgId(req);
+  if (!organizationId) return res.status(400).json({ error: "No organization" });
+
+  const parsed = z
+    .object({
+      primaryId: z.string().min(1),
+      duplicateIds: z.array(z.string()).min(1).max(9),
+    })
+    .safeParse(req.body);
+  if (!parsed.success) return res.status(400).json(parsed.error.flatten());
+
+  const dupIds = [...new Set(parsed.data.duplicateIds)].filter((id) => id !== parsed.data.primaryId);
+  if (!dupIds.length) return res.status(400).json({ error: "Pick at least one other lead to merge" });
+  const allIds = [parsed.data.primaryId, ...dupIds];
+
+  const found = await prisma.lead.findMany({ where: { id: { in: allIds }, organizationId } });
+  if (found.length !== allIds.length) {
+    return res.status(404).json({ error: "One or more leads were not found" });
+  }
+  const primary = found.find((l) => l.id === parsed.data.primaryId)!;
+  const dups = dupIds.map((id) => found.find((l) => l.id === id)!);
+  const actorId = userId(req) ?? null;
+  const fields = mergeLeadFields(primary, dups);
+
+  const result = await prisma.$transaction(async (tx) => {
+    const where = { leadId: { in: dupIds } };
+    const [sources, notes, activities, events] = await Promise.all([
+      tx.leadSourceEvent.updateMany({ where, data: { leadId: primary.id } }),
+      tx.leadNote.updateMany({ where, data: { leadId: primary.id } }),
+      tx.activityEvent.updateMany({ where, data: { leadId: primary.id } }),
+      tx.calendarEvent.updateMany({ where, data: { leadId: primary.id } }),
+    ]);
+
+    await tx.lead.deleteMany({ where: { id: { in: dupIds }, organizationId } });
+    await tx.lead.update({ where: { id: primary.id }, data: fields });
+
+    for (const d of dups) {
+      const text = mergedFromNote(primary, d);
+      await tx.leadNote.create({ data: { leadId: primary.id, authorId: actorId, body: text } });
+      await tx.activityEvent.create({
+        data: {
+          leadId: primary.id,
+          actorId,
+          type: "merge",
+          body: `Merged duplicate "${d.name}" (${d.phone}) into this lead`,
+        },
+      });
+    }
+    return {
+      sources: sources.count,
+      notes: notes.count,
+      activities: activities.count,
+      events: events.count,
+    };
+  });
+
+  const lead = await prisma.lead.findUnique({
+    where: { id: primary.id },
+    include: {
+      listing: true,
+      assignedTo: { select: { id: true, name: true } },
+      sources: { orderBy: { createdAt: "desc" } },
+    },
+  });
+  res.json({ merged: dupIds.length, moved: result, lead });
 });
 
 /** CSV export - registered before /:id */

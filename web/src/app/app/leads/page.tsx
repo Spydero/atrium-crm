@@ -1,8 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Check, ChevronDown, Copy, ListChecks, Merge } from "lucide-react";
 import { ExportMenu } from "@/components/ExportMenu";
+import {
+  DuplicatesDialog,
+  LeadMergeDialog,
+  useDuplicateCount,
+} from "@/components/LeadDuplicates";
 import { api, formatAed, portalLabel, STAGES } from "@/lib/api";
 
 type Lead = {
@@ -14,8 +20,14 @@ type Lead = {
   dealValueAed: number | null;
   listing?: { id: string; title: string; coverUrl?: string | null } | null;
   sources: { source: string; createdAt: string }[];
-  assignedTo?: { name: string } | null;
+  assignedTo?: { id?: string; name: string } | null;
 };
+
+type Agent = { id: string; name: string; role: string };
+
+function stageTitle(s: string) {
+  return s.charAt(0) + s.slice(1).toLowerCase();
+}
 
 type LeadDetail = Lead & {
   notes: { id: string; body: string; createdAt: string; author?: { name: string } | null }[];
@@ -37,6 +49,15 @@ export default function LeadsPage() {
   const [testingEnabled, setTestingEnabled] = useState(false);
   const [showDemoTools, setShowDemoTools] = useState(false);
 
+  // Bulk select + duplicates
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [agents, setAgents] = useState<Agent[]>([]);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [showDuplicates, setShowDuplicates] = useState(false);
+  const [mergeIds, setMergeIds] = useState<string[] | null>(null);
+  const dupes = useDuplicateCount();
+
   const load = useCallback(async () => {
     const [l, li] = await Promise.all([
       api<Lead[]>("/api/leads"),
@@ -51,7 +72,106 @@ export default function LeadsPage() {
     api<{ testingEnabled: boolean }>("/api/testing/status")
       .then((s) => setTestingEnabled(s.testingEnabled))
       .catch(() => setTestingEnabled(false));
+    api<Agent[]>("/api/leads/agents")
+      .then(setAgents)
+      .catch(() => setAgents([]));
   }, [load]);
+
+  // Status banner clears itself
+  useEffect(() => {
+    if (!msg) return;
+    const t = setTimeout(() => setMsg(""), 7000);
+    return () => clearTimeout(t);
+  }, [msg]);
+
+  // Escape leaves select mode (dialogs handle their own Escape)
+  useEffect(() => {
+    if (!selectMode) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !showDuplicates && !mergeIds) exitSelectMode();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [selectMode, showDuplicates, mergeIds]);
+
+  function exitSelectMode() {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  }
+
+  function toggleSelected(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleColumn(ids: string[]) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      const all = ids.length > 0 && ids.every((id) => next.has(id));
+      for (const id of ids) {
+        if (all) next.delete(id);
+        else next.add(id);
+      }
+      return next;
+    });
+  }
+
+  async function runBulk(payload: Record<string, unknown>, done: (updated: number, unchanged: number) => string) {
+    setBulkBusy(true);
+    try {
+      const res = await api<{ updated: number; unchanged: number }>("/api/leads/bulk", {
+        method: "POST",
+        body: JSON.stringify({ ...payload, ids: [...selectedIds] }),
+      });
+      setMsg(done(res.updated, res.unchanged));
+      setSelectedIds(new Set());
+      await load();
+      if (selected) await openLead(selected.id).catch(() => setSelected(null));
+    } catch (e) {
+      setMsg(e instanceof Error ? `Bulk action failed: ${e.message}` : "Bulk action failed");
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  function plural(n: number) {
+    return `${n} ${n === 1 ? "lead" : "leads"}`;
+  }
+
+  function bulkStage(stage: string) {
+    return runBulk({ action: "stage", stage }, (u, same) =>
+      u === 0
+        ? `Nothing to change. ${plural(same)} already in ${stageTitle(stage)}.`
+        : `Moved ${plural(u)} to ${stageTitle(stage)}${same ? ` (${same} already there)` : ""}.`,
+    );
+  }
+
+  function bulkAssign(value: string) {
+    if (value === "__none") {
+      return runBulk({ action: "unassign" }, (u, same) =>
+        u === 0 ? "Nothing to change. Already unassigned." : `Unassigned ${plural(u)}${same ? ` (${same} already unassigned)` : ""}.`,
+      );
+    }
+    const agent = agents.find((a) => a.id === value);
+    return runBulk({ action: "assign", assignedToId: value }, (u, same) =>
+      u === 0
+        ? `Nothing to change. Already assigned to ${agent?.name}.`
+        : `Assigned ${plural(u)} to ${agent?.name}${same ? ` (${same} already theirs)` : ""}.`,
+    );
+  }
+
+  async function afterMerge(r: { primaryId: string; merged: number }) {
+    setMergeIds(null);
+    setShowDuplicates(false);
+    exitSelectMode();
+    setMsg(`Merged ${plural(r.merged + 1)} into one.`);
+    await Promise.all([load(), dupes.refresh()]);
+    await openLead(r.primaryId).catch(() => {});
+  }
 
   const columns = useMemo(() => {
     return STAGES.filter((s) => s !== "LOST").map((stage) => ({
@@ -134,10 +254,34 @@ export default function LeadsPage() {
         <div>
           <h1 className="font-display text-[1.75rem] font-bold tracking-[-0.04em]">Leads</h1>
           <p className="mt-0.5 text-sm text-muted">
-            {leads.length} in pipeline · drag cards to move stages
+            {leads.length} in pipeline ·{" "}
+            {selectMode ? "click cards to select them" : "drag cards to move stages"}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          className={`${selectMode ? "btn-primary" : "btn-ghost"} inline-flex items-center gap-1.5 text-sm`}
+          aria-pressed={selectMode}
+          onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
+        >
+          <ListChecks size={14} /> {selectMode ? "Done selecting" : "Select"}
+        </button>
+        <button
+          type="button"
+          className="btn-ghost inline-flex items-center gap-1.5 text-sm"
+          onClick={() => setShowDuplicates(true)}
+        >
+          <Copy size={14} /> Duplicates
+          {dupes.count != null && dupes.count > 0 && (
+            <span
+              aria-label={`${dupes.count} groups of duplicates`}
+              className="rounded-full bg-[var(--mark,#c45c26)] px-1.5 py-px text-[10px] font-bold leading-4 text-white"
+            >
+              {dupes.count}
+            </span>
+          )}
+        </button>
         <ExportMenu
           items={[
             {
@@ -212,27 +356,56 @@ export default function LeadsPage() {
               <span className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">
                 {col.stage}
               </span>
-              <span className="text-xs font-semibold text-muted">{col.items.length}</span>
+              <span className="flex items-center gap-2 text-xs font-semibold text-muted">
+                {selectMode && col.items.length > 0 && (
+                  <button
+                    type="button"
+                    className="rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.06em] text-accent hover:bg-accent-soft"
+                    onClick={() => toggleColumn(col.items.map((l) => l.id))}
+                  >
+                    {col.items.every((l) => selectedIds.has(l.id)) ? "None" : "All"}
+                  </button>
+                )}
+                {col.items.length}
+              </span>
             </div>
             <div className="space-y-2">
               {col.items.map((lead) => {
-                const active = selected?.id === lead.id;
+                const active = !selectMode && selected?.id === lead.id;
+                const checked = selectedIds.has(lead.id);
                 return (
                   <button
                     key={lead.id}
                     type="button"
-                    draggable
+                    draggable={!selectMode}
+                    data-lead-card={lead.id}
+                    aria-pressed={selectMode ? checked : undefined}
                     onDragStart={(e) => e.dataTransfer.setData("text/lead", lead.id)}
-                    onClick={() => openLead(lead.id)}
-                    className={`w-full rounded-[8px] border p-3 text-left transition ${
+                    onClick={() => (selectMode ? toggleSelected(lead.id) : openLead(lead.id))}
+                    className={`relative w-full rounded-[8px] border p-3 text-left transition ${
                       active
                         ? "border-ink bg-ink text-white"
-                        : "border-line bg-paper hover:border-ink/25"
+                        : checked
+                          ? "border-accent bg-accent-soft/50 shadow-[0_0_0_1px_var(--accent)]"
+                          : "border-line bg-paper hover:border-ink/25"
                     }`}
                   >
-                    <div className="text-sm font-bold">{lead.name}</div>
+                    {selectMode && (
+                      <span
+                        aria-hidden
+                        className={`absolute right-2.5 top-2.5 flex h-[18px] w-[18px] items-center justify-center rounded-[5px] border ${
+                          checked ? "border-accent bg-accent text-white" : "border-ink/30 bg-white"
+                        }`}
+                      >
+                        {checked && <Check size={12} strokeWidth={3} />}
+                      </span>
+                    )}
+                    <div className="pr-6 text-sm font-bold">{lead.name}</div>
                     <div className={`mt-1 text-xs ${active ? "text-white/70" : "text-muted"}`}>
                       {lead.listing?.title || "No listing"} · {formatAed(lead.dealValueAed || 0)}
+                    </div>
+                    <div className={`mt-0.5 text-[11px] ${active ? "text-white/60" : "text-muted/80"}`}>
+                      {lead.assignedTo?.name || "Unassigned"}
                     </div>
                     <div className="mt-2 flex flex-wrap gap-1">
                       {[...new Set(lead.sources.map((s) => s.source))].map((s) => (
@@ -356,6 +529,75 @@ export default function LeadsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {selectMode &&
+        createPortal(
+        <div className="pointer-events-none fixed inset-x-0 bottom-5 z-40 flex justify-center px-4">
+          <div
+            role="toolbar"
+            aria-label="Bulk actions"
+            className="surface pointer-events-auto flex flex-wrap items-center gap-2 px-3.5 py-2.5 shadow-[0_16px_40px_rgba(16,20,24,0.22)]"
+          >
+            <span className="min-w-[88px] text-sm font-bold" aria-live="polite">
+              {selectedIds.size} selected
+            </span>
+            <select
+              aria-label="Move to stage"
+              className="field py-1.5 text-sm"
+              value=""
+              disabled={!selectedIds.size || bulkBusy}
+              onChange={(e) => e.target.value && bulkStage(e.target.value)}
+            >
+              <option value="">Move to stage</option>
+              {STAGES.map((s) => (
+                <option key={s} value={s}>
+                  {stageTitle(s)}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label="Assign to"
+              className="field py-1.5 text-sm"
+              value=""
+              disabled={!selectedIds.size || bulkBusy}
+              onChange={(e) => e.target.value && bulkAssign(e.target.value)}
+            >
+              <option value="">Assign to</option>
+              {agents.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+              <option value="__none">Unassigned</option>
+            </select>
+            <button
+              type="button"
+              className="btn-primary inline-flex items-center gap-1.5 py-1.5 text-sm disabled:opacity-50"
+              disabled={selectedIds.size < 2 || selectedIds.size > 10 || bulkBusy}
+              title={selectedIds.size > 10 ? "Merge up to 10 leads at a time" : "Merge into one lead"}
+              onClick={() => setMergeIds([...selectedIds])}
+            >
+              <Merge size={14} /> Merge
+            </button>
+            <button
+              type="button"
+              className="btn-ghost py-1.5 text-sm"
+              disabled={!selectedIds.size || bulkBusy}
+              onClick={() => setSelectedIds(new Set())}
+            >
+              Clear
+            </button>
+          </div>
+        </div>,
+        document.body,
+      )}
+
+      {showDuplicates && (
+        <DuplicatesDialog onClose={() => setShowDuplicates(false)} onMerged={afterMerge} />
+      )}
+      {mergeIds && !showDuplicates && (
+        <LeadMergeDialog ids={mergeIds} onClose={() => setMergeIds(null)} onMerged={afterMerge} />
       )}
     </div>
   );

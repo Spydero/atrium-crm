@@ -101,7 +101,14 @@ Docs: [Better Auth](https://www.better-auth.com/) · [Prisma adapter](https://ww
 4. Reports aggregates API + `/app/reports`
 5. Listing brochure PDF (`pdfkit`)
 
-### Later (after V1.1)
+### V1.2 - Bulk actions + duplicate merge
+1. `GET /api/leads/agents`, `GET /api/leads/duplicates`, `GET /api/leads/compare?ids=`
+2. `POST /api/leads/bulk` (stage, assign, unassign) and `POST /api/leads/merge`, all before `/:id` routes
+3. Pure rules in `api/src/lib/leadTools.ts` (unit tested); merge runs in one Prisma transaction
+4. UI: `LeadDuplicates.tsx` dialogs (portaled to body), Select mode on `/app/leads`
+5. Tests: `npm test` in `api` (unit + integration, needs the API running and seeded); browser test `web/scripts/bulk-merge-ui-test.mjs`
+
+### Later (after V1.2)
 - Google login, Google Calendar OAuth
 - WhatsApp via Meta Cloud API only (no mock inbox)
 - AI agent (last)
