@@ -75,6 +75,12 @@ Also: `owner@atrium.demo`, `manager@atrium.demo` (same password).
 - Safety: private file storage, token links, honeypot, rate limits, hashed IPs, consent wording stored with each request
 - Demo data: `cd api && npx tsx scripts/seed-guides.ts` (7 guides, 46 requests, a month of views)
 
+**V1.5**
+- Dashboard trend chart you can explore: New leads, Viewings or Deals won; group by Day, Week or Month; ranges 7d, 14d, 30d, 90d, 6m, 1y or custom
+- Compare to the previous period (change, percentage and a comparison line), average line, peak and active periods
+- Hover any bar for the date span, share of the period, running total, change vs previous, and a source or outcome breakdown; click a bar to pin it
+- Demo history: `cd api && npx tsx scripts/seed-history.ts` (about 250 leads, viewings and deals over 12 months)
+
 Messaging (WhatsApp) is deferred until Meta Cloud API credentials - no mock inbox.
 
 See `docs/PRODUCT.md` and `docs/STACK.md`.

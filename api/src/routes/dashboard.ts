@@ -4,7 +4,17 @@ import { requireAuth, type AuthedRequest } from "../middleware/requireAuth.js";
 import {
   buildChartBuckets,
   resolveDateRange,
+  startOfDay,
+  endOfDay,
 } from "../lib/dateRange.js";
+import {
+  allowedGroups,
+  buildTrend,
+  pickGroup,
+  summarize,
+  type TrendItem,
+  type TrendMetric,
+} from "../lib/trendBuckets.js";
 
 export const dashboardRouter = Router();
 dashboardRouter.use(requireAuth);
@@ -192,5 +202,80 @@ dashboardRouter.get("/kpis", async (req: AuthedRequest, res) => {
         startsAt: v.startsAt,
       })),
     },
+  });
+});
+
+const METRICS: TrendMetric[] = ["leads", "viewings", "won"];
+
+async function trendItems(
+  organizationId: string,
+  metric: TrendMetric,
+  from: Date,
+  to: Date,
+): Promise<TrendItem[]> {
+  if (metric === "viewings") {
+    const rows = await prisma.calendarEvent.findMany({
+      where: { organizationId, type: "VIEWING", startsAt: { gte: from, lte: to } },
+      select: { startsAt: true, outcome: true },
+    });
+    return rows.map((r) => ({ at: r.startsAt, key: r.outcome ?? "SCHEDULED" }));
+  }
+  if (metric === "won") {
+    // The date a deal is counted is the last time the lead was updated while in WON.
+    const rows = await prisma.lead.findMany({
+      where: { organizationId, stage: "WON", updatedAt: { gte: from, lte: to } },
+      select: { updatedAt: true, primarySource: true, dealValueAed: true },
+    });
+    return rows.map((r) => ({ at: r.updatedAt, key: r.primarySource, value: r.dealValueAed ?? 0 }));
+  }
+  const rows = await prisma.lead.findMany({
+    where: { organizationId, createdAt: { gte: from, lte: to } },
+    select: { createdAt: true, primarySource: true },
+  });
+  return rows.map((r) => ({ at: r.createdAt, key: r.primarySource }));
+}
+
+/**
+ * Trend chart data. Query: range/from/to (same as kpis), group=day|week|month (optional),
+ * metric=leads|viewings|won, compare=1 to add the previous period of equal length.
+ */
+dashboardRouter.get("/trend", async (req: AuthedRequest, res) => {
+  const organizationId = orgId(req);
+  if (!organizationId) return res.status(400).json({ error: "No organization" });
+
+  const metric = METRICS.includes(req.query.metric as TrendMetric)
+    ? (req.query.metric as TrendMetric)
+    : "leads";
+  const range = resolveDateRange(req.query);
+  const group = pickGroup(req.query.group, range.days);
+  const compare = req.query.compare === "1" || req.query.compare === "true";
+
+  const items = await trendItems(organizationId, metric, range.from, range.to);
+
+  let prevItems: TrendItem[] | null = null;
+  if (compare) {
+    const prevTo = endOfDay(new Date(startOfDay(range.from).getTime() - 86400000));
+    const prevFrom = startOfDay(new Date(prevTo.getTime() - (range.days - 1) * 86400000));
+    prevItems = await trendItems(organizationId, metric, prevFrom, prevTo);
+  }
+
+  const buckets = buildTrend(range, group, items, prevItems);
+  const prevValue = prevItems ? prevItems.reduce((s, i) => s + (i.value ?? 0), 0) : null;
+  const totals = summarize(buckets, prevItems ? prevItems.length : null, prevValue);
+
+  res.json({
+    metric,
+    group,
+    allowedGroups: allowedGroups(range.days),
+    compare,
+    range: {
+      preset: range.preset,
+      from: range.fromKey,
+      to: range.toKey,
+      label: range.label,
+      days: range.days,
+    },
+    totals,
+    buckets,
   });
 });

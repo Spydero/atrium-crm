@@ -274,6 +274,17 @@ Lead Fuse still fuses exact same-phone enquiries on arrival; merge handles what 
 
 ---
 
+## V1.5 scope (Interactive dashboard trends)
+
+1. The dashboard chart switches between New leads, Viewings and Deals won
+2. Group by day, week or month; options that make no sense for the chosen range are greyed out
+3. Date presets 7d, 14d, 30d, 90d, 6m, 1y and a custom range
+4. Compare to the previous period of the same length: change, percentage and a comparison line
+5. Hover for exact dates, share of the period, running total, change vs previous, and the source (or viewing outcome) mix; click a bar to pin the details
+6. Deals won are counted on the date the won lead was last updated (there is no separate closing date yet)
+
+---
+
 ## Success criteria for V1 demo
 
 Someone unfamiliar can, in ~5 minutes:

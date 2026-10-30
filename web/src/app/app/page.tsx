@@ -14,19 +14,8 @@ import {
   Eye,
   ChevronRight,
 } from "lucide-react";
-import {
-  Bar,
-  CartesianGrid,
-  Cell,
-  ComposedChart,
-  LabelList,
-  Line,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 import { api, formatAed, portalLabel } from "@/lib/api";
+import { TrendChart } from "@/components/TrendChart";
 import {
   DateRangeFilter,
   dateRangeQuery,
@@ -36,7 +25,6 @@ import {
 
 type StageRow = { stage: string; count: number; valueAed: number };
 type SourceRow = { source: string; count: number };
-type ChartPoint = { day: string; label: string; count: number; date: string };
 type Viewing = {
   id: string;
   title: string;
@@ -64,9 +52,7 @@ type Kpis = {
   lost: number;
   listingsActive: number;
   listingsDraft: number;
-  newLeadsChart: ChartPoint[];
   newLeadsWeek: number;
-  peakDay: { label: string; count: number } | null;
   range?: {
     preset: string;
     from: string;
@@ -112,26 +98,6 @@ function formatWhen(iso: string) {
   });
 }
 
-function ChartTip({
-  active,
-  payload,
-}: {
-  active?: boolean;
-  payload?: { value: number; payload: ChartPoint }[];
-}) {
-  if (!active || !payload?.length) return null;
-  const row = payload[0].payload;
-  return (
-    <div className="rounded-[8px] border border-line bg-paper px-3 py-2 text-xs shadow-[0_8px_24px_rgba(16,20,24,0.1)]">
-      <div className="font-bold text-ink">{row.label}</div>
-      <div className="mt-0.5 text-muted">
-        <span className="font-bold text-accent">{payload[0].value}</span> new lead
-        {payload[0].value === 1 ? "" : "s"}
-      </div>
-    </div>
-  );
-}
-
 export default function DashboardPage() {
   const [kpis, setKpis] = useState<Kpis | null>(null);
   const [activeStage, setActiveStage] = useState<string | null>(null);
@@ -168,29 +134,6 @@ export default function DashboardPage() {
     () => Math.max(1, ...(kpis?.pipelineByStage.map((s) => s.count) || [1])),
     [kpis],
   );
-
-  const chartAvg = useMemo(() => {
-    if (!kpis?.newLeadsChart.length) return 0;
-    const sum = kpis.newLeadsChart.reduce((s, d) => s + d.count, 0);
-    return Math.round((sum / kpis.newLeadsChart.length) * 10) / 10;
-  }, [kpis]);
-
-  const todayKey = useMemo(() => {
-    const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const day = String(d.getDate()).padStart(2, "0");
-    return `${y}-${m}-${day}`;
-  }, []);
-
-  const chartData = useMemo(() => {
-    if (!kpis) return [];
-    return kpis.newLeadsChart.map((row) => ({
-      ...row,
-      avg: chartAvg,
-      isToday: row.date === todayKey,
-    }));
-  }, [kpis, chartAvg, todayKey]);
 
   if (error) {
     return <p className="text-[var(--danger)]">{error}</p>;
@@ -323,113 +266,9 @@ export default function DashboardPage() {
         })}
       </div>
 
-      <div className="grid gap-3 xl:grid-cols-[1.4fr_1fr]">
-        <div className="surface p-5">
-          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <div className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">
-                New leads · {kpis.range?.label || "selected range"}
-                {kpis.range?.granularity === "week" ? " (weekly)" : ""}
-              </div>
-              <div className="font-display mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1 text-2xl font-bold tracking-[-0.03em]">
-                <span>
-                  {kpis.newLeadsWeek}
-                  <span className="ml-1.5 text-sm font-semibold text-muted">captured</span>
-                </span>
-                <span className="text-sm font-semibold text-muted">
-                  avg {chartAvg}/{kpis.range?.granularity === "week" ? "week" : "day"}
-                </span>
-                {kpis.peakDay && kpis.peakDay.count > 0 && (
-                  <span className="rounded bg-accent-soft px-2 py-0.5 text-xs font-bold text-accent">
-                    Peak {kpis.peakDay.label} · {kpis.peakDay.count}
-                  </span>
-                )}
-              </div>
-            </div>
-            <Link
-              href="/app/leads"
-              className="inline-flex items-center gap-1 text-sm font-semibold text-accent hover:underline"
-            >
-              Pipeline <ChevronRight size={14} />
-            </Link>
-          </div>
-          <div className="h-[240px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={chartData} margin={{ top: 12, right: 8, left: 0, bottom: 0 }}>
-                <CartesianGrid stroke="#e8ecf0" vertical={false} strokeDasharray="3 6" />
-                <XAxis
-                  dataKey="label"
-                  tickLine={false}
-                  axisLine={false}
-                  fontSize={11}
-                  tick={{ fill: "#66707a", fontWeight: 600 }}
-                  dy={6}
-                />
-                <YAxis
-                  allowDecimals={false}
-                  tickLine={false}
-                  axisLine={false}
-                  width={28}
-                  fontSize={11}
-                  tick={{ fill: "#66707a" }}
-                  domain={[0, (dataMax: number) => Math.max(3, dataMax + 1)]}
-                />
-                <Tooltip
-                  cursor={{ fill: "rgba(26,95,122,0.06)" }}
-                  content={<ChartTip />}
-                />
-                <Bar
-                  dataKey="count"
-                  name="New leads"
-                  radius={[6, 6, 0, 0]}
-                  maxBarSize={48}
-                  animationDuration={500}
-                >
-                  {chartData.map((row) => (
-                    <Cell
-                      key={row.date}
-                      fill={row.isToday ? "#0d9488" : "#1a5f7a"}
-                      fillOpacity={row.count === 0 ? 0.18 : 1}
-                    />
-                  ))}
-                  <LabelList
-                    dataKey="count"
-                    position="top"
-                    formatter={(v: unknown) => (Number(v) > 0 ? String(v) : "")}
-                    style={{ fill: "#101418", fontSize: 11, fontWeight: 700 }}
-                  />
-                </Bar>
-                <Line
-                  type="monotone"
-                  dataKey="avg"
-                  name="Daily avg"
-                  stroke="#c45c26"
-                  strokeWidth={2}
-                  strokeDasharray="5 5"
-                  dot={false}
-                  isAnimationActive={false}
-                />
-              </ComposedChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="mt-2 flex flex-wrap items-center gap-4 text-[11px] font-semibold text-muted">
-            <span className="inline-flex items-center gap-1.5">
-              <span className="inline-block h-2.5 w-2.5 rounded-sm bg-accent" /> Daily volume
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span
-                className="inline-block h-2.5 w-2.5 rounded-sm"
-                style={{ background: "#0d9488" }}
-              />{" "}
-              Today
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span className="inline-block h-0.5 w-4 border-t-2 border-dashed border-mark" />{" "}
-              Period average
-            </span>
-          </div>
-        </div>
+      <TrendChart range={dateRange} />
 
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <div className="surface p-5">
           <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.1em] text-muted">
             Pipeline by stage
@@ -476,9 +315,7 @@ export default function DashboardPage() {
             Open kanban <ChevronRight size={14} />
           </Link>
         </div>
-      </div>
 
-      <div className="grid gap-3 lg:grid-cols-3">
         <div className="surface p-5 lg:col-span-1">
           <div className="mb-4 flex items-center justify-between">
             <div className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">

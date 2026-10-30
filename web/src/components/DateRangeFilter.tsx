@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-export type DatePreset = "7d" | "14d" | "30d" | "90d" | "custom";
+export type DatePreset = "7d" | "14d" | "30d" | "90d" | "180d" | "365d" | "custom";
 
 export type DateRangeValue = {
   preset: DatePreset;
@@ -15,6 +15,8 @@ const PRESETS: { id: Exclude<DatePreset, "custom">; label: string }[] = [
   { id: "14d", label: "14d" },
   { id: "30d", label: "30d" },
   { id: "90d", label: "90d" },
+  { id: "180d", label: "6m" },
+  { id: "365d", label: "1y" },
 ];
 
 function todayKey() {
@@ -36,7 +38,7 @@ function daysAgoKey(n: number) {
 }
 
 export function defaultDateRange(preset: Exclude<DatePreset, "custom"> = "7d"): DateRangeValue {
-  const days = preset === "7d" ? 7 : preset === "14d" ? 14 : preset === "30d" ? 30 : 90;
+  const days = { "7d": 7, "14d": 14, "30d": 30, "90d": 90, "180d": 180, "365d": 365 }[preset];
   return { preset, from: daysAgoKey(days), to: todayKey() };
 }
 

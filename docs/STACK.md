@@ -118,7 +118,14 @@ Docs: [Better Auth](https://www.better-auth.com/) · [Prisma adapter](https://ww
 7. Web: `/app/guides`, `/app/guides/[id]`, public `/guides/[org]`, `/guides/[org]/[guide]`, personal link `/g/[token]`
 8. Tests: `api/tests/guideTools.test.ts` (unit), `api/tests/guides.test.ts` (integration), browser test `web/scripts/guides-ui-test.mjs`
 
-### Later (after V1.4)
+### V1.5 - Interactive dashboard trends
+1. `GET /api/dashboard/trend?range|from|to&metric=leads|viewings|won&group=day|week|month&compare=1` returns buckets (label, tooltip title, count, value, previous period count, running total, current marker, breakdown) plus totals (change, average, peak, active periods)
+2. Bucketing rules in `api/src/lib/trendBuckets.ts` (unit tested): day only up to 120 days, week from 14 days, month from 45 days; unavailable groupings fall back to the automatic one
+3. Date presets now include 6m (180d) and 1y (365d); custom ranges are capped at 400 days
+4. UI: `web/src/components/TrendChart.tsx` on the dashboard
+5. Tests: `api/tests/dashboardTrend.test.ts`, browser test `web/scripts/trend-ui-test.mjs`
+
+### Later (after V1.5)
 - Google login, Google Calendar OAuth
 - WhatsApp via Meta Cloud API only (no mock inbox)
 - AI agent (last)

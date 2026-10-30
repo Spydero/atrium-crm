@@ -1,4 +1,4 @@
-export type DatePreset = "7d" | "14d" | "30d" | "90d" | "custom";
+export type DatePreset = "7d" | "14d" | "30d" | "90d" | "180d" | "365d" | "custom";
 
 export type ResolvedRange = {
   from: Date;
@@ -43,6 +43,8 @@ const PRESET_DAYS: Record<Exclude<DatePreset, "custom">, number> = {
   "14d": 14,
   "30d": 30,
   "90d": 90,
+  "180d": 180,
+  "365d": 365,
 };
 
 const PRESET_LABEL: Record<Exclude<DatePreset, "custom">, string> = {
@@ -50,6 +52,8 @@ const PRESET_LABEL: Record<Exclude<DatePreset, "custom">, string> = {
   "14d": "Last 14 days",
   "30d": "Last 30 days",
   "90d": "Last 90 days",
+  "180d": "Last 6 months",
+  "365d": "Last 12 months",
 };
 
 export function resolveDateRange(query: {
@@ -64,6 +68,8 @@ export function resolveDateRange(query: {
     rawPreset === "14d" ||
     rawPreset === "30d" ||
     rawPreset === "90d" ||
+    rawPreset === "180d" ||
+    rawPreset === "365d" ||
     rawPreset === "custom" ||
     rawPreset === "7d"
       ? rawPreset
@@ -84,8 +90,8 @@ export function resolveDateRange(query: {
         from = startOfDay(to);
         to = endOfDay(tmp);
       }
-      // Cap at 180 days to keep charts readable
-      const maxMs = 180 * 24 * 60 * 60 * 1000;
+      // Cap at 400 days to keep charts readable
+      const maxMs = 400 * 24 * 60 * 60 * 1000;
       if (to.getTime() - from.getTime() > maxMs) {
         from = startOfDay(new Date(to.getTime() - maxMs));
       }
@@ -105,6 +111,7 @@ export function resolveDateRange(query: {
   const days =
     Math.round((startOfDay(to).getTime() - from.getTime()) / 86400000) + 1;
   const granularity: "day" | "week" = days > 45 ? "week" : "day";
+  // (the dashboard trend chart picks its own grouping, see trendBuckets.ts)
 
   const label =
     preset === "custom"
