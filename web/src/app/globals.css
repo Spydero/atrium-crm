@@ -1,6 +1,15 @@
 @import "tailwindcss";
 @import "leaflet/dist/leaflet.css";
 
+/* Tailwind preflight sets img { max-width: 100% } which breaks Leaflet tiles */
+.leaflet-container img {
+  max-width: none !important;
+}
+.leaflet-container {
+  width: 100%;
+  z-index: 0;
+}
+
 :root {
   --ink: #101418;
   --muted: #66707a;

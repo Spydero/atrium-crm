@@ -2,6 +2,13 @@
 
 import { useEffect, useRef } from "react";
 
+// Stable empty deps helper for optional callbacks
+function useStableCallback<T extends (...args: never[]) => void>(fn?: T) {
+  const ref = useRef(fn);
+  ref.current = fn;
+  return ref;
+}
+
 type Props = {
   lat: number;
   lng: number;
@@ -98,10 +105,13 @@ export function InventoryMap({
   onSelect?: (id: string) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const onSelectRef = useStableCallback(onSelect);
+  const pinKey = pins.map((p) => `${p.id}:${p.lat}:${p.lng}`).join("|");
 
   useEffect(() => {
     let map: import("leaflet").Map | null = null;
     let cancelled = false;
+    let ro: ResizeObserver | null = null;
 
     async function mount() {
       const L = await import("leaflet");
@@ -117,6 +127,10 @@ export function InventoryMap({
       });
 
       ref.current.innerHTML = "";
+      // Leaflet needs an explicit sized container
+      ref.current.style.height = `${height}px`;
+      ref.current.style.width = "100%";
+
       map = L.map(ref.current, {
         scrollWheelZoom: true,
         zoomControl: true,
@@ -144,39 +158,48 @@ export function InventoryMap({
               : ""
           }`;
           marker.bindPopup(html);
-          if (onSelect) {
-            marker.on("click", () => onSelect(pin.id));
-          }
+          marker.on("click", () => onSelectRef.current?.(pin.id));
         }
-        map.fitBounds(bounds!.pad(0.25));
+        map.fitBounds(bounds!.pad(0.2), { maxZoom: 13 });
       }
 
       const refresh = () => {
         if (!map) return;
-        map.invalidateSize();
-        if (bounds && pins.length) map.fitBounds(bounds.pad(0.25));
+        map.invalidateSize({ animate: false });
+        if (bounds && pins.length) {
+          map.fitBounds(bounds.pad(0.2), { maxZoom: 13, animate: false });
+        }
       };
       requestAnimationFrame(refresh);
-      setTimeout(refresh, 120);
-      setTimeout(refresh, 400);
+      setTimeout(refresh, 50);
+      setTimeout(refresh, 250);
+      setTimeout(refresh, 600);
+
+      if (ref.current && typeof ResizeObserver !== "undefined") {
+        ro = new ResizeObserver(() => refresh());
+        ro.observe(ref.current);
+      }
     }
 
     mount();
 
     return () => {
       cancelled = true;
+      ro?.disconnect();
       if (map) {
         map.remove();
         map = null;
       }
     };
-  }, [pins, onSelect]);
+    // pinKey captures pin identity; height for container
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pinKey, height]);
 
   return (
     <div
       ref={ref}
-      className={`overflow-hidden rounded-[10px] border border-line bg-[#e8ecf0] ${className}`}
-      style={{ height }}
+      className={`w-full overflow-hidden rounded-[10px] border border-line bg-[#e8ecf0] ${className}`}
+      style={{ height, minHeight: height }}
     />
   );
 }
