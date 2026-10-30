@@ -53,20 +53,20 @@ export default function RegisterPage() {
         </h1>
         <form onSubmit={onSubmit} className="mt-5 flex flex-col gap-3">
           <input
-            className="field"
+            className="field w-full"
             placeholder="Your name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
           />
           <input
-            className="field"
+            className="field w-full"
             placeholder="Brokerage name"
             value={orgName}
             onChange={(e) => setOrgName(e.target.value)}
           />
           <input
-            className="field"
+            className="field w-full"
             placeholder="Email"
             type="email"
             value={email}
@@ -74,7 +74,7 @@ export default function RegisterPage() {
             required
           />
           <input
-            className="field"
+            className="field w-full"
             placeholder="Password"
             type="password"
             value={password}

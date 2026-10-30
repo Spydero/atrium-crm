@@ -54,13 +54,13 @@ export default function ShortlistsPage() {
       <form onSubmit={create} className="surface space-y-3 p-5">
         <div className="grid gap-3 sm:grid-cols-2">
           <input
-            className="field"
+            className="field w-full"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Title"
           />
           <input
-            className="field"
+            className="field w-full"
             value={clientName}
             onChange={(e) => setClientName(e.target.value)}
             placeholder="Client name"

@@ -58,7 +58,7 @@ export default function LoginPage() {
               Email
             </label>
             <input
-              className="field"
+              className="field w-full"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               type="email"
@@ -68,7 +68,7 @@ export default function LoginPage() {
               Password
             </label>
             <input
-              className="field"
+              className="field w-full"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               type="password"

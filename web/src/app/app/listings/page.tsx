@@ -156,31 +156,36 @@ export default function ListingsPage() {
 
       <div className="toolbar">
         <input
-          className="field field-inline min-w-[180px] flex-1"
+          className="field min-w-0 flex-1"
+          style={{ minWidth: 200 }}
           placeholder="Search title or area"
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
         <input
-          className="field field-inline w-[110px]"
-          placeholder="Min"
+          className="field shrink-0"
+          style={{ width: 112 }}
+          placeholder="Min price"
           value={minPrice}
           onChange={(e) => setMinPrice(e.target.value)}
         />
         <input
-          className="field field-inline w-[110px]"
-          placeholder="Max"
+          className="field shrink-0"
+          style={{ width: 112 }}
+          placeholder="Max price"
           value={maxPrice}
           onChange={(e) => setMaxPrice(e.target.value)}
         />
         <input
-          className="field field-inline w-[72px]"
+          className="field shrink-0"
+          style={{ width: 72 }}
           placeholder="Beds"
           value={beds}
           onChange={(e) => setBeds(e.target.value)}
         />
         <input
-          className="field field-inline w-[140px]"
+          className="field shrink-0"
+          style={{ width: 150 }}
           placeholder="Community"
           value={community}
           onChange={(e) => setCommunity(e.target.value)}
@@ -379,7 +384,7 @@ export default function ListingsPage() {
           >
             <h3 className="font-display text-lg font-bold">New listing</h3>
             <input
-              className="field"
+              className="field w-full"
               placeholder="Title"
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
@@ -387,14 +392,14 @@ export default function ListingsPage() {
             />
             <div className="grid grid-cols-2 gap-2">
               <input
-                className="field"
+                className="field w-full"
                 placeholder="Community / area"
                 value={form.community}
                 onChange={(e) => setForm({ ...form, community: e.target.value })}
                 required
               />
               <input
-                className="field"
+                className="field w-full"
                 placeholder="City"
                 value={form.city}
                 onChange={(e) => setForm({ ...form, city: e.target.value })}
@@ -402,7 +407,7 @@ export default function ListingsPage() {
             </div>
             <input
               type="number"
-              className="field"
+              className="field w-full"
               placeholder="Price"
               value={form.priceAed || ""}
               onChange={(e) => setForm({ ...form, priceAed: Number(e.target.value) })}
@@ -411,21 +416,21 @@ export default function ListingsPage() {
             <div className="grid grid-cols-3 gap-2">
               <input
                 type="number"
-                className="field"
+                className="field w-full"
                 placeholder="Beds"
                 value={form.beds}
                 onChange={(e) => setForm({ ...form, beds: Number(e.target.value) })}
               />
               <input
                 type="number"
-                className="field"
+                className="field w-full"
                 placeholder="Baths"
                 value={form.baths}
                 onChange={(e) => setForm({ ...form, baths: Number(e.target.value) })}
               />
               <input
                 type="number"
-                className="field"
+                className="field w-full"
                 placeholder="Sqft"
                 value={form.areaSqft}
                 onChange={(e) => setForm({ ...form, areaSqft: Number(e.target.value) })}

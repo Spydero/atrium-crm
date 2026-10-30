@@ -171,7 +171,7 @@ export default function CalendarPage() {
                 <option value="poor">Fit: poor</option>
               </select>
               <textarea
-                className="field"
+                className="field w-full"
                 rows={3}
                 placeholder="Feedback"
                 value={feedback}
