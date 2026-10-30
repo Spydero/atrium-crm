@@ -2,12 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { api, formatAed, portalLabel, PORTALS } from "@/lib/api";
+import { StockPhotoPicker } from "@/components/StockPhotoPicker";
 
 type Portal = { portal: string; status: string };
 type Listing = {
   id: string;
   title: string;
   community: string;
+  city: string;
   priceAed: number;
   beds: number;
   baths: number;
@@ -18,6 +20,8 @@ type Listing = {
   portals: Portal[];
 };
 
+const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+
 export default function ListingsPage() {
   const [listings, setListings] = useState<Listing[]>([]);
   const [selected, setSelected] = useState<Listing | null>(null);
@@ -27,13 +31,17 @@ export default function ListingsPage() {
   const [maxPrice, setMaxPrice] = useState("");
   const [community, setCommunity] = useState("");
   const [showCreate, setShowCreate] = useState(false);
+  const [testingEnabled, setTestingEnabled] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [form, setForm] = useState({
     title: "",
-    community: "Dubai Marina",
-    priceAed: 2000000,
+    community: "",
+    city: "",
+    priceAed: 0,
     beds: 2,
     baths: 2,
-    areaSqft: 1200,
+    areaSqft: 1000,
+    coverUrl: "" as string,
   });
 
   const load = useCallback(async () => {
@@ -49,17 +57,61 @@ export default function ListingsPage() {
 
   useEffect(() => {
     load().catch(console.error);
+    api<{ testingEnabled: boolean }>("/api/testing/status")
+      .then((s) => setTestingEnabled(s.testingEnabled))
+      .catch(() => setTestingEnabled(false));
   }, [load]);
 
   async function createListing(e: React.FormEvent) {
     e.preventDefault();
     const created = await api<Listing>("/api/listings", {
       method: "POST",
-      body: JSON.stringify({ ...form, status: "ACTIVE", propertyType: "APARTMENT" }),
+      body: JSON.stringify({
+        title: form.title,
+        community: form.community,
+        city: form.city || undefined,
+        priceAed: form.priceAed,
+        beds: form.beds,
+        baths: form.baths,
+        areaSqft: form.areaSqft,
+        coverUrl: form.coverUrl || null,
+        photoUrls: form.coverUrl ? [form.coverUrl] : [],
+        status: "ACTIVE",
+        propertyType: "APARTMENT",
+      }),
     });
     setShowCreate(false);
+    setForm({
+      title: "",
+      community: "",
+      city: "",
+      priceAed: 0,
+      beds: 2,
+      baths: 2,
+      areaSqft: 1000,
+      coverUrl: "",
+    });
     await load();
     setSelected(created);
+  }
+
+  async function uploadPhoto(listingId: string, file: File) {
+    setUploading(true);
+    try {
+      const body = new FormData();
+      body.append("photo", file);
+      const res = await fetch(`${API}/api/listings/${listingId}/photos`, {
+        method: "POST",
+        credentials: "include",
+        body,
+      });
+      if (!res.ok) throw new Error("Upload failed");
+      const updated = (await res.json()) as Listing;
+      setSelected(updated);
+      await load();
+    } finally {
+      setUploading(false);
+    }
   }
 
   async function publish(listingId: string, portal: string, status: string) {
@@ -96,13 +148,13 @@ export default function ListingsPage() {
         />
         <input
           className="field w-28"
-          placeholder="Min AED"
+          placeholder="Min price"
           value={minPrice}
           onChange={(e) => setMinPrice(e.target.value)}
         />
         <input
           className="field w-28"
-          placeholder="Max AED"
+          placeholder="Max price"
           value={maxPrice}
           onChange={(e) => setMaxPrice(e.target.value)}
         />
@@ -114,7 +166,7 @@ export default function ListingsPage() {
         />
         <input
           className="field w-36"
-          placeholder="Community"
+          placeholder="Area / community"
           value={community}
           onChange={(e) => setCommunity(e.target.value)}
         />
@@ -129,15 +181,18 @@ export default function ListingsPage() {
             className="surface overflow-hidden text-left transition hover:border-ink/20"
           >
             <div
-              className="h-40 bg-cover bg-center"
-              style={{
-                backgroundImage: `url(${l.coverUrl || "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800"})`,
-              }}
+              className="h-40 bg-[#dfe3e8] bg-cover bg-center"
+              style={
+                l.coverUrl
+                  ? { backgroundImage: `url(${l.coverUrl})` }
+                  : undefined
+              }
             />
             <div className="p-3.5">
               <div className="font-bold">{l.title}</div>
               <div className="mt-0.5 text-sm text-muted">
-                {l.community} · {l.beds} bed · {l.areaSqft} sqft
+                {[l.community, l.city].filter(Boolean).join(", ")} · {l.beds} bed ·{" "}
+                {l.areaSqft} sqft
               </div>
               <div className="font-display mt-2 text-lg font-bold tracking-[-0.02em]">
                 {formatAed(l.priceAed)}
@@ -167,7 +222,8 @@ export default function ListingsPage() {
                 {selected.title}
               </h2>
               <p className="text-sm text-muted">
-                {selected.community} · {selected.status} · {formatAed(selected.priceAed)}
+                {[selected.community, selected.city].filter(Boolean).join(", ")} ·{" "}
+                {selected.status} · {formatAed(selected.priceAed)}
               </p>
             </div>
             <button
@@ -178,6 +234,28 @@ export default function ListingsPage() {
               Close
             </button>
           </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <label className="btn-ghost cursor-pointer">
+              {uploading ? "Uploading…" : "Upload photo"}
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                disabled={uploading}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) uploadPhoto(selected.id, file);
+                }}
+              />
+            </label>
+            {testingEnabled && (
+              <span className="text-xs text-muted">
+                Or set cover from test stock when creating a listing.
+              </span>
+            )}
+          </div>
+
           <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             {PORTALS.map((portal) => {
               const row = selected.portals.find((p) => p.portal === portal);
@@ -211,23 +289,38 @@ export default function ListingsPage() {
 
       {showCreate && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <form onSubmit={createListing} className="surface w-full max-w-md space-y-3 p-6">
+          <form
+            onSubmit={createListing}
+            className="surface max-h-[90vh] w-full max-w-lg space-y-3 overflow-y-auto p-6"
+          >
             <h3 className="font-display text-lg font-bold">New listing</h3>
-            {(["title", "community"] as const).map((k) => (
+            <input
+              className="field"
+              placeholder="Title"
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+              required
+            />
+            <div className="grid grid-cols-2 gap-2">
               <input
-                key={k}
                 className="field"
-                placeholder={k}
-                value={form[k]}
-                onChange={(e) => setForm({ ...form, [k]: e.target.value })}
+                placeholder="Community / area"
+                value={form.community}
+                onChange={(e) => setForm({ ...form, community: e.target.value })}
                 required
               />
-            ))}
+              <input
+                className="field"
+                placeholder="City"
+                value={form.city}
+                onChange={(e) => setForm({ ...form, city: e.target.value })}
+              />
+            </div>
             <input
               type="number"
               className="field"
-              placeholder="Price AED"
-              value={form.priceAed}
+              placeholder="Price"
+              value={form.priceAed || ""}
               onChange={(e) => setForm({ ...form, priceAed: Number(e.target.value) })}
               required
             />
@@ -254,6 +347,26 @@ export default function ListingsPage() {
                 onChange={(e) => setForm({ ...form, areaSqft: Number(e.target.value) })}
               />
             </div>
+
+            {form.coverUrl && (
+              <div
+                className="h-28 rounded-[var(--radius)] bg-cover bg-center"
+                style={{ backgroundImage: `url(${form.coverUrl})` }}
+              />
+            )}
+
+            {testingEnabled ? (
+              <StockPhotoPicker
+                selectedUrl={form.coverUrl || null}
+                onSelect={(url) => setForm({ ...form, coverUrl: url })}
+              />
+            ) : (
+              <p className="text-xs text-muted">
+                Set TESTING_ENABLED=true to pick stock photos while testing. You can upload
+                after create.
+              </p>
+            )}
+
             <div className="flex justify-end gap-2 pt-1">
               <button type="button" onClick={() => setShowCreate(false)} className="btn-ghost">
                 Cancel

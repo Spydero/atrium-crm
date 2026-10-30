@@ -133,7 +133,7 @@ listingsRouter.post("/", async (req: AuthedRequest, res) => {
       areaSqft: data.areaSqft ?? 0,
       community: data.community,
       building: data.building ?? null,
-      city: data.city ?? "Dubai",
+      city: data.city ?? "",
       address: data.address ?? null,
       coverUrl: data.coverUrl ?? null,
       photoUrls: data.photoUrls ?? [],

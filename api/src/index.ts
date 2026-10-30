@@ -12,6 +12,7 @@ import { moneyRouter } from "./routes/money.js";
 import { shortlistsRouter } from "./routes/shortlists.js";
 import { dashboardRouter } from "./routes/dashboard.js";
 import { bootstrapRouter } from "./routes/bootstrap.js";
+import { testingRouter } from "./routes/testing.js";
 
 const app = express();
 const port = Number(process.env.PORT || 4000);
@@ -39,6 +40,7 @@ app.use("/api/money", moneyRouter);
 app.use("/api/shortlists", shortlistsRouter);
 app.use("/api/dashboard", dashboardRouter);
 app.use("/api/bootstrap", bootstrapRouter);
+app.use("/api/testing", testingRouter);
 
 app.listen(port, () => {
   console.log(`Atrium API on http://localhost:${port}`);
