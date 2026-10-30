@@ -13,3 +13,4 @@ api/.claude/
 api/.windsurf/
 api/skills-lock.json
 **/.DS_Store
+storage/

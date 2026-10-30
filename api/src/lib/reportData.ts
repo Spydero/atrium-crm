@@ -1,5 +1,6 @@
 import { prisma } from "./prisma.js";
 import type { ResolvedRange } from "./dateRange.js";
+import { computeGuideStats } from "./guideStats.js";
 
 const STAGES = ["NEW", "QUALIFIED", "VIEWING", "OFFER", "WON", "LOST"] as const;
 
@@ -14,6 +15,7 @@ export async function computeReportSummary(organizationId: string, range: Resolv
     portalRows,
     agents,
     wins,
+    guides,
   ] = await Promise.all([
     prisma.lead.groupBy({
       by: ["stage"],
@@ -67,6 +69,7 @@ export async function computeReportSummary(organizationId: string, range: Resolv
       },
       include: { sources: true },
     }),
+    computeGuideStats(organizationId, range),
   ]);
 
   const leadsByStage = STAGES.map((stage) => ({
@@ -143,5 +146,6 @@ export async function computeReportSummary(organizationId: string, range: Resolv
     listingsByStatus,
     portalsByStatus,
     agentLeaderboard,
+    guides,
   };
 }

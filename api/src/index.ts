@@ -16,6 +16,8 @@ import { testingRouter } from "./routes/testing.js";
 import { placesRouter } from "./routes/places.js";
 import { settingsRouter } from "./routes/settings.js";
 import { reportsRouter } from "./routes/reports.js";
+import { guidesRouter } from "./routes/guides.js";
+import { publicGuidesRouter } from "./routes/publicGuides.js";
 
 const app = express();
 const port = Number(process.env.PORT || 4000);
@@ -48,6 +50,8 @@ app.use("/api/testing", testingRouter);
 app.use("/api/places", placesRouter);
 app.use("/api/settings", settingsRouter);
 app.use("/api/reports", reportsRouter);
+app.use("/api/guides", guidesRouter);
+app.use("/api/public", publicGuidesRouter);
 
 app.listen(port, () => {
   console.log(`Atrium API on http://localhost:${port}`);

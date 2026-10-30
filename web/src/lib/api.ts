@@ -92,6 +92,9 @@ export type OrgSettings = {
   currencyLabel: string;
   defaultCity: string;
   enabledPortals: string[];
+  privacyUrl?: string | null;
+  licenseLabel?: string;
+  licenseNumber?: string | null;
   availablePortals?: string[];
 };
 
@@ -110,6 +113,13 @@ export function portalLabel(p: string) {
       MANUAL: "Manual",
       REFERRAL: "Referral",
       WEBSITE: "Website",
+      GUIDE: "Guide",
     } as Record<string, string>
   )[p] || p;
 }
+
+export function pct(rate: number) {
+  return `${Math.round(rate * 1000) / 10}%`;
+}
+
+export const API_BASE = API;

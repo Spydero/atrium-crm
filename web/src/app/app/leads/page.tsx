@@ -14,7 +14,7 @@ import { api, formatAed, portalLabel, STAGES } from "@/lib/api";
 type Lead = {
   id: string;
   name: string;
-  phone: string;
+  phone: string | null;
   stage: string;
   primarySource: string;
   dealValueAed: number | null;
@@ -32,6 +32,7 @@ function stageTitle(s: string) {
 type LeadDetail = Lead & {
   notes: { id: string; body: string; createdAt: string; author?: { name: string } | null }[];
   activities: { id: string; type: string; body: string; createdAt: string }[];
+  email?: string | null;
   budgetMax?: number | null;
   bedsWanted?: number | null;
   communities?: string[];
@@ -402,7 +403,8 @@ export default function LeadsPage() {
                     )}
                     <div className="pr-6 text-sm font-bold">{lead.name}</div>
                     <div className={`mt-1 text-xs ${active ? "text-white/70" : "text-muted"}`}>
-                      {lead.listing?.title || "No listing"} · {formatAed(lead.dealValueAed || 0)}
+                      {lead.listing?.title || "No listing"}
+                      {lead.dealValueAed ? ` · ${formatAed(lead.dealValueAed)}` : ""}
                     </div>
                     <div className={`mt-0.5 text-[11px] ${active ? "text-white/60" : "text-muted/80"}`}>
                       {lead.assignedTo?.name || "Unassigned"}
@@ -436,7 +438,7 @@ export default function LeadsPage() {
                   {selected.name}
                 </h2>
                 <p className="text-sm text-muted">
-                  {selected.phone} · {selected.sources.length} sources
+                  {[selected.phone, selected.email].filter(Boolean).join(" · ") || "no contact"} · {selected.sources.length} sources
                 </p>
               </div>
               <button

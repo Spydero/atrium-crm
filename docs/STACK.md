@@ -108,7 +108,17 @@ Docs: [Better Auth](https://www.better-auth.com/) · [Prisma adapter](https://ww
 4. UI: `LeadDuplicates.tsx` dialogs (portaled to body), Select mode on `/app/leads`
 5. Tests: `npm test` in `api` (unit + integration, needs the API running and seeded); browser test `web/scripts/bulk-merge-ui-test.mjs`
 
-### Later (after V1.2)
+### V1.4 - Downloadable guides
+1. Prisma: `Guide`, `GuideRequest` (personal token, consent record, campaign tags), `GuideDailyStat` (views and open downloads, no personal data); `Lead.phone` is now optional; `LeadSource.GUIDE`; org `privacyUrl`, `licenseLabel`, `licenseNumber`
+2. Private storage: PDFs live in `api/storage/guides` (git ignored, never served statically). Only `GET /api/public/guide-files/:token` and `GET /api/public/guides/:org/:guide/file` (open guides) stream them
+3. Public API (`/api/public`, no auth, org from the URL slug): guide library, guide page, view counter, request form, thank-you data, downloads
+4. Admin API (`/api/guides`): list with funnel stats, create, edit, status, PDF and cover upload, request log, CSV
+5. `recordGuideRequest` (`guideService.ts`): one transaction that finds or creates the lead, logs source and activity, stores the request and consent, and schedules a next business day follow-up
+6. Pure helpers in `guideTools.ts` (slugs, tokens, PDF and image checks, rate limiter, channel names); funnel maths in `guideStats.ts`, reused by Reports
+7. Web: `/app/guides`, `/app/guides/[id]`, public `/guides/[org]`, `/guides/[org]/[guide]`, personal link `/g/[token]`
+8. Tests: `api/tests/guideTools.test.ts` (unit), `api/tests/guides.test.ts` (integration), browser test `web/scripts/guides-ui-test.mjs`
+
+### Later (after V1.4)
 - Google login, Google Calendar OAuth
 - WhatsApp via Meta Cloud API only (no mock inbox)
 - AI agent (last)

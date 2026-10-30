@@ -26,6 +26,9 @@ settingsRouter.get("/", async (req: AuthedRequest, res) => {
       currencyLabel: true,
       defaultCity: true,
       enabledPortals: true,
+      privacyUrl: true,
+      licenseLabel: true,
+      licenseNumber: true,
     },
   });
   if (!org) return res.status(404).json({ error: "Organization not found" });
@@ -44,6 +47,14 @@ settingsRouter.patch("/", async (req: AuthedRequest, res) => {
     currencyCode: z.string().min(1).max(8).optional(),
     currencyLabel: z.string().min(1).max(12).optional(),
     defaultCity: z.string().max(120).optional(),
+    privacyUrl: z
+      .string()
+      .trim()
+      .max(300)
+      .refine((v) => v === "" || /^https?:\/\//i.test(v), "Use a full link starting with http:// or https://")
+      .optional(),
+    licenseLabel: z.string().trim().min(1).max(40).optional(),
+    licenseNumber: z.string().trim().max(60).optional(),
     enabledPortals: z
       .array(z.enum(["BAYUT", "PROPERTY_FINDER", "DUBIZZLE", "SKYLOOV"]))
       .optional(),
@@ -64,6 +75,11 @@ settingsRouter.patch("/", async (req: AuthedRequest, res) => {
       ...(parsed.data.defaultCity != null
         ? { defaultCity: parsed.data.defaultCity }
         : {}),
+      ...(parsed.data.privacyUrl != null ? { privacyUrl: parsed.data.privacyUrl || null } : {}),
+      ...(parsed.data.licenseLabel != null ? { licenseLabel: parsed.data.licenseLabel } : {}),
+      ...(parsed.data.licenseNumber != null
+        ? { licenseNumber: parsed.data.licenseNumber || null }
+        : {}),
       ...(parsed.data.enabledPortals != null
         ? { enabledPortals: parsed.data.enabledPortals }
         : {}),
@@ -76,6 +92,9 @@ settingsRouter.patch("/", async (req: AuthedRequest, res) => {
       currencyLabel: true,
       defaultCity: true,
       enabledPortals: true,
+      privacyUrl: true,
+      licenseLabel: true,
+      licenseNumber: true,
     },
   });
 

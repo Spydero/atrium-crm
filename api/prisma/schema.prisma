@@ -18,6 +18,7 @@ model User {
   role          String    @default("agent") // owner | admin | agent
   organizationId String?
   organization  Organization? @relation(fields: [organizationId], references: [id])
+  ownedGuides   Guide[]   @relation("GuideOwner")
   sessions      Session[]
   accounts      Account[]
   assignedLeads Lead[]    @relation("AssignedLeads")
@@ -71,6 +72,9 @@ model Organization {
   currencyLabel  String    @default("AED")
   defaultCity    String    @default("")
   enabledPortals String[]  @default(["BAYUT", "PROPERTY_FINDER", "DUBIZZLE", "SKYLOOV"])
+  privacyUrl     String?
+  licenseLabel   String    @default("Licence no.")
+  licenseNumber  String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   users          User[]
@@ -79,6 +83,7 @@ model Organization {
   events         CalendarEvent[]
   shortlists     Shortlist[]
   portalBudgets  PortalBudget[]
+  guides         Guide[]
 }
 
 enum ListingStatus {
@@ -173,6 +178,7 @@ enum LeadSource {
   META
   REFERRAL
   WEBSITE
+  GUIDE
 }
 
 model Lead {
@@ -181,7 +187,7 @@ model Lead {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   name           String
   email          String?
-  phone          String
+  phone          String?
   stage          LeadStage    @default(NEW)
   primarySource  LeadSource   @default(MANUAL)
   budgetMin      Int?
@@ -201,6 +207,7 @@ model Lead {
   notes          LeadNote[]
   activities     ActivityEvent[]
   events         CalendarEvent[]
+  guideRequests  GuideRequest[]
 
   @@index([organizationId, phone])
   @@index([organizationId, stage])
@@ -301,4 +308,92 @@ model PortalBudget {
   monthlySpendAed Int         @default(0)
 
   @@unique([organizationId, portal])
+}
+
+enum GuideAudience {
+  BUYER
+  SELLER
+  INVESTOR
+  RENTER
+  GENERAL
+}
+
+enum GuideStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model Guide {
+  id             String        @id @default(cuid())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  slug           String
+  title          String
+  subtitle       String        @default("")
+  audience       GuideAudience @default(GENERAL)
+  summary        String        @default("")
+  benefits       String[]      @default([])
+  coverUrl       String?
+  pageCount      Int?
+  status         GuideStatus   @default(DRAFT)
+  gated          Boolean       @default(true)
+  ownerId        String?
+  owner          User?         @relation("GuideOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  /// Private storage key (file name under api/storage/guides). Never served statically.
+  filePath       String?
+  fileName       String?
+  fileBytes      Int?
+  permitNumber   String?
+  ctaText        String        @default("")
+  version        Int           @default(1)
+  publishedAt    DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  requests       GuideRequest[]
+  stats          GuideDailyStat[]
+
+  @@unique([organizationId, slug])
+  @@index([organizationId, status])
+}
+
+model GuideRequest {
+  id                String    @id @default(cuid())
+  guideId           String
+  guide             Guide     @relation(fields: [guideId], references: [id], onDelete: Cascade)
+  leadId            String?
+  lead              Lead?     @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  /// Personal download token, unguessable. One per submission.
+  token             String    @unique
+  name              String
+  email             String
+  phone             String?
+  consentMarketing  Boolean   @default(false)
+  consentText       String    @default("")
+  consentVersion    Int       @default(1)
+  consentAt         DateTime?
+  utmSource         String?
+  utmMedium         String?
+  utmCampaign       String?
+  referrer          String?
+  ipHash            String?
+  downloadCount     Int       @default(0)
+  firstDownloadedAt DateTime?
+  lastDownloadedAt  DateTime?
+  createdAt         DateTime  @default(now())
+
+  @@index([guideId, createdAt])
+  @@index([leadId])
+}
+
+/// Aggregate views per day. No personal data and no cookies.
+model GuideDailyStat {
+  guideId String
+  guide   Guide    @relation(fields: [guideId], references: [id], onDelete: Cascade)
+  date    String   // YYYY-MM-DD
+  views   Int      @default(0)
+  /// Downloads from an open (ungated) guide where no form was filled
+  downloads Int    @default(0)
+
+  @@id([guideId, date])
 }

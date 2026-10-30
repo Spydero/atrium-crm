@@ -19,7 +19,6 @@ import type { ReportSummary } from "./reportData.js";
 const GUTTER = 24;
 const HALF_W = (CONTENT_W - GUTTER) / 2;
 const ROW_H = 19;
-const TOTAL_PAGES = 2;
 
 type Row = { label: string; value: number };
 
@@ -131,6 +130,50 @@ function dataTable(
   });
   cy += ROW_H + 2;
   hairline(doc, x, cy, x + w, COLORS.line, 0.5);
+  return cy - y;
+}
+
+function pctRate(r: number) {
+  return `${Math.round(r * 1000) / 10}%`;
+}
+
+type GuideRow = ReportSummary["guides"]["guides"][number];
+
+function guideTable(doc: Doc, y: number, rows: GuideRow[]) {
+  const x = MARGIN;
+  const w = CONTENT_W;
+  line(doc, "Performance by guide", x, y, { size: 11, font: "Times-Bold", color: COLORS.navy, width: w });
+  let cy = y + 19;
+  doc.rect(x, cy, w, 20).fill(COLORS.navy);
+  const colW = 53;
+  const cols = ["VIEWS", "REQUESTS", "DOWNLOADS", "LEADS", "VIEWING+", "WON"];
+  const head = { size: 6.5, font: "Helvetica-Bold" as const, color: COLORS.white, spacing: 0.6 };
+  line(doc, "GUIDE", x + 10, cy + 7, head);
+  cols.forEach((c, i) => {
+    line(doc, c, x + w - 8 - (cols.length - i) * colW, cy + 7, { ...head, width: colW - 4, align: "right" });
+  });
+  cy += 20;
+  rows.slice(0, 10).forEach((r, i) => {
+    if (i % 2 === 1) doc.rect(x, cy, w, ROW_H).fill(COLORS.tint);
+    line(doc, r.title, x + 10, cy + 5.5, {
+      size: 10,
+      font: "Times-Roman",
+      color: COLORS.ink,
+      width: w - 16 - cols.length * colW - 10,
+    });
+    const vals = [r.views, r.requests, r.totalDownloads, r.leads, r.reachedViewing, r.won];
+    vals.forEach((v, ci) => {
+      line(doc, String(v), x + w - 8 - (cols.length - ci) * colW, cy + 5.5, {
+        size: 10,
+        font: v ? "Times-Bold" : "Times-Roman",
+        color: v ? COLORS.ink : COLORS.muted,
+        width: colW - 4,
+        align: "right",
+      });
+    });
+    cy += ROW_H;
+  });
+  hairline(doc, x, cy, x + w, COLORS.navy, 0.8);
   return cy - y;
 }
 
@@ -306,6 +349,9 @@ export async function buildReportPdf(
   }));
 
   const footerNote = "Confidential. Prepared for internal use.";
+  const g = data.guides;
+  const hasGuides = g.guides.length > 0;
+  const TOTAL_PAGES = hasGuides ? 3 : 2;
 
   return docToBuffer(
     (doc) => {
@@ -441,6 +487,61 @@ export async function buildReportPdf(
       });
 
       pageFooter(doc, org.name, 2, TOTAL_PAGES, footerNote);
+
+      // ===== Page 3: guides =====
+      if (hasGuides) {
+        doc.addPage();
+        doc.rect(0, 0, PAGE_W, 841.89).fill(COLORS.white);
+        pageHeader(doc, org.name, "Performance Report");
+
+        y = 84;
+        sectionHeading(doc, "Downloadable guides", MARGIN, y, CONTENT_W);
+        y += 26;
+        const gt = g.totals;
+        const topGuide = [...g.guides].sort((a, b) => b.requests - a.requests)[0];
+        const gSummary =
+          `Guide pages were viewed ${gt.views} ${gt.views === 1 ? "time" : "times"}, producing ${plural(gt.requests, "request")} ` +
+          `(${pctRate(gt.requestRate)} of views). ${gt.downloaded} of those ${gt.downloaded === 1 ? "was" : "were"} downloaded. ` +
+          (topGuide && topGuide.requests
+            ? `The strongest guide was "${topGuide.title}" with ${plural(topGuide.requests, "request")}. `
+            : "") +
+          `${g.guideLeadShare.guideLeads} of ${g.guideLeadShare.allLeads} new leads in the period first arrived through a guide.`;
+        doc.font("Times-Roman").fontSize(10.5);
+        const gh = doc.heightOfString(gSummary, { width: CONTENT_W, lineGap: 3 });
+        doc.fillColor(COLORS.body).text(gSummary, MARGIN, y, { width: CONTENT_W, lineGap: 3, align: "justify" });
+        y += gh + 18;
+
+        const kh2 = 74;
+        hairline(doc, MARGIN, y, PAGE_W - MARGIN, COLORS.navy, 1);
+        hairline(doc, MARGIN, y + kh2, PAGE_W - MARGIN, COLORS.line, 0.6);
+        indicator(doc, MARGIN, y, kw, kh2, String(gt.views), "Guide views", "page visits", false);
+        indicator(doc, MARGIN + kw, y, kw, kh2, String(gt.requests), "Requests", `${pctRate(gt.requestRate)} of views`, true);
+        indicator(doc, MARGIN + kw * 2, y, kw, kh2, String(gt.totalDownloads), "Downloads", `${pctRate(gt.downloadRate)} of requests`, true);
+        indicator(doc, MARGIN + kw * 3, y, kw, kh2, String(gt.reachedViewing), "Reached viewing", `${gt.won} won`, true);
+        y += kh2 + 24;
+
+        y += guideTable(doc, y, g.guides) + 24;
+        const chRows: Row[] = g.channels.slice(0, 8).map((c) => ({ label: c.channel, value: c.requests }));
+        y += dataTable(doc, MARGIN, y, CONTENT_W, "Requests by channel", chRows, {
+          emptyText: "No requests in this period",
+          countHeader: "Requests",
+        }) + 28;
+        const gnotes = [
+          "A request is one completed form. A download is counted each time the personal link or an open download is used.",
+          "Views are daily totals and do not identify visitors. Leads reached viewing include later stages.",
+        ];
+        sectionHeading(doc, "Notes and definitions", MARGIN, y, CONTENT_W);
+        y += 26;
+        gnotes.forEach((n, i) => {
+          line(doc, `${i + 1}.`, MARGIN, y, { size: 9.5, font: "Times-Bold", color: COLORS.navy });
+          doc.font("Times-Roman").fontSize(9.5);
+          const nh = doc.heightOfString(n, { width: CONTENT_W - 22, lineGap: 2 });
+          doc.fillColor(COLORS.body).text(n, MARGIN + 22, y, { width: CONTENT_W - 22, lineGap: 2 });
+          y += nh + 8;
+        });
+
+        pageFooter(doc, org.name, 3, TOTAL_PAGES, footerNote);
+      }
     },
     { Title: `Performance report ${data.range.from} to ${data.range.to}`, Author: org.name },
   );

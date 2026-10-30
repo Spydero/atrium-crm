@@ -312,6 +312,7 @@ leadsRouter.post("/merge", async (req: AuthedRequest, res) => {
 
   const result = await prisma.$transaction(async (tx) => {
     const where = { leadId: { in: dupIds } };
+    await tx.guideRequest.updateMany({ where, data: { leadId: primary.id } });
     const [sources, notes, activities, events] = await Promise.all([
       tx.leadSourceEvent.updateMany({ where, data: { leadId: primary.id } }),
       tx.leadNote.updateMany({ where, data: { leadId: primary.id } }),
@@ -330,7 +331,7 @@ leadsRouter.post("/merge", async (req: AuthedRequest, res) => {
           leadId: primary.id,
           actorId,
           type: "merge",
-          body: `Merged duplicate "${d.name}" (${d.phone}) into this lead`,
+          body: `Merged duplicate "${d.name}" (${d.phone || d.email || "no contact"}) into this lead`,
         },
       });
     }
@@ -471,6 +472,7 @@ leadsRouter.post("/", async (req: AuthedRequest, res) => {
         "META",
         "REFERRAL",
         "WEBSITE",
+        "GUIDE",
       ])
       .optional(),
     listingId: z.string().optional().nullable(),

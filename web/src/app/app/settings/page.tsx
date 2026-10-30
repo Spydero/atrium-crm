@@ -11,6 +11,9 @@ export default function SettingsPage() {
     currencyCode: "AED",
     currencyLabel: "AED",
     defaultCity: "",
+    privacyUrl: "",
+    licenseLabel: "Licence no.",
+    licenseNumber: "",
     enabledPortals: [...ALL_PORTALS] as string[],
   });
   const [saving, setSaving] = useState(false);
@@ -25,6 +28,9 @@ export default function SettingsPage() {
           currencyCode: s.currencyCode,
           currencyLabel: s.currencyLabel,
           defaultCity: s.defaultCity || "",
+          privacyUrl: s.privacyUrl || "",
+          licenseLabel: s.licenseLabel || "Licence no.",
+          licenseNumber: s.licenseNumber || "",
           enabledPortals: s.enabledPortals?.length
             ? s.enabledPortals
             : [...ALL_PORTALS],
@@ -64,6 +70,9 @@ export default function SettingsPage() {
         currencyCode: updated.currencyCode,
         currencyLabel: updated.currencyLabel,
         defaultCity: updated.defaultCity || "",
+        privacyUrl: updated.privacyUrl || "",
+        licenseLabel: updated.licenseLabel || "Licence no.",
+        licenseNumber: updated.licenseNumber || "",
         enabledPortals: updated.enabledPortals,
       });
       setMsg("Settings saved.");
@@ -140,6 +149,53 @@ export default function SettingsPage() {
             placeholder="Used as a soft default on new listings"
           />
         </label>
+
+        <div className="border-t border-line pt-4">
+          <div className="mb-3">
+            <div className="text-sm font-bold">Public pages and guides</div>
+            <p className="text-xs text-muted">
+              Shown on public guide pages and printed on guides you generate. Leave blank if not
+              required in your market.
+            </p>
+          </div>
+          <div className="space-y-3">
+            <label className="block space-y-1">
+              <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
+                Privacy notice link
+              </span>
+              <input
+                className="field w-full"
+                type="url"
+                value={form.privacyUrl}
+                onChange={(e) => setForm({ ...form, privacyUrl: e.target.value })}
+                placeholder="https://yourbrokerage.com/privacy"
+              />
+            </label>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block space-y-1">
+                <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
+                  Licence label
+                </span>
+                <input
+                  className="field w-full"
+                  value={form.licenseLabel}
+                  onChange={(e) => setForm({ ...form, licenseLabel: e.target.value })}
+                  placeholder="e.g. Licence no., ORN, Registration"
+                />
+              </label>
+              <label className="block space-y-1">
+                <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
+                  Licence or registration number
+                </span>
+                <input
+                  className="field w-full"
+                  value={form.licenseNumber}
+                  onChange={(e) => setForm({ ...form, licenseNumber: e.target.value })}
+                />
+              </label>
+            </div>
+          </div>
+        </div>
 
         <div>
           <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.08em] text-muted">

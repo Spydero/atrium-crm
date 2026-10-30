@@ -13,6 +13,7 @@ import {
   BarChart3,
   Settings,
   MapPinned,
+  BookOpen,
 } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 
@@ -32,6 +33,10 @@ const groups = [
       { href: "/app/map", label: "Map", icon: MapPinned },
       { href: "/app/shortlists", label: "Shortlists", icon: Link2 },
     ],
+  },
+  {
+    label: "Marketing",
+    items: [{ href: "/app/guides", label: "Guides", icon: BookOpen }],
   },
   {
     label: "Insights",

@@ -165,6 +165,7 @@ Shipped in phases. **V1.0** = first shippable demo of the core loop.
 | Simulate inbound portal lead | Button / stub webhook for demo | **V1** |
 | Lead scoring / SLA timers | Signal-style polish | Later |
 | Duplicate merge, bulk ops | Select mode + bulk stage/assign; duplicate review and merge | **V1.2** |
+| Guide leads | Downloadable guides capture leads with source and campaign | **V1.4** |
 
 ### D. Calendar & follow-ups
 | Feature | End state | Phase |
@@ -257,6 +258,19 @@ Copy rule: never use em/en dashes in product or docs; ASCII `-` only.
 7. Not included: bulk delete, "not a duplicate" dismissal, fuzzy name matching
 
 Lead Fuse still fuses exact same-phone enquiries on arrival; merge handles what slips through (different formats, same email, manual entries).
+
+---
+
+## V1.4 scope (Downloadable guides)
+
+1. Agents create a guide, upload a PDF, write a summary and "what is inside" points, choose form-first or open download, pick the owner who receives the leads, then publish
+2. Public page per guide and a library page per brokerage, no login. Form: name and email required, phone optional, and a separate unticked marketing opt-in with the exact wording stored
+3. After the form the visitor lands on a personal page with the download button. The link does not expire, so the guide can be downloaded again later
+4. Every request creates a lead with source Guide, or joins an existing lead (same email, or same phone in any format), assigns the guide owner, and adds a follow-up for the next business day
+5. Share panel builds links with source, medium and campaign tags, and a QR code, so each channel can be measured
+6. Reports (screen, PDF page 3, CSV) show views, requests, downloads, request rate, leads, how many reached a viewing or were won, and requests by channel
+7. Guides can be archived (public page and personal links stop working) and restored. Guides with requests cannot be deleted
+8. Not included yet: building guides inside Atrium, email or WhatsApp delivery, A/B testing, multiple languages
 
 ---
 

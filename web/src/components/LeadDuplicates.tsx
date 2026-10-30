@@ -8,7 +8,7 @@ import { api, formatAed, portalLabel } from "@/lib/api";
 export type LeadSummary = {
   id: string;
   name: string;
-  phone: string;
+  phone: string | null;
   email: string | null;
   stage: string;
   primarySource: string;
@@ -225,7 +225,7 @@ export function LeadMergeDialog({
                     )}
                   </div>
                   <div className="mt-2.5 text-base font-bold">{l.name}</div>
-                  <div className="text-sm text-muted">{l.phone}</div>
+                  <div className="text-sm text-muted">{l.phone || "no phone"}</div>
                   <div className="mb-2 truncate text-sm text-muted">{l.email || "No email"}</div>
 
                   <Row label="Stage">{stageLabel(l.stage)}</Row>
@@ -392,7 +392,7 @@ export function DuplicatesDialog({
                         </span>
                       )}
                       <div className="text-xs text-muted">
-                        {l.phone} · {l.email || "no email"}
+                        {l.phone || "no phone"} · {l.email || "no email"}
                       </div>
                     </div>
                     <div className="flex items-center gap-1.5 text-xs text-muted">

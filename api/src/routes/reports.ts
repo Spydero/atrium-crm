@@ -40,6 +40,18 @@ reportsRouter.get("/export.csv", async (req: AuthedRequest, res) => {
   );
   add("Agent leaderboard", d.agentLeaderboard.map((r) => ({ label: r.name, value: r.leads })));
 
+  add("Guide requests by channel", d.guides.channels.map((c) => ({ label: c.channel, value: c.requests })));
+  for (const g of d.guides.guides) {
+    add(`Guide: ${g.title}`, [
+      { label: "Views", value: g.views },
+      { label: "Requests", value: g.requests },
+      { label: "Downloads", value: g.totalDownloads },
+      { label: "Leads", value: g.leads },
+      { label: "Reached viewing", value: g.reachedViewing },
+      { label: "Won", value: g.won },
+    ]);
+  }
+
   const csv = toCsv(["Section", "Label", "Count", "From", "To"], rows);
   res.setHeader("Content-Type", "text/csv; charset=utf-8");
   res.setHeader("Content-Disposition", `attachment; filename="${csvFilename("report")}"`);

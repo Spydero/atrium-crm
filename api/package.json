@@ -11,7 +11,7 @@
     "db:seed": "tsx src/seed.ts",
     "db:generate": "prisma generate",
     "test": "tsx --test tests/*.test.ts",
-    "test:unit": "tsx --test tests/leadTools.test.ts"
+    "test:unit": "tsx --test tests/leadTools.test.ts tests/guideTools.test.ts"
   },
   "keywords": [],
   "author": "",

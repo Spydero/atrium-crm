@@ -31,7 +31,7 @@ export function emailKey(email: string | null | undefined): string | null {
 
 export type DupCandidate = {
   id: string;
-  phone: string;
+  phone: string | null;
   email: string | null;
   stage: string;
   createdAt: Date | string;
@@ -121,7 +121,7 @@ export function groupDuplicates<T extends DupCandidate>(leads: T[]): DupGroup<T>
 
 export type Mergeable = {
   name: string;
-  phone: string;
+  phone: string | null;
   email: string | null;
   listingId: string | null;
   assignedToId: string | null;
@@ -136,6 +136,7 @@ export type Mergeable = {
 };
 
 export type MergeResult = {
+  phone: string | null;
   email: string | null;
   listingId: string | null;
   assignedToId: string | null;
@@ -171,6 +172,7 @@ export function mergeLeadFields(primary: Mergeable, dups: Mergeable[]): MergeRes
     (d): d is Date => d != null,
   );
   return {
+    phone: firstNonNull(primary.phone, dups.map((d) => d.phone)),
     email: firstNonNull(primary.email, dups.map((d) => d.email)),
     listingId: firstNonNull(primary.listingId, dups.map((d) => d.listingId)),
     assignedToId: firstNonNull(primary.assignedToId, dups.map((d) => d.assignedToId)),
@@ -194,7 +196,7 @@ export function mergedFromNote(
 ) {
   const parts = [`Merged from duplicate lead "${dup.name}"`];
   const extra: string[] = [];
-  if (dup.phone !== primary.phone) extra.push(`phone ${dup.phone}`);
+  if (dup.phone && dup.phone !== primary.phone) extra.push(`phone ${dup.phone}`);
   if (dup.email && dup.email.toLowerCase() !== (primary.email || "").toLowerCase()) {
     extra.push(`email ${dup.email}`);
   }

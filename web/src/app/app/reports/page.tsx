@@ -10,7 +10,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { api, portalLabel } from "@/lib/api";
+import { api, pct, portalLabel } from "@/lib/api";
 import { ExportMenu } from "@/components/ExportMenu";
 import {
   DateRangeFilter,
@@ -34,6 +34,32 @@ type Summary = {
   listingsByStatus: { status: string; count: number }[];
   portalsByStatus: { portal: string; status: string; count: number }[];
   agentLeaderboard: { agentId: string | null; name: string; leads: number }[];
+  guides: {
+    totals: {
+      views: number;
+      requests: number;
+      totalDownloads: number;
+      requestRate: number;
+      downloadRate: number;
+      leads: number;
+      reachedViewing: number;
+      won: number;
+    };
+    guides: {
+      guideId: string;
+      title: string;
+      status: string;
+      views: number;
+      requests: number;
+      totalDownloads: number;
+      requestRate: number;
+      leads: number;
+      reachedViewing: number;
+      won: number;
+    }[];
+    channels: { channel: string; requests: number }[];
+    guideLeadShare: { guideLeads: number; allLeads: number };
+  };
 };
 
 function ChartTip({
@@ -294,6 +320,85 @@ export default function ReportsPage() {
           )}
         </div>
       </div>
+      {data.guides.guides.length > 0 && (
+        <div className="surface p-5" data-testid="guides-report">
+          <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
+            <div className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">
+              Downloadable guides
+            </div>
+            <div className="text-xs text-muted">
+              {data.guides.guideLeadShare.guideLeads} of {data.guides.guideLeadShare.allLeads} new leads
+              came through a guide
+            </div>
+          </div>
+          <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+            {[
+              ["Views", data.guides.totals.views, "guide pages"],
+              ["Requests", data.guides.totals.requests, `${pct(data.guides.totals.requestRate)} of views`],
+              ["Downloads", data.guides.totals.totalDownloads, `${pct(data.guides.totals.downloadRate)} opened`],
+              ["Reached viewing", data.guides.totals.reachedViewing, `${data.guides.totals.won} won`],
+            ].map(([label, value, note]) => (
+              <div key={String(label)} className="rounded-[8px] border border-line px-3 py-2.5">
+                <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted">{label}</div>
+                <div className="font-display mt-0.5 text-2xl font-bold tracking-[-0.03em]">{value}</div>
+                <div className="text-xs text-muted">{note}</div>
+              </div>
+            ))}
+          </div>
+          <div className="grid gap-5 lg:grid-cols-[1fr_260px]">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-line text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
+                    <th className="py-2 pr-3">Guide</th>
+                    <th className="pr-3 text-right">Views</th>
+                    <th className="pr-3 text-right">Requests</th>
+                    <th className="pr-3 text-right">Downloads</th>
+                    <th className="pr-3 text-right">Leads</th>
+                    <th className="pr-3 text-right">Viewing+</th>
+                    <th className="text-right">Won</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.guides.guides.map((g) => (
+                    <tr key={g.guideId} className="border-b border-line/60 last:border-0">
+                      <td className="py-2 pr-3 font-semibold">
+                        {g.title}
+                        {g.status !== "PUBLISHED" && (
+                          <span className="ml-2 text-[10px] font-bold uppercase text-muted">{g.status}</span>
+                        )}
+                      </td>
+                      <td className="pr-3 text-right">{g.views}</td>
+                      <td className="pr-3 text-right font-semibold">{g.requests}</td>
+                      <td className="pr-3 text-right">{g.totalDownloads}</td>
+                      <td className="pr-3 text-right">{g.leads}</td>
+                      <td className="pr-3 text-right">{g.reachedViewing}</td>
+                      <td className="text-right">{g.won}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div>
+              <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.1em] text-muted">
+                Requests by channel
+              </div>
+              {data.guides.channels.length === 0 ? (
+                <p className="text-sm text-muted">No requests in this range.</p>
+              ) : (
+                <ul className="space-y-1.5">
+                  {data.guides.channels.slice(0, 7).map((c) => (
+                    <li key={c.channel} className="flex items-center justify-between rounded-[8px] border border-line px-3 py-1.5 text-sm">
+                      <span className="truncate font-semibold">{c.channel}</span>
+                      <span className="text-muted">{c.requests}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
