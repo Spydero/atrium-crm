@@ -28,57 +28,67 @@ export default function DashboardPage() {
   }, []);
 
   if (!kpis) {
-    return <p className="text-muted">Loading dashboard…</p>;
+    return <p className="text-muted">Loading…</p>;
   }
 
   return (
-    <div className="animate-rise space-y-6">
-      <div>
-        <h1 className="font-display text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted">Pipeline health for your brokerage today.</p>
-      </div>
+    <div className="animate-rise space-y-5">
+      <h1 className="font-display text-[1.75rem] font-bold tracking-[-0.04em]">
+        Dashboard
+      </h1>
 
-      <div className="grid gap-4 rounded-2xl border border-line bg-[#f7f5f1] p-5 lg:grid-cols-4">
-        <div className="rounded-xl bg-paper p-4 lg:col-span-2">
-          <div className="mb-3 text-sm font-semibold text-muted">New leads (7d)</div>
+      <div className="grid gap-3 lg:grid-cols-4">
+        <div className="surface p-4 lg:col-span-2">
+          <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-muted">
+            New leads
+          </div>
           <div className="h-36">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={kpis.newLeadsChart}>
-                <XAxis dataKey="day" tickLine={false} axisLine={false} fontSize={12} />
+                <XAxis dataKey="day" tickLine={false} axisLine={false} fontSize={11} />
                 <YAxis hide />
                 <Tooltip />
-                <Bar dataKey="count" fill="#0b6e4f" radius={[6, 6, 0, 0]} />
+                <Bar dataKey="count" fill="#1a5f7a" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
-        <div className="rounded-xl bg-paper p-4">
-          <div className="text-sm text-muted">Close rate</div>
-          <div className="font-display mt-2 text-4xl font-bold text-cove">
+        <div className="surface flex flex-col justify-between p-4">
+          <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted">
+            Close rate
+          </div>
+          <div className="font-display text-5xl font-bold tracking-[-0.04em] text-accent">
             {kpis.closeRate}%
           </div>
-          <div className="mt-1 text-xs text-muted">Won vs open+won</div>
         </div>
-        <div className="space-y-3">
-          <div className="rounded-xl bg-paper p-4">
-            <div className="text-2xl font-bold">{kpis.openLeads}</div>
+        <div className="grid gap-3">
+          <div className="surface p-4">
+            <div className="font-display text-3xl font-bold tracking-[-0.03em]">
+              {kpis.openLeads}
+            </div>
             <div className="text-sm text-muted">Open leads</div>
           </div>
-          <div className="rounded-xl bg-paper p-4">
-            <div className="text-2xl font-bold">{formatAed(kpis.pipelineAed)}</div>
-            <div className="text-sm text-muted">Pipeline value</div>
+          <div className="surface p-4">
+            <div className="font-display text-2xl font-bold tracking-[-0.03em]">
+              {formatAed(kpis.pipelineAed)}
+            </div>
+            <div className="text-sm text-muted">Pipeline</div>
           </div>
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="rounded-2xl border border-line bg-paper p-5">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="surface p-4">
           <div className="text-sm text-muted">Viewings this week</div>
-          <div className="font-display mt-1 text-3xl font-bold">{kpis.viewingsWeek}</div>
+          <div className="font-display mt-1 text-3xl font-bold tracking-[-0.03em]">
+            {kpis.viewingsWeek}
+          </div>
         </div>
-        <div className="rounded-2xl border border-line bg-paper p-5">
+        <div className="surface p-4">
           <div className="text-sm text-muted">Active listings</div>
-          <div className="font-display mt-1 text-3xl font-bold">{kpis.listingsActive}</div>
+          <div className="font-display mt-1 text-3xl font-bold tracking-[-0.03em]">
+            {kpis.listingsActive}
+          </div>
         </div>
       </div>
     </div>

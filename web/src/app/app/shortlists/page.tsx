@@ -46,33 +46,27 @@ export default function ShortlistsPage() {
   }
 
   return (
-    <div className="animate-rise space-y-5">
-      <div>
-        <h1 className="font-display text-3xl font-bold tracking-tight">Shortlists</h1>
-        <p className="text-muted">
-          Share a branded link — buyers browse your curated set, not the whole city.
-        </p>
-      </div>
+    <div className="animate-rise space-y-4">
+      <h1 className="font-display text-[1.75rem] font-bold tracking-[-0.04em]">
+        Shortlists
+      </h1>
 
-      <form
-        onSubmit={create}
-        className="space-y-3 rounded-2xl border border-line bg-paper p-5"
-      >
+      <form onSubmit={create} className="surface space-y-3 p-5">
         <div className="grid gap-3 sm:grid-cols-2">
           <input
-            className="rounded-xl border border-line px-3 py-2"
+            className="field"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="Shortlist title"
+            placeholder="Title"
           />
           <input
-            className="rounded-xl border border-line px-3 py-2"
+            className="field"
             value={clientName}
             onChange={(e) => setClientName(e.target.value)}
             placeholder="Client name"
           />
         </div>
-        <div className="grid max-h-56 gap-2 overflow-y-auto sm:grid-cols-2">
+        <div className="grid max-h-52 gap-2 overflow-y-auto sm:grid-cols-2">
           {listings.map((l) => {
             const on = picked.includes(l.id);
             return (
@@ -80,15 +74,13 @@ export default function ShortlistsPage() {
                 key={l.id}
                 type="button"
                 onClick={() =>
-                  setPicked((p) =>
-                    on ? p.filter((id) => id !== l.id) : [...p, l.id],
-                  )
+                  setPicked((p) => (on ? p.filter((id) => id !== l.id) : [...p, l.id]))
                 }
-                className={`rounded-xl border px-3 py-2 text-left text-sm ${
-                  on ? "border-cove bg-cove-soft" : "border-line"
+                className={`rounded-[var(--radius)] border px-3 py-2 text-left text-sm ${
+                  on ? "border-accent bg-accent-soft" : "border-line"
                 }`}
               >
-                <div className="font-semibold">{l.title}</div>
+                <div className="font-bold">{l.title}</div>
                 <div className="text-xs text-muted">
                   {l.community} · {formatAed(l.priceAed)}
                 </div>
@@ -96,14 +88,11 @@ export default function ShortlistsPage() {
             );
           })}
         </div>
-        <button
-          type="submit"
-          className="rounded-xl bg-cove px-4 py-2.5 text-sm font-semibold text-white"
-        >
+        <button type="submit" className="btn-primary">
           Create share link
         </button>
         {createdUrl && (
-          <p className="break-all rounded-xl bg-cove-soft px-3 py-2 text-sm text-cove">
+          <p className="break-all rounded-[var(--radius)] bg-accent-soft px-3 py-2 text-sm text-accent">
             {createdUrl}
           </p>
         )}
@@ -113,21 +102,16 @@ export default function ShortlistsPage() {
         {list.map((s) => (
           <div
             key={s.id}
-            className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-line bg-paper px-4 py-3"
+            className="surface flex flex-wrap items-center justify-between gap-2 px-4 py-3"
           >
             <div>
-              <div className="font-semibold">{s.title}</div>
+              <div className="font-bold">{s.title}</div>
               <div className="text-xs text-muted">
-                {s.clientName || "—"} · {s._count.items} homes · {s.openCount} opens
+                {s.clientName || "No client"} · {s._count.items} homes · {s.openCount} opens
               </div>
             </div>
-            <a
-              className="rounded-xl border border-line px-3 py-1.5 text-sm font-semibold"
-              href={`/s/${s.token}`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Open public page
+            <a className="btn-ghost" href={`/s/${s.token}`} target="_blank" rel="noreferrer">
+              Open
             </a>
           </div>
         ))}

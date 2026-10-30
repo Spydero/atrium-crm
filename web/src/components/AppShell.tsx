@@ -39,11 +39,14 @@ export function AppShell({
 
   return (
     <div className="flex min-h-screen">
-      <aside className="sticky top-0 flex h-screen w-[220px] shrink-0 flex-col border-r border-line bg-[var(--sidebar)] px-4 py-5">
-        <div className="font-display mb-8 px-2 text-xl font-extrabold tracking-tight">
-          ATRIUM
+      <aside className="sticky top-0 flex h-screen w-[212px] shrink-0 flex-col bg-[var(--sidebar)] px-3 py-5 text-white">
+        <div className="font-display mb-8 px-3 text-[1.35rem] font-bold tracking-[-0.04em]">
+          Atrium
+          <span className="mt-1 block text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--sidebar-muted)]">
+            Brokerage
+          </span>
         </div>
-        <nav className="flex flex-1 flex-col gap-1">
+        <nav className="flex flex-1 flex-col gap-0.5">
           {nav.map(({ href, label, icon: Icon }) => {
             const active =
               href === "/app"
@@ -53,30 +56,32 @@ export function AppShell({
               <Link
                 key={href}
                 href={href}
-                className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition ${
+                className={`flex items-center gap-2.5 rounded-[var(--radius)] px-3 py-2.5 text-[13px] font-semibold transition ${
                   active
-                    ? "bg-cove text-white"
-                    : "text-muted hover:bg-black/[0.04] hover:text-ink"
+                    ? "bg-[var(--accent)] text-white"
+                    : "text-[var(--sidebar-muted)] hover:bg-white/[0.06] hover:text-white"
                 }`}
               >
-                <Icon size={17} strokeWidth={1.75} />
+                <Icon size={16} strokeWidth={1.8} />
                 {label}
               </Link>
             );
           })}
         </nav>
-        <div className="mt-auto border-t border-line pt-4">
-          <div className="mb-2 px-2 text-sm font-semibold">{userName || "Agent"}</div>
+        <div className="mt-auto border-t border-[var(--sidebar-line)] px-2 pt-4">
+          <div className="mb-2 truncate px-1 text-[13px] font-semibold text-white/90">
+            {userName || "Agent"}
+          </div>
           <button
             type="button"
             onClick={signOut}
-            className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm text-muted hover:bg-black/[0.04] hover:text-ink"
+            className="flex w-full items-center gap-2 rounded-[var(--radius)] px-2 py-2 text-[13px] text-[var(--sidebar-muted)] hover:bg-white/[0.06] hover:text-white"
           >
-            <LogOut size={16} /> Sign out
+            <LogOut size={15} /> Sign out
           </button>
         </div>
       </aside>
-      <main className="min-w-0 flex-1 p-6 lg:p-8">{children}</main>
+      <main className="min-w-0 flex-1 p-5 lg:p-7">{children}</main>
     </div>
   );
 }

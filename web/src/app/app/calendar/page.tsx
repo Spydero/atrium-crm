@@ -68,26 +68,25 @@ export default function CalendarPage() {
   }
 
   return (
-    <div className="animate-rise space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="font-display text-3xl font-bold tracking-tight">Calendar</h1>
-          <p className="text-muted">Viewing OS — schedule, complete, capture feedback.</p>
-        </div>
+    <div className="animate-rise space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="font-display text-[1.75rem] font-bold tracking-[-0.04em]">
+          Calendar
+        </h1>
         <div className="flex items-center gap-2">
           <button
             type="button"
-            className="rounded-xl border border-line bg-paper px-3 py-2 text-sm"
+            className="btn-ghost px-3 py-2"
             onClick={() => setCursor(addDays(startOfMonth(cursor), -1))}
           >
             Prev
           </button>
-          <div className="font-display min-w-[140px] text-center text-lg font-bold">
+          <div className="font-display min-w-[140px] text-center text-base font-bold">
             {format(cursor, "MMMM yyyy")}
           </div>
           <button
             type="button"
-            className="rounded-xl border border-line bg-paper px-3 py-2 text-sm"
+            className="btn-ghost px-3 py-2"
             onClick={() => setCursor(addDays(endOfMonth(cursor), 1))}
           >
             Next
@@ -95,9 +94,12 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-2">
+      <div className="grid grid-cols-7 gap-1.5">
         {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-          <div key={d} className="px-2 text-xs font-semibold text-muted">
+          <div
+            key={d}
+            className="px-2 text-[11px] font-bold uppercase tracking-[0.08em] text-muted"
+          >
             {d}
           </div>
         ))}
@@ -106,23 +108,23 @@ export default function CalendarPage() {
           return (
             <div
               key={day.toISOString()}
-              className={`min-h-[100px] rounded-xl border p-2 ${
+              className={`min-h-[96px] rounded-[var(--radius)] border p-1.5 ${
                 isSameMonth(day, cursor)
                   ? "border-line bg-paper"
-                  : "border-transparent bg-transparent opacity-40"
+                  : "border-transparent opacity-35"
               }`}
             >
-              <div className="mb-1 text-xs font-semibold">{format(day, "d")}</div>
+              <div className="mb-1 text-xs font-bold">{format(day, "d")}</div>
               <div className="space-y-1">
                 {dayEvents.map((ev) => (
                   <button
                     key={ev.id}
                     type="button"
                     onClick={() => setSelected(ev)}
-                    className={`block w-full truncate rounded-md px-1.5 py-1 text-left text-[11px] font-medium ${
+                    className={`block w-full truncate rounded px-1.5 py-1 text-left text-[11px] font-semibold ${
                       ev.type === "VIEWING"
-                        ? "bg-cove-soft text-cove"
-                        : "bg-canvas text-muted"
+                        ? "bg-accent-soft text-accent"
+                        : "bg-[#eef1f4] text-muted"
                     }`}
                   >
                     {format(new Date(ev.startsAt), "HH:mm")} {ev.title}
@@ -135,26 +137,32 @@ export default function CalendarPage() {
       </div>
 
       {selected && (
-        <div className="animate-fade rounded-2xl border border-line bg-paper p-5">
+        <div className="animate-fade surface p-5">
           <div className="flex justify-between gap-2">
             <div>
-              <h2 className="font-display text-xl font-bold">{selected.title}</h2>
+              <h2 className="font-display text-xl font-bold tracking-[-0.03em]">
+                {selected.title}
+              </h2>
               <p className="text-sm text-muted">
-                {format(new Date(selected.startsAt), "PPp")} · {selected.type} ·{" "}
-                {selected.outcome || "—"}
+                {format(new Date(selected.startsAt), "PPp")} · {selected.type}
+                {selected.outcome ? ` · ${selected.outcome}` : ""}
               </p>
               {selected.lead && (
-                <p className="mt-1 text-sm">Lead: {selected.lead.name}</p>
+                <p className="mt-1 text-sm font-medium">{selected.lead.name}</p>
               )}
             </div>
-            <button type="button" className="text-sm text-muted" onClick={() => setSelected(null)}>
+            <button
+              type="button"
+              className="text-sm font-semibold text-muted"
+              onClick={() => setSelected(null)}
+            >
               Close
             </button>
           </div>
           {selected.type === "VIEWING" && selected.outcome === "SCHEDULED" && (
             <div className="mt-4 space-y-3">
               <select
-                className="rounded-xl border border-line px-3 py-2 text-sm"
+                className="field max-w-xs"
                 value={fit}
                 onChange={(e) => setFit(e.target.value)}
               >
@@ -163,9 +171,9 @@ export default function CalendarPage() {
                 <option value="poor">Fit: poor</option>
               </select>
               <textarea
-                className="w-full rounded-xl border border-line px-3 py-2 text-sm"
+                className="field"
                 rows={3}
-                placeholder="Viewing feedback…"
+                placeholder="Feedback"
                 value={feedback}
                 onChange={(e) => setFeedback(e.target.value)}
               />
@@ -173,21 +181,21 @@ export default function CalendarPage() {
                 <button
                   type="button"
                   onClick={() => completeViewing("COMPLETED")}
-                  className="rounded-xl bg-cove px-3 py-2 text-sm font-semibold text-white"
+                  className="btn-primary"
                 >
-                  Mark completed
+                  Completed
                 </button>
                 <button
                   type="button"
                   onClick={() => completeViewing("NO_SHOW")}
-                  className="rounded-xl border border-line px-3 py-2 text-sm font-semibold"
+                  className="btn-ghost"
                 >
                   No-show
                 </button>
                 <button
                   type="button"
                   onClick={() => completeViewing("CANCELLED")}
-                  className="rounded-xl border border-line px-3 py-2 text-sm font-semibold"
+                  className="btn-ghost"
                 >
                   Cancelled
                 </button>
@@ -195,8 +203,9 @@ export default function CalendarPage() {
             </div>
           )}
           {selected.feedback && (
-            <p className="mt-3 rounded-xl bg-canvas p-3 text-sm">
-              Feedback ({selected.feedbackFit}): {selected.feedback}
+            <p className="mt-3 rounded-[var(--radius)] bg-[#eef1f4] p-3 text-sm">
+              {selected.feedbackFit ? `${selected.feedbackFit}: ` : ""}
+              {selected.feedback}
             </p>
           )}
         </div>

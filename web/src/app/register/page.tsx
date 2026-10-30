@@ -45,26 +45,28 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
-      <div className="animate-rise w-full max-w-md rounded-2xl border border-line bg-paper p-8 shadow-[0_24px_60px_rgba(18,20,26,0.08)]">
-        <div className="font-display mb-1 text-2xl font-bold">ATRIUM</div>
-        <p className="mb-6 text-sm text-muted">Create an agent account.</p>
-        <form onSubmit={onSubmit} className="flex flex-col gap-3">
+    <div className="flex min-h-screen items-center justify-center bg-canvas px-6 py-12">
+      <div className="animate-rise w-full max-w-[400px] surface p-7">
+        <div className="font-display text-xl font-bold tracking-[-0.03em]">Atrium</div>
+        <h1 className="mt-4 font-display text-2xl font-bold tracking-[-0.03em]">
+          Create account
+        </h1>
+        <form onSubmit={onSubmit} className="mt-5 flex flex-col gap-3">
           <input
-            className="rounded-xl border border-line bg-canvas px-3 py-2.5"
+            className="field"
             placeholder="Your name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
           />
           <input
-            className="rounded-xl border border-line bg-canvas px-3 py-2.5"
+            className="field"
             placeholder="Brokerage name"
             value={orgName}
             onChange={(e) => setOrgName(e.target.value)}
           />
           <input
-            className="rounded-xl border border-line bg-canvas px-3 py-2.5"
+            className="field"
             placeholder="Email"
             type="email"
             value={email}
@@ -72,7 +74,7 @@ export default function RegisterPage() {
             required
           />
           <input
-            className="rounded-xl border border-line bg-canvas px-3 py-2.5"
+            className="field"
             placeholder="Password"
             type="password"
             value={password}
@@ -81,17 +83,13 @@ export default function RegisterPage() {
             minLength={8}
           />
           {error && <p className="text-sm text-[var(--danger)]">{error}</p>}
-          <button
-            type="submit"
-            disabled={loading}
-            className="rounded-xl bg-cove px-4 py-3 text-sm font-semibold text-white"
-          >
+          <button type="submit" disabled={loading} className="btn-primary mt-1">
             {loading ? "Creating…" : "Create account"}
           </button>
         </form>
-        <p className="mt-4 text-center text-sm text-muted">
-          Prefer the seeded demo?{" "}
-          <Link href="/login" className="font-semibold text-cove">
+        <p className="mt-4 text-sm text-muted">
+          Have an account?{" "}
+          <Link href="/login" className="font-semibold text-accent">
             Sign in
           </Link>
         </p>

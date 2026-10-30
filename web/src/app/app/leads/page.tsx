@@ -84,8 +84,8 @@ export default function LeadsPage() {
     });
     setMsg(
       res.fused
-        ? `Lead Fuse: ${portalLabel(source)} enquiry merged into one lead.`
-        : `New lead from ${portalLabel(source)}.`,
+        ? `Fused ${portalLabel(source)} into existing lead.`
+        : `New ${portalLabel(source)} lead.`,
     );
     await load();
     await openLead(res.lead.id);
@@ -122,26 +122,17 @@ export default function LeadsPage() {
   }
 
   return (
-    <div className="animate-rise space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="font-display text-3xl font-bold tracking-tight">Leads</h1>
-          <p className="text-muted">
-            Pipeline with Lead Fuse — one phone, one relationship.
-          </p>
-        </div>
+    <div className="animate-rise space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="font-display text-[1.75rem] font-bold tracking-[-0.04em]">Leads</h1>
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => simulate("BAYUT")}
-            className="rounded-xl border border-line bg-paper px-3 py-2 text-sm font-semibold"
-          >
-            Simulate Bayut lead
+          <button type="button" onClick={() => simulate("BAYUT")} className="btn-ghost">
+            Simulate Bayut
           </button>
           <button
             type="button"
             onClick={() => simulate("PROPERTY_FINDER")}
-            className="rounded-xl bg-cove px-3 py-2 text-sm font-semibold text-white"
+            className="btn-primary"
           >
             Simulate PF (same phone)
           </button>
@@ -149,27 +140,27 @@ export default function LeadsPage() {
       </div>
 
       {msg && (
-        <div className="rounded-xl border border-cove/20 bg-cove-soft px-4 py-3 text-sm text-cove">
+        <div className="rounded-[var(--radius)] border border-accent/20 bg-accent-soft px-3 py-2.5 text-sm font-medium text-accent">
           {msg}
         </div>
       )}
 
-      <div className="grid gap-4 pb-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
+      <div className="grid gap-3 pb-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
         {columns.map((col) => (
           <div
             key={col.stage}
-            className="min-w-0 rounded-2xl border border-line bg-paper/70 p-3"
+            className="surface min-w-0 p-2.5"
             onDragOver={(e) => e.preventDefault()}
             onDrop={async (e) => {
               const id = e.dataTransfer.getData("text/lead");
               if (id) await moveStage(id, col.stage);
             }}
           >
-            <div className="mb-3 flex items-center justify-between px-1">
-              <span className="text-sm font-semibold">{col.stage}</span>
-              <span className="rounded-md bg-canvas px-2 py-0.5 text-xs text-muted">
-                {col.items.length}
+            <div className="mb-2 flex items-center justify-between px-1">
+              <span className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">
+                {col.stage}
               </span>
+              <span className="text-xs font-semibold text-muted">{col.items.length}</span>
             </div>
             <div className="space-y-2">
               {col.items.map((lead) => {
@@ -181,22 +172,22 @@ export default function LeadsPage() {
                     draggable
                     onDragStart={(e) => e.dataTransfer.setData("text/lead", lead.id)}
                     onClick={() => openLead(lead.id)}
-                    className={`w-full rounded-xl border p-3 text-left transition ${
+                    className={`w-full rounded-[8px] border p-3 text-left transition ${
                       active
-                        ? "border-cove bg-cove text-white"
-                        : "border-line bg-paper hover:border-cove/40"
+                        ? "border-ink bg-ink text-white"
+                        : "border-line bg-paper hover:border-ink/25"
                     }`}
                   >
-                    <div className="font-semibold">{lead.name}</div>
-                    <div className={`mt-1 text-xs ${active ? "text-white/80" : "text-muted"}`}>
+                    <div className="text-sm font-bold">{lead.name}</div>
+                    <div className={`mt-1 text-xs ${active ? "text-white/70" : "text-muted"}`}>
                       {lead.listing?.title || "No listing"} · {formatAed(lead.dealValueAed || 0)}
                     </div>
                     <div className="mt-2 flex flex-wrap gap-1">
                       {[...new Set(lead.sources.map((s) => s.source))].map((s) => (
                         <span
                           key={s}
-                          className={`rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${
-                            active ? "bg-white/15" : "bg-canvas text-muted"
+                          className={`rounded px-1.5 py-0.5 text-[10px] font-bold ${
+                            active ? "bg-white/12" : "bg-[#eef1f4] text-muted"
                           }`}
                         >
                           {portalLabel(s)}
@@ -212,104 +203,103 @@ export default function LeadsPage() {
       </div>
 
       {selected && (
-        <div className="animate-fade grid gap-4 rounded-2xl border border-line bg-paper p-5 lg:grid-cols-2">
+        <div className="animate-fade grid gap-5 surface p-5 lg:grid-cols-2">
           <div>
             <div className="flex items-start justify-between gap-2">
               <div>
-                <h2 className="font-display text-xl font-bold">{selected.name}</h2>
+                <h2 className="font-display text-xl font-bold tracking-[-0.03em]">
+                  {selected.name}
+                </h2>
                 <p className="text-sm text-muted">
-                  {selected.phone} · {selected.sources.length} source event(s)
+                  {selected.phone} · {selected.sources.length} sources
                 </p>
               </div>
               <button
                 type="button"
-                className="text-sm text-muted"
+                className="text-sm font-semibold text-muted"
                 onClick={() => setSelected(null)}
               >
                 Close
               </button>
             </div>
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-3 flex flex-wrap gap-1.5">
               {STAGES.map((s) => (
                 <button
                   key={s}
                   type="button"
                   onClick={() => moveStage(selected.id, s)}
-                  className={`rounded-lg px-2.5 py-1 text-xs font-semibold ${
-                    selected.stage === s ? "bg-cove text-white" : "bg-canvas text-muted"
+                  className={`rounded-[6px] px-2.5 py-1 text-[11px] font-bold ${
+                    selected.stage === s ? "bg-accent text-white" : "bg-[#eef1f4] text-muted"
                   }`}
                 >
                   {s}
                 </button>
               ))}
             </div>
-            <button
-              type="button"
-              onClick={scheduleViewing}
-              className="mt-4 rounded-xl bg-ink px-3 py-2 text-sm font-semibold text-white"
-            >
+            <button type="button" onClick={scheduleViewing} className="btn-primary mt-4">
               Schedule viewing
             </button>
-            <div className="mt-4">
-              <div className="mb-2 text-sm font-semibold">Notes</div>
+            <div className="mt-5">
+              <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.1em] text-muted">
+                Notes
+              </div>
               <div className="space-y-2">
                 {selected.notes.map((n) => (
-                  <div key={n.id} className="rounded-lg bg-canvas px-3 py-2 text-sm">
+                  <div key={n.id} className="rounded-[8px] bg-[#eef1f4] px-3 py-2 text-sm">
                     {n.body}
                   </div>
                 ))}
               </div>
               <div className="mt-2 flex gap-2">
                 <input
-                  className="flex-1 rounded-xl border border-line px-3 py-2 text-sm"
+                  className="field flex-1"
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   placeholder="Add a note"
                 />
-                <button
-                  type="button"
-                  onClick={addNote}
-                  className="rounded-xl border border-line px-3 text-sm font-semibold"
-                >
+                <button type="button" onClick={addNote} className="btn-ghost">
                   Add
                 </button>
               </div>
             </div>
-            <div className="mt-4">
-              <div className="mb-2 text-sm font-semibold">Activity</div>
+            <div className="mt-5">
+              <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.1em] text-muted">
+                Activity
+              </div>
               <ul className="space-y-2 text-sm text-muted">
                 {selected.activities.map((a) => (
-                  <li key={a.id} className="border-l-2 border-cove/30 pl-3">
-                    <span className="font-medium text-ink">{a.type}</span> — {a.body}
+                  <li key={a.id} className="border-l-2 border-accent/35 pl-3">
+                    <span className="font-semibold text-ink">{a.type}</span>
+                    <span className="mx-1.5 text-line">|</span>
+                    {a.body}
                   </li>
                 ))}
               </ul>
             </div>
           </div>
           <div>
-            <div className="mb-2 text-sm font-semibold">Smart Match</div>
-            <p className="mb-3 text-xs text-muted">
-              Rule-based listings for budget / beds / community.
-            </p>
+            <div className="mb-3 text-[11px] font-bold uppercase tracking-[0.1em] text-muted">
+              Smart Match
+            </div>
             <div className="space-y-2">
               {matches.slice(0, 5).map((m) => (
                 <div
                   key={m.listing.id}
-                  className="flex items-center justify-between rounded-xl border border-line px-3 py-2"
+                  className="flex items-center justify-between rounded-[8px] border border-line px-3 py-2.5"
                 >
                   <div>
-                    <div className="font-medium">{m.listing.title}</div>
+                    <div className="text-sm font-bold">{m.listing.title}</div>
                     <div className="text-xs text-muted">
                       {m.listing.community} · {formatAed(m.listing.priceAed)}
                     </div>
                   </div>
-                  <span className="rounded-md bg-cove-soft px-2 py-1 text-xs font-bold text-cove">
+                  <span className="rounded bg-accent-soft px-2 py-1 text-xs font-bold text-accent">
                     {m.score}
                   </span>
                 </div>
               ))}
               {!matches.length && (
-                <p className="text-sm text-muted">No matches yet — set budget/beds on lead.</p>
+                <p className="text-sm text-muted">No matches. Add budget or beds on the lead.</p>
               )}
             </div>
           </div>

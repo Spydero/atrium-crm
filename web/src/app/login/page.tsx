@@ -26,48 +26,68 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
-      <div className="animate-rise w-full max-w-md rounded-2xl border border-line bg-paper p-8 shadow-[0_24px_60px_rgba(18,20,26,0.08)]">
-        <div className="font-display mb-1 text-2xl font-bold tracking-tight">ATRIUM</div>
-        <p className="mb-6 text-sm text-muted">
-          Sign in to your brokerage workspace.
-        </p>
-        <form onSubmit={onSubmit} className="flex flex-col gap-3">
-          <label className="text-xs font-semibold text-muted">Email</label>
-          <input
-            className="rounded-xl border border-line bg-canvas px-3 py-2.5 outline-none focus:border-cove"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            type="email"
-            required
-          />
-          <label className="mt-1 text-xs font-semibold text-muted">Password</label>
-          <input
-            className="rounded-xl border border-line bg-canvas px-3 py-2.5 outline-none focus:border-cove"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            type="password"
-            required
-          />
-          {error && <p className="text-sm text-[var(--danger)]">{error}</p>}
-          <button
-            type="submit"
-            disabled={loading}
-            className="mt-2 rounded-xl bg-cove px-4 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
-          >
-            {loading ? "Signing in…" : "Sign in"}
-          </button>
-        </form>
-        <p className="mt-4 text-center text-sm text-muted">
-          No account?{" "}
-          <Link href="/register" className="font-semibold text-cove">
-            Create one
-          </Link>
-        </p>
-        <p className="mt-3 text-center text-xs text-muted">
-          Demo: agent@atrium.demo / demo1234
-        </p>
-      </div>
+    <div className="grid min-h-screen lg:grid-cols-[1.05fr_0.95fr]">
+      <section className="relative hidden overflow-hidden bg-[var(--sidebar)] text-white lg:flex lg:flex-col lg:justify-between lg:p-12">
+        <div
+          className="pointer-events-none absolute inset-0 opacity-40"
+          style={{
+            backgroundImage:
+              "linear-gradient(135deg, transparent 40%, rgba(26,95,122,0.55)), url(https://images.unsplash.com/photo-1512453979798-5ea833a61a49?w=1600&q=80)",
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          }}
+        />
+        <div className="relative">
+          <div className="font-display text-3xl font-bold tracking-[-0.04em]">Atrium</div>
+        </div>
+        <div className="relative max-w-sm">
+          <p className="font-display text-4xl font-bold leading-[1.1] tracking-[-0.03em]">
+            Listings, leads, and viewings in one desk.
+          </p>
+        </div>
+      </section>
+
+      <section className="flex items-center justify-center bg-canvas px-6 py-12">
+        <div className="animate-rise w-full max-w-[380px]">
+          <div className="mb-8 lg:hidden">
+            <div className="font-display text-2xl font-bold tracking-[-0.04em]">Atrium</div>
+          </div>
+          <h1 className="font-display text-2xl font-bold tracking-[-0.03em]">Sign in</h1>
+          <form onSubmit={onSubmit} className="mt-6 flex flex-col gap-3">
+            <label className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted">
+              Email
+            </label>
+            <input
+              className="field"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              type="email"
+              required
+            />
+            <label className="mt-1 text-[11px] font-bold uppercase tracking-[0.12em] text-muted">
+              Password
+            </label>
+            <input
+              className="field"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              type="password"
+              required
+            />
+            {error && <p className="text-sm text-[var(--danger)]">{error}</p>}
+            <button type="submit" disabled={loading} className="btn-primary mt-2 w-full">
+              {loading ? "Signing in…" : "Sign in"}
+            </button>
+          </form>
+          <p className="mt-5 text-sm text-muted">
+            New here?{" "}
+            <Link href="/register" className="font-semibold text-accent">
+              Create account
+            </Link>
+          </p>
+          <p className="mt-3 text-xs text-muted">agent@atrium.demo / demo1234</p>
+        </div>
+      </section>
     </div>
   );
 }

@@ -1,16 +1,21 @@
 @import "tailwindcss";
 
 :root {
-  --ink: #12141a;
-  --muted: #5c6370;
-  --line: #e4e6eb;
-  --canvas: #f3f4f6;
+  --ink: #101418;
+  --muted: #66707a;
+  --line: #d7dce2;
+  --canvas: #e8ecf0;
   --paper: #ffffff;
-  --cove: #0b6e4f;
-  --cove-soft: #dff3ea;
-  --warn: #d97706;
+  --accent: #1a5f7a;
+  --accent-soft: #d7ebf2;
+  --mark: #c45c26;
+  --mark-soft: #f7e4d8;
+  --warn: #b45309;
   --danger: #b42318;
-  --sidebar: #fafbfc;
+  --sidebar: #12161a;
+  --sidebar-muted: #8b949e;
+  --sidebar-line: #2a3038;
+  --radius: 10px;
 }
 
 @theme inline {
@@ -19,10 +24,14 @@
   --color-line: var(--line);
   --color-canvas: var(--canvas);
   --color-paper: var(--paper);
-  --color-cove: var(--cove);
-  --color-cove-soft: var(--cove-soft);
-  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Outfit", ui-sans-serif, system-ui, sans-serif;
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-mark: var(--mark);
+  --color-mark-soft: var(--mark-soft);
+  --color-cove: var(--accent);
+  --color-cove-soft: var(--accent-soft);
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
 }
 
 * {
@@ -35,10 +44,10 @@ body {
   min-height: 100%;
   color: var(--ink);
   font-family: var(--font-sans);
-  background:
-    radial-gradient(1000px 500px at 0% -10%, #dfe8e4 0%, transparent 55%),
-    radial-gradient(800px 400px at 100% 0%, #e8ebf0 0%, transparent 50%),
-    var(--canvas);
+  background-color: var(--canvas);
+  background-image:
+    linear-gradient(180deg, rgba(16, 20, 24, 0.03), transparent 240px),
+    radial-gradient(ellipse 80% 50% at 100% 0%, rgba(26, 95, 122, 0.08), transparent 55%);
 }
 
 a {
@@ -57,10 +66,60 @@ textarea {
   font-family: var(--font-display);
 }
 
+.surface {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  border-radius: var(--radius);
+  font-weight: 650;
+  font-size: 0.875rem;
+  padding: 0.65rem 1rem;
+  border: none;
+  cursor: pointer;
+}
+
+.btn-primary:hover {
+  filter: brightness(1.06);
+}
+
+.btn-ghost {
+  background: var(--paper);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-weight: 600;
+  font-size: 0.875rem;
+  padding: 0.65rem 1rem;
+  cursor: pointer;
+}
+
+.btn-ghost:hover {
+  background: #f3f5f7;
+}
+
+.field {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: #f4f6f8;
+  border-radius: var(--radius);
+  padding: 0.65rem 0.85rem;
+  outline: none;
+}
+
+.field:focus {
+  border-color: var(--accent);
+  background: #fff;
+}
+
 @keyframes rise {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
@@ -69,7 +128,7 @@ textarea {
 }
 
 .animate-rise {
-  animation: rise 0.35s ease both;
+  animation: rise 0.3s ease both;
 }
 
 @keyframes fade-in {
@@ -82,5 +141,5 @@ textarea {
 }
 
 .animate-fade {
-  animation: fade-in 0.4s ease both;
+  animation: fade-in 0.28s ease both;
 }
