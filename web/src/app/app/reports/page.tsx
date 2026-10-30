@@ -11,6 +11,7 @@ import {
   YAxis,
 } from "recharts";
 import { api, portalLabel } from "@/lib/api";
+import { ExportMenu } from "@/components/ExportMenu";
 import {
   DateRangeFilter,
   dateRangeQuery,
@@ -118,6 +119,24 @@ export default function ReportsPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <DateRangeFilter value={dateRange} onChange={setDateRange} />
+          <ExportMenu
+            items={[
+              {
+                label: "Report (PDF)",
+                hint: "Designed summary for the selected range",
+                path: `/api/reports/export.pdf?${dateRangeQuery(dateRange)}`,
+                fallbackName: "report.pdf",
+                kind: "pdf",
+              },
+              {
+                label: "Report data (CSV)",
+                hint: "Every figure in a spreadsheet",
+                path: `/api/reports/export.csv?${dateRangeQuery(dateRange)}`,
+                fallbackName: "report.csv",
+                kind: "csv",
+              },
+            ]}
+          />
           <button
             type="button"
             className="btn-ghost text-sm"

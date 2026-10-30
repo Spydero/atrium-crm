@@ -2,6 +2,8 @@ import { Router } from "express";
 import { prisma } from "../lib/prisma.js";
 import { requireAuth, type AuthedRequest } from "../middleware/requireAuth.js";
 import { resolveDateRange } from "../lib/dateRange.js";
+import { computeReportSummary } from "../lib/reportData.js";
+import { csvFilename, labelize, toCsv } from "../lib/csv.js";
 
 export const reportsRouter = Router();
 reportsRouter.use(requireAuth);
@@ -10,150 +12,59 @@ function orgId(req: AuthedRequest) {
   return (req.session?.user as { organizationId?: string | null }).organizationId;
 }
 
-const STAGES = ["NEW", "QUALIFIED", "VIEWING", "OFFER", "WON", "LOST"] as const;
-
 reportsRouter.get("/summary", async (req: AuthedRequest, res) => {
   const organizationId = orgId(req);
   if (!organizationId) return res.status(400).json({ error: "No organization" });
-
   const range = resolveDateRange(req.query);
+  res.json(await computeReportSummary(organizationId, range));
+});
 
-  const [
-    stageGroups,
-    sourceEvents,
-    viewings,
-    listingStatus,
-    portalRows,
-    agents,
-    wins,
-  ] = await Promise.all([
-    prisma.lead.groupBy({
-      by: ["stage"],
-      where: {
-        organizationId,
-        createdAt: { gte: range.from, lte: range.to },
-      },
-      _count: { _all: true },
-    }),
-    prisma.leadSourceEvent.findMany({
-      where: {
-        lead: { organizationId },
-        createdAt: { gte: range.from, lte: range.to },
-      },
-      select: { source: true, leadId: true },
-    }),
-    prisma.calendarEvent.groupBy({
-      by: ["outcome"],
-      where: {
-        organizationId,
-        type: "VIEWING",
-        startsAt: { gte: range.from, lte: range.to },
-      },
-      _count: { _all: true },
-    }),
-    // Inventory snapshot (not time-scoped - industry pattern for stock)
-    prisma.listing.groupBy({
-      by: ["status"],
-      where: { organizationId },
-      _count: { _all: true },
-    }),
-    prisma.listingPortalStatus.groupBy({
-      by: ["portal", "status"],
-      where: { listing: { organizationId } },
-      _count: { _all: true },
-    }),
-    prisma.lead.groupBy({
-      by: ["assignedToId"],
-      where: {
-        organizationId,
-        assignedToId: { not: null },
-        createdAt: { gte: range.from, lte: range.to },
-      },
-      _count: { _all: true },
-    }),
-    prisma.lead.findMany({
-      where: {
-        organizationId,
-        stage: "WON",
-        updatedAt: { gte: range.from, lte: range.to },
-      },
-      include: { sources: true },
+reportsRouter.get("/export.csv", async (req: AuthedRequest, res) => {
+  const organizationId = orgId(req);
+  if (!organizationId) return res.status(400).json({ error: "No organization" });
+  const range = resolveDateRange(req.query);
+  const d = await computeReportSummary(organizationId, range);
+
+  const rows: (string | number)[][] = [];
+  const add = (section: string, items: { label: string; value: number }[]) => {
+    for (const i of items) rows.push([section, i.label, i.value, d.range.from, d.range.to]);
+  };
+  add("Leads by stage", d.leadsByStage.map((r) => ({ label: labelize(r.stage), value: r.count })));
+  add("Leads by source", d.leadsBySource.map((r) => ({ label: labelize(r.source), value: r.count })));
+  add("Deals won by source", d.winsBySource.map((r) => ({ label: labelize(r.source), value: r.count })));
+  add("Viewing outcomes", d.viewingOutcomes.map((r) => ({ label: labelize(r.outcome), value: r.count })));
+  add("Inventory by status (current)", d.listingsByStatus.map((r) => ({ label: labelize(r.status), value: r.count })));
+  add(
+    "Portal status (current)",
+    d.portalsByStatus.map((r) => ({ label: `${labelize(r.portal)} - ${labelize(r.status)}`, value: r.count })),
+  );
+  add("Agent leaderboard", d.agentLeaderboard.map((r) => ({ label: r.name, value: r.leads })));
+
+  const csv = toCsv(["Section", "Label", "Count", "From", "To"], rows);
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="${csvFilename("report")}"`);
+  res.send(csv);
+});
+
+reportsRouter.get("/export.pdf", async (req: AuthedRequest, res) => {
+  const organizationId = orgId(req);
+  if (!organizationId) return res.status(400).json({ error: "No organization" });
+  const range = resolveDateRange(req.query);
+  const [data, org] = await Promise.all([
+    computeReportSummary(organizationId, range),
+    prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { name: true, currencyLabel: true },
     }),
   ]);
+  if (!org) return res.status(404).json({ error: "Organization not found" });
 
-  const leadsByStage = STAGES.map((stage) => ({
-    stage,
-    count: stageGroups.find((g) => g.stage === stage)?._count._all ?? 0,
-  }));
-
-  const bySource = new Map<string, Set<string>>();
-  for (const e of sourceEvents) {
-    if (!bySource.has(e.source)) bySource.set(e.source, new Set());
-    bySource.get(e.source)!.add(e.leadId);
-  }
-  const leadsBySource = [...bySource.entries()]
-    .map(([source, set]) => ({ source, count: set.size }))
-    .sort((a, b) => b.count - a.count);
-
-  const winsBySourceMap = new Map<string, number>();
-  for (const w of wins) {
-    const src = w.sources[0]?.source || w.primarySource;
-    winsBySourceMap.set(src, (winsBySourceMap.get(src) || 0) + 1);
-  }
-  const winsBySource = [...winsBySourceMap.entries()]
-    .map(([source, count]) => ({ source, count }))
-    .sort((a, b) => b.count - a.count);
-
-  const viewingOutcomes = ["SCHEDULED", "COMPLETED", "NO_SHOW", "CANCELLED"].map(
-    (outcome) => ({
-      outcome,
-      count: viewings.find((v) => v.outcome === outcome)?._count._all ?? 0,
-    }),
+  const { buildReportPdf } = await import("../lib/reportPdf.js");
+  const pdf = await buildReportPdf(data, org);
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="report-${data.range.from}-to-${data.range.to}.pdf"`,
   );
-
-  const listingsByStatus = listingStatus.map((r) => ({
-    status: r.status,
-    count: r._count._all,
-  }));
-
-  const portalsByStatus = portalRows.map((r) => ({
-    portal: r.portal,
-    status: r.status,
-    count: r._count._all,
-  }));
-
-  const userIds = agents
-    .map((a) => a.assignedToId)
-    .filter((id): id is string => Boolean(id));
-  const users = userIds.length
-    ? await prisma.user.findMany({
-        where: { id: { in: userIds } },
-        select: { id: true, name: true },
-      })
-    : [];
-  const agentLeaderboard = agents
-    .map((a) => ({
-      agentId: a.assignedToId,
-      name: users.find((u) => u.id === a.assignedToId)?.name || "Unassigned",
-      leads: a._count._all,
-    }))
-    .sort((a, b) => b.leads - a.leads);
-
-  res.json({
-    range: {
-      preset: range.preset,
-      from: range.fromKey,
-      to: range.toKey,
-      label: range.label,
-      days: range.days,
-      granularity: range.granularity,
-    },
-    leadsByStage,
-    leadsBySource,
-    winsBySource,
-    viewingOutcomes,
-    listingsByStatus,
-    portalsByStatus,
-    agentLeaderboard,
-  });
+  res.send(pdf);
 });

@@ -5,6 +5,7 @@ import fs from "node:fs";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { requireAuth, type AuthedRequest } from "../middleware/requireAuth.js";
+import { csvFilename, labelize, toCsv } from "../lib/csv.js";
 
 const uploadDir = path.join(process.cwd(), "uploads");
 fs.mkdirSync(uploadDir, { recursive: true });
@@ -104,6 +105,72 @@ listingsRouter.get("/", async (req: AuthedRequest, res) => {
   });
 
   res.json(listings);
+});
+
+/** CSV export - registered before /:id */
+listingsRouter.get("/export.csv", async (req: AuthedRequest, res) => {
+  const organizationId = orgId(req);
+  if (!organizationId) return res.status(400).json({ error: "No organization" });
+
+  const [listings, org] = await Promise.all([
+    prisma.listing.findMany({
+      where: { organizationId },
+      include: { portals: true, _count: { select: { leads: true } } },
+      orderBy: { createdAt: "desc" },
+    }),
+    prisma.organization.findUnique({
+      where: { id: organizationId },
+      select: { currencyCode: true },
+    }),
+  ]);
+
+  const rows = listings.map((l) => [
+    l.title,
+    labelize(l.status),
+    labelize(l.propertyType),
+    l.priceAed,
+    org?.currencyCode,
+    l.beds,
+    l.baths,
+    l.areaSqft,
+    l.community,
+    l.building,
+    l.city,
+    l.address,
+    l.lat,
+    l.lng,
+    l.portals
+      .filter((p) => p.status !== "OFF")
+      .map((p) => `${labelize(p.portal)} (${labelize(p.status)})`)
+      .join("; "),
+    l._count.leads,
+    l.createdAt,
+  ]);
+  const csv = toCsv(
+    [
+      "Title",
+      "Status",
+      "Type",
+      "Price",
+      "Currency",
+      "Beds",
+      "Baths",
+      "Area sqft",
+      "Community",
+      "Building",
+      "City",
+      "Address",
+      "Latitude",
+      "Longitude",
+      "Portals",
+      "Leads",
+      "Created",
+    ],
+    rows,
+  );
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="${csvFilename("listings")}"`);
+  res.send(csv);
 });
 
 listingsRouter.get("/:id", async (req: AuthedRequest, res) => {

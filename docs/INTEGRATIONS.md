@@ -55,7 +55,8 @@ StorageAdapter (local → Cloudinary)
 |------|-------------|----------|
 | Now | Uploads + `TESTING_ENABLED` stock picker | Own listing fields (city/area). Photos: **upload** always, plus a **local curated catalog** (~48 place-tagged images) for demos - no third-party photo API keys (Unsplash/Pexels/Pixabay are often paused or rate-limited). |
 | V1.1 | Maps + geocode | Nominatim search proxy + Leaflet/OSM tiles; store `lat`/`lng`/`placeId` on listing. Manual address always allowed. |
-| V1.1 | Brochure PDF | Server-side `pdfkit` from listing + org name |
+| V1.1 | Brochure PDF | Server-side `pdfkit`: designed A4 layout, hero photo, spec cards, OSM tile map (3x3 tiles stitched server side, graceful fallback) |
+| V1.1 | Reports PDF / CSV exports | `GET /api/reports/export.pdf`, `/api/reports/export.csv`, `/api/leads/export.csv`, `/api/listings/export.csv` (CSV is UTF-8 with BOM and formula-injection protection) |
 | Later | Google Calendar | OAuth; our `CalendarEvent` remains canonical |
 | Later | Real portals | Official partner APIs only; mock adapters until then |
 | Later | WhatsApp | Meta Cloud API only when credentials exist; Conversation/Message tables. **No mock inbox, Slack, or Discord.** |

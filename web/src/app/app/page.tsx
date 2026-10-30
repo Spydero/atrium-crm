@@ -395,7 +395,7 @@ export default function DashboardPage() {
                   <LabelList
                     dataKey="count"
                     position="top"
-                    formatter={(v: number) => (v > 0 ? String(v) : "")}
+                    formatter={(v: unknown) => (Number(v) > 0 ? String(v) : "")}
                     style={{ fill: "#101418", fontSize: 11, fontWeight: 700 }}
                   />
                 </Bar>

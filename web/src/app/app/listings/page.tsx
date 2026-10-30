@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { BedDouble, Bath, Maximize2, MapPin, FileDown } from "lucide-react";
-import { api, formatAed, portalLabel, PORTALS, type OrgSettings } from "@/lib/api";
+import { api, downloadFile, formatAed, portalLabel, PORTALS, type OrgSettings } from "@/lib/api";
+import { ExportMenu } from "@/components/ExportMenu";
 import { StockPhotoPicker } from "@/components/StockPhotoPicker";
 import { PlaceInput, type PlaceValue } from "@/components/PlaceInput";
 import { ListingMap, ListingMapEmpty } from "@/components/ListingMap";
@@ -186,18 +187,8 @@ export default function ListingsPage() {
   }
 
   async function downloadBrochure(id: string, title: string) {
-    const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-    const res = await fetch(`${API_BASE}/api/listings/${id}/brochure.pdf`, {
-      credentials: "include",
-    });
-    if (!res.ok) throw new Error("Brochure download failed");
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${title.replace(/[^a-zA-Z0-9._-]+/g, "_") || "listing"}-brochure.pdf`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const safe = title.replace(/[^a-zA-Z0-9._-]+/g, "_") || "listing";
+    await downloadFile(`/api/listings/${id}/brochure.pdf`, `${safe}-brochure.pdf`);
   }
 
   async function uploadPhoto(listingId: string, file: File) {
@@ -242,9 +233,22 @@ export default function ListingsPage() {
           </h1>
           <p className="mt-0.5 text-sm text-muted">{listings.length} properties</p>
         </div>
-        <button type="button" onClick={() => setShowCreate(true)} className="btn-primary">
-          Add listing
-        </button>
+        <div className="flex items-center gap-2">
+          <ExportMenu
+            items={[
+              {
+                label: "Listings (CSV)",
+                hint: "Inventory with price, location, portals and lead counts",
+                path: "/api/listings/export.csv",
+                fallbackName: "listings.csv",
+                kind: "csv",
+              },
+            ]}
+          />
+          <button type="button" onClick={() => setShowCreate(true)} className="btn-primary">
+            Add listing
+          </button>
+        </div>
       </div>
 
       <div className="space-y-3">

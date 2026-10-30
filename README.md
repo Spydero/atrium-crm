@@ -59,7 +59,8 @@ Also: `owner@atrium.demo`, `manager@atrium.demo` (same password).
 - Real place search (Nominatim) + Leaflet/OSM maps (listing detail, inventory Map page, shortlists)
 - Date-range filters on Dashboard and Reports
 - Reports dashboard
-- Listing brochure PDF download
+- Designed listing brochure PDF (hero photo, spec cards, OSM location map)
+- Exports: designed Reports PDF, plus CSV for Reports, Leads and Listings (Export menu on each page)
 
 Messaging (WhatsApp) is deferred until Meta Cloud API credentials - no mock inbox.
 

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronDown } from "lucide-react";
+import { ExportMenu } from "@/components/ExportMenu";
 import { api, formatAed, portalLabel, STAGES } from "@/lib/api";
 
 type Lead = {
@@ -136,6 +137,18 @@ export default function LeadsPage() {
             {leads.length} in pipeline · drag cards to move stages
           </p>
         </div>
+        <div className="flex items-center gap-2">
+        <ExportMenu
+          items={[
+            {
+              label: "Leads (CSV)",
+              hint: "All leads with stage, source, budget and assignee",
+              path: "/api/leads/export.csv",
+              fallbackName: "leads.csv",
+              kind: "csv",
+            },
+          ]}
+        />
         {testingEnabled && (
           <div className="relative">
             <button
@@ -175,6 +188,7 @@ export default function LeadsPage() {
             )}
           </div>
         )}
+        </div>
       </div>
 
       {msg && (

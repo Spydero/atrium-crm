@@ -22,6 +22,30 @@ function handleUnauthorized() {
   window.location.replace(login);
 }
 
+/** Authenticated file download (PDF / CSV). Uses the filename the server suggests. */
+export async function downloadFile(path: string, fallbackName: string) {
+  const res = await fetch(`${API}${path}`, { credentials: "include" });
+  if (!res.ok) {
+    if (res.status === 401) {
+      handleUnauthorized();
+      throw new ApiError("Session expired - sign in again", 401);
+    }
+    throw new ApiError("Export failed", res.status);
+  }
+  const disposition = res.headers.get("content-disposition") || "";
+  const match = /filename="?([^";]+)"?/i.exec(disposition);
+  const filename = match?.[1] || fallbackName;
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
 export async function api<T>(
   path: string,
   init?: RequestInit,

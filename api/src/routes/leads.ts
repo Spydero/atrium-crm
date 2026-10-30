@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { requireAuth, type AuthedRequest } from "../middleware/requireAuth.js";
+import { csvFilename, labelize, toCsv } from "../lib/csv.js";
 
 export const leadsRouter = Router();
 leadsRouter.use(requireAuth);
@@ -111,6 +112,71 @@ leadsRouter.post("/simulate", async (req: AuthedRequest, res) => {
   });
 
   res.status(201).json({ fused: false, lead });
+});
+
+/** CSV export - registered before /:id */
+leadsRouter.get("/export.csv", async (req: AuthedRequest, res) => {
+  const organizationId = orgId(req);
+  if (!organizationId) return res.status(400).json({ error: "No organization" });
+
+  const stage = typeof req.query.stage === "string" ? req.query.stage : undefined;
+  const leads = await prisma.lead.findMany({
+    where: {
+      organizationId,
+      ...(stage && stage !== "ALL"
+        ? { stage: stage as "NEW" | "QUALIFIED" | "VIEWING" | "OFFER" | "WON" | "LOST" }
+        : {}),
+    },
+    include: {
+      listing: { select: { title: true } },
+      assignedTo: { select: { name: true } },
+      sources: { select: { source: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  const rows = leads.map((l) => [
+    l.name,
+    l.phone,
+    l.email,
+    labelize(l.stage),
+    labelize(l.primarySource),
+    [...new Set(l.sources.map((s) => labelize(s.source)))].join("; "),
+    l.listing?.title,
+    l.assignedTo?.name,
+    l.budgetMin,
+    l.budgetMax,
+    l.bedsWanted,
+    l.communities.join("; "),
+    l.dealValueAed,
+    l.notesSummary,
+    l.createdAt,
+    l.updatedAt,
+  ]);
+  const csv = toCsv(
+    [
+      "Name",
+      "Phone",
+      "Email",
+      "Stage",
+      "Primary source",
+      "All sources",
+      "Listing",
+      "Assigned to",
+      "Budget min",
+      "Budget max",
+      "Beds wanted",
+      "Communities",
+      "Deal value",
+      "Notes",
+      "Created",
+      "Updated",
+    ],
+    rows,
+  );
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="${csvFilename("leads")}"`);
+  res.send(csv);
 });
 
 leadsRouter.get("/", async (req: AuthedRequest, res) => {
