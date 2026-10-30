@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { BedDouble, Bath, Maximize2, MapPin } from "lucide-react";
 import { api, formatAed, portalLabel, PORTALS } from "@/lib/api";
 import { StockPhotoPicker } from "@/components/StockPhotoPicker";
 
@@ -21,6 +22,17 @@ type Listing = {
 };
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+
+function livePortalCount(portals: Portal[]) {
+  return portals.filter((p) => p.status === "LIVE").length;
+}
+
+function statusClass(status: string) {
+  if (status === "ACTIVE") return "bg-accent-soft text-accent";
+  if (status === "DRAFT") return "bg-[#eef1f4] text-muted";
+  if (status === "SOLD" || status === "RESERVED") return "bg-mark-soft text-mark";
+  return "bg-[#eef1f4] text-muted";
+}
 
 export default function ListingsPage() {
   const [listings, setListings] = useState<Listing[]>([]);
@@ -130,159 +142,231 @@ export default function ListingsPage() {
 
   return (
     <div className="animate-rise space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-display text-[1.75rem] font-bold tracking-[-0.04em]">
-          Listings
-        </h1>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="font-display text-[1.75rem] font-bold tracking-[-0.04em]">
+            Listings
+          </h1>
+          <p className="mt-0.5 text-sm text-muted">{listings.length} properties</p>
+        </div>
         <button type="button" onClick={() => setShowCreate(true)} className="btn-primary">
           Add listing
         </button>
       </div>
 
-      <div className="surface flex flex-wrap gap-2 p-2.5">
+      <div className="toolbar">
         <input
-          className="field min-w-[160px] flex-1"
-          placeholder="Search"
+          className="field field-inline min-w-[180px] flex-1"
+          placeholder="Search title or area"
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
         <input
-          className="field w-28"
-          placeholder="Min price"
+          className="field field-inline w-[110px]"
+          placeholder="Min"
           value={minPrice}
           onChange={(e) => setMinPrice(e.target.value)}
         />
         <input
-          className="field w-28"
-          placeholder="Max price"
+          className="field field-inline w-[110px]"
+          placeholder="Max"
           value={maxPrice}
           onChange={(e) => setMaxPrice(e.target.value)}
         />
         <input
-          className="field w-20"
+          className="field field-inline w-[72px]"
           placeholder="Beds"
           value={beds}
           onChange={(e) => setBeds(e.target.value)}
         />
         <input
-          className="field w-36"
-          placeholder="Area / community"
+          className="field field-inline w-[140px]"
+          placeholder="Community"
           value={community}
           onChange={(e) => setCommunity(e.target.value)}
         />
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {listings.map((l) => (
-          <button
-            key={l.id}
-            type="button"
-            onClick={() => setSelected(l)}
-            className="surface overflow-hidden text-left transition hover:border-ink/20"
-          >
-            <div
-              className="h-40 bg-[#dfe3e8] bg-cover bg-center"
-              style={
-                l.coverUrl
-                  ? { backgroundImage: `url(${l.coverUrl})` }
-                  : undefined
-              }
-            />
-            <div className="p-3.5">
-              <div className="font-bold">{l.title}</div>
-              <div className="mt-0.5 text-sm text-muted">
-                {[l.community, l.city].filter(Boolean).join(", ")} · {l.beds} bed ·{" "}
-                {l.areaSqft} sqft
-              </div>
-              <div className="font-display mt-2 text-lg font-bold tracking-[-0.02em]">
-                {formatAed(l.priceAed)}
-              </div>
-              <div className="mt-2 flex flex-wrap gap-1">
-                {l.portals
-                  .filter((p) => p.status !== "OFF")
-                  .map((p) => (
-                    <span
-                      key={p.portal}
-                      className="rounded bg-accent-soft px-1.5 py-0.5 text-[10px] font-bold text-accent"
-                    >
-                      {portalLabel(p.portal)} · {p.status}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {listings.map((l) => {
+          const live = livePortalCount(l.portals);
+          const place = [l.community, l.city].filter(Boolean).join(", ");
+          return (
+            <button
+              key={l.id}
+              type="button"
+              onClick={() => setSelected(l)}
+              className="group overflow-hidden rounded-[var(--radius)] border border-line bg-paper text-left transition hover:border-ink/20 hover:shadow-[0_8px_24px_rgba(16,20,24,0.06)]"
+            >
+              <div className="relative h-[168px] overflow-hidden bg-[#dfe3e8]">
+                {l.coverUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={l.coverUrl}
+                    alt=""
+                    className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
+                  />
+                ) : null}
+                <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/55 to-transparent" />
+                <span
+                  className={`status-chip absolute left-2.5 top-2.5 ${statusClass(l.status)}`}
+                >
+                  {l.status}
+                </span>
+                <div className="absolute bottom-2.5 left-2.5 right-2.5 flex items-end justify-between gap-2">
+                  <div className="font-display text-lg font-bold tracking-[-0.02em] text-white drop-shadow">
+                    {formatAed(l.priceAed)}
+                  </div>
+                  {live > 0 && (
+                    <span className="rounded bg-white/95 px-1.5 py-0.5 text-[10px] font-bold text-accent">
+                      {live} live
                     </span>
-                  ))}
+                  )}
+                </div>
               </div>
-            </div>
-          </button>
-        ))}
+
+              <div className="space-y-2.5 p-3.5">
+                <div>
+                  <div className="line-clamp-1 text-[15px] font-bold leading-snug">
+                    {l.title}
+                  </div>
+                  {place && (
+                    <div className="mt-1 flex items-center gap-1 text-xs text-muted">
+                      <MapPin size={12} strokeWidth={2} />
+                      <span className="line-clamp-1">{place}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-3 border-t border-line pt-2.5">
+                  <span className="meta-pill">
+                    <BedDouble size={13} strokeWidth={1.75} />
+                    {l.beds}
+                  </span>
+                  <span className="meta-pill">
+                    <Bath size={13} strokeWidth={1.75} />
+                    {l.baths}
+                  </span>
+                  <span className="meta-pill">
+                    <Maximize2 size={13} strokeWidth={1.75} />
+                    {l.areaSqft.toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            </button>
+          );
+        })}
       </div>
 
       {selected && (
-        <div className="animate-fade surface p-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h2 className="font-display text-xl font-bold tracking-[-0.03em]">
-                {selected.title}
-              </h2>
-              <p className="text-sm text-muted">
-                {[selected.community, selected.city].filter(Boolean).join(", ")} ·{" "}
-                {selected.status} · {formatAed(selected.priceAed)}
-              </p>
+        <div className="animate-fade surface overflow-hidden">
+          <div className="grid gap-0 lg:grid-cols-[280px_1fr]">
+            <div className="relative min-h-[200px] bg-[#dfe3e8]">
+              {selected.coverUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={selected.coverUrl}
+                  alt=""
+                  className="h-full max-h-[280px] w-full object-cover lg:max-h-none lg:absolute lg:inset-0"
+                />
+              ) : null}
             </div>
-            <button
-              type="button"
-              className="text-sm font-semibold text-muted"
-              onClick={() => setSelected(null)}
-            >
-              Close
-            </button>
-          </div>
-
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <label className="btn-ghost cursor-pointer">
-              {uploading ? "Uploading…" : "Upload photo"}
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                disabled={uploading}
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) uploadPhoto(selected.id, file);
-                }}
-              />
-            </label>
-            {testingEnabled && (
-              <span className="text-xs text-muted">
-                Or set cover from test stock when creating a listing.
-              </span>
-            )}
-          </div>
-
-          <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            {PORTALS.map((portal) => {
-              const row = selected.portals.find((p) => p.portal === portal);
-              const status = row?.status || "OFF";
-              return (
-                <div key={portal} className="rounded-[var(--radius)] border border-line p-3">
-                  <div className="text-sm font-bold">{portalLabel(portal)}</div>
-                  <div className="mt-1 text-xs text-muted">{status}</div>
-                  <div className="mt-3 flex gap-2">
-                    <button
-                      type="button"
-                      className="btn-primary px-2.5 py-1.5 text-xs"
-                      onClick={() => publish(selected.id, portal, "LIVE")}
-                    >
-                      Publish
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-ghost px-2.5 py-1.5 text-xs"
-                      onClick={() => publish(selected.id, portal, "OFF")}
-                    >
-                      Off
-                    </button>
+            <div className="p-5">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={`status-chip ${statusClass(selected.status)}`}>
+                      {selected.status}
+                    </span>
+                    <span className="text-xs font-semibold uppercase tracking-[0.08em] text-muted">
+                      {selected.propertyType}
+                    </span>
+                  </div>
+                  <h2 className="font-display mt-2 text-xl font-bold tracking-[-0.03em]">
+                    {selected.title}
+                  </h2>
+                  <p className="mt-1 text-sm text-muted">
+                    {[selected.community, selected.city].filter(Boolean).join(", ")}
+                  </p>
+                  <p className="font-display mt-2 text-2xl font-bold tracking-[-0.03em]">
+                    {formatAed(selected.priceAed)}
+                  </p>
+                  <div className="mt-3 flex gap-4">
+                    <span className="meta-pill">
+                      <BedDouble size={14} /> {selected.beds} bed
+                    </span>
+                    <span className="meta-pill">
+                      <Bath size={14} /> {selected.baths} bath
+                    </span>
+                    <span className="meta-pill">
+                      <Maximize2 size={14} /> {selected.areaSqft.toLocaleString()} sqft
+                    </span>
                   </div>
                 </div>
-              );
-            })}
+                <button
+                  type="button"
+                  className="text-sm font-semibold text-muted"
+                  onClick={() => setSelected(null)}
+                >
+                  Close
+                </button>
+              </div>
+
+              <div className="mt-5 flex flex-wrap items-center gap-2">
+                <label className="btn-ghost cursor-pointer text-sm">
+                  {uploading ? "Uploading…" : "Upload photo"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={uploading}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) uploadPhoto(selected.id, file);
+                    }}
+                  />
+                </label>
+              </div>
+
+              <div className="mt-5">
+                <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.1em] text-muted">
+                  Portals
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {PORTALS.map((portal) => {
+                    const row = selected.portals.find((p) => p.portal === portal);
+                    const status = row?.status || "OFF";
+                    return (
+                      <div
+                        key={portal}
+                        className="flex items-center justify-between gap-2 rounded-[8px] border border-line px-3 py-2.5"
+                      >
+                        <div>
+                          <div className="text-sm font-bold">{portalLabel(portal)}</div>
+                          <div className="text-xs text-muted">{status}</div>
+                        </div>
+                        <div className="flex gap-1.5">
+                          <button
+                            type="button"
+                            className="btn-primary px-2 py-1 text-[11px]"
+                            onClick={() => publish(selected.id, portal, "LIVE")}
+                          >
+                            Live
+                          </button>
+                          <button
+                            type="button"
+                            className="btn-ghost px-2 py-1 text-[11px]"
+                            onClick={() => publish(selected.id, portal, "OFF")}
+                          >
+                            Off
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -362,8 +446,7 @@ export default function ListingsPage() {
               />
             ) : (
               <p className="text-xs text-muted">
-                Set TESTING_ENABLED=true to pick stock photos while testing. You can upload
-                after create.
+                Upload a photo after create, or enable TESTING_ENABLED for stock picks.
               </p>
             )}
 
