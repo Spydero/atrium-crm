@@ -1,0 +1,15 @@
+node_modules/
+.next/
+dist/
+uploads/
+.env
+.env.local
+*.log
+.DS_Store
+api/src/generated/
+web/.env*.local
+api/.agents/
+api/.claude/
+api/.windsurf/
+api/skills-lock.json
+**/.DS_Store

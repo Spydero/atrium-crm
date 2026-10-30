@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Atrium — V1 design directions</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Outfit:wght@500;600;700;800&family=Syne:wght@600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ink: #12141a;
+      --muted: #5c6370;
+      --line: #e4e6eb;
+      --bg: #f0f1f4;
+      --paper: #ffffff;
+      --cove: #0b6e4f;
+      --atlas: #2a6f7a;
+      --signal: #1d4ed8;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "DM Sans", sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #dfe8e4 0%, transparent 55%),
+        radial-gradient(900px 500px at 100% 0%, #dde3ef 0%, transparent 50%),
+        var(--bg);
+      min-height: 100vh;
+    }
+
+    .wrap {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 48px 24px 80px;
+    }
+
+    header {
+      display: grid;
+      gap: 12px;
+      margin-bottom: 40px;
+      max-width: 720px;
+    }
+
+    .eyebrow {
+      font-size: 12px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      font-weight: 600;
+    }
+
+    h1 {
+      font-family: "Syne", sans-serif;
+      font-size: clamp(2rem, 4vw, 3rem);
+      line-height: 1.05;
+      margin: 0;
+      letter-spacing: -0.03em;
+    }
+
+    header p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 1.05rem;
+      line-height: 1.55;
+    }
+
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+
+    .tab {
+      border: 1px solid var(--line);
+      background: var(--paper);
+      color: var(--ink);
+      border-radius: 999px;
+      padding: 10px 16px;
+      font: inherit;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, transform 0.15s ease;
+    }
+
+    .tab:hover { transform: translateY(-1px); }
+    .tab[aria-selected="true"] {
+      background: var(--ink);
+      color: #fff;
+      border-color: var(--ink);
+    }
+
+    .panel { display: none; animation: rise 0.35s ease; }
+    .panel.active { display: grid; gap: 20px; }
+
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .shot {
+      border-radius: 18px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      background: #111;
+      box-shadow: 0 24px 60px rgba(18, 20, 26, 0.1);
+    }
+
+    .shot img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    .meta {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 16px;
+    }
+
+    @media (max-width: 800px) {
+      .meta { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 20px 22px;
+    }
+
+    .card h2 {
+      font-family: "Outfit", sans-serif;
+      font-size: 1.25rem;
+      margin: 0 0 6px;
+      letter-spacing: -0.02em;
+    }
+
+    .card .tag {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+      padding: 4px 8px;
+      border-radius: 6px;
+    }
+
+    .tag.cove { background: #dff3ea; color: var(--cove); }
+    .tag.atlas { background: #dff0f3; color: var(--atlas); }
+    .tag.signal { background: #e0e7ff; color: var(--signal); }
+
+    .card p { margin: 0; color: var(--muted); line-height: 1.5; font-size: 0.95rem; }
+
+    .card ul {
+      margin: 14px 0 0;
+      padding-left: 18px;
+      color: var(--ink);
+      line-height: 1.55;
+      font-size: 0.95rem;
+    }
+
+    .tokens {
+      display: grid;
+      gap: 10px;
+    }
+
+    .swatch-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .swatch {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      border: 1px solid rgba(0,0,0,0.08);
+    }
+
+    .token-label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .pick {
+      margin-top: 36px;
+      padding: 22px 24px;
+      border-radius: 16px;
+      background: var(--ink);
+      color: #fff;
+      display: grid;
+      gap: 8px;
+    }
+
+    .pick strong { font-family: "Outfit", sans-serif; font-size: 1.1rem; }
+    .pick p { margin: 0; color: #c8ccd6; line-height: 1.5; font-size: 0.95rem; }
+
+    .v1 {
+      margin-top: 16px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .v1 h3 {
+      margin: 0;
+      font-family: "Outfit", sans-serif;
+      font-size: 1rem;
+    }
+
+    .v1 ol {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="eyebrow">V1.0 · Design directions</div>
+      <h1>Three looks for Atrium.<br />Pick one to build.</h1>
+      <p>
+        Same job as your BizLink example — sidebar, metrics, lead pipeline —
+        rebuilt for real estate (listings, portals, WhatsApp, AED). Working name
+        <strong>Atrium</strong> until you rename it. These are directions, not
+        pixel-perfect clones of the reference.
+      </p>
+    </header>
+
+    <div class="tabs" role="tablist" aria-label="Design directions">
+      <button class="tab" role="tab" aria-selected="true" data-panel="cove">A · Cove</button>
+      <button class="tab" role="tab" aria-selected="false" data-panel="atlas">B · Atlas</button>
+      <button class="tab" role="tab" aria-selected="false" data-panel="signal">C · Signal</button>
+    </div>
+
+    <section class="panel active" id="cove" role="tabpanel">
+      <div class="shot">
+        <img src="atrium-direction-a-cove.jpg" alt="Atrium Cove direction — soft CRM with teal accents and property lead cards" />
+      </div>
+      <div class="meta">
+        <div class="card">
+          <span class="tag cove">Closest to your example</span>
+          <h2>Cove — calm sales floor</h2>
+          <p>
+            Soft workspace, search + filters on top, KPI strip, then kanban.
+            Feels familiar if you like BizLink, but cards are properties
+            (photo, beds, portal source) not generic companies.
+          </p>
+          <ul>
+            <li>Fastest to ship for V1</li>
+            <li>Great for portfolio / demo clarity</li>
+            <li>Accent: deep teal — trustworthy, not “AI purple”</li>
+          </ul>
+        </div>
+        <div class="card tokens">
+          <strong>Tokens</strong>
+          <div class="swatch-row">
+            <div><div class="swatch" style="background:#f3f4f6"></div><div class="token-label">Canvas</div></div>
+            <div><div class="swatch" style="background:#fff;border:1px solid #ddd"></div><div class="token-label">Panel</div></div>
+            <div><div class="swatch" style="background:#0b6e4f"></div><div class="token-label">Accent</div></div>
+            <div><div class="swatch" style="background:#12141a"></div><div class="token-label">Ink</div></div>
+          </div>
+          <p class="token-label" style="margin-top:8px">Type: Outfit + DM Sans</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="atlas" role="tabpanel">
+      <div class="shot">
+        <img src="atrium-direction-b-atlas.jpg" alt="Atrium Atlas direction — visual property-first kanban" />
+      </div>
+      <div class="meta">
+        <div class="card">
+          <span class="tag atlas">Most “real estate”</span>
+          <h2>Atlas — gallery pipeline</h2>
+          <p>
+            Icon rail, big page title, typographic KPIs, photo-heavy cards.
+            Looks premium in screenshots. Slightly more work for density and
+            empty states.
+          </p>
+          <ul>
+            <li>Wins on first impression / pitch decks</li>
+            <li>AI intent pills sit naturally on cards</li>
+            <li>Needs good listing imagery in seed data</li>
+          </ul>
+        </div>
+        <div class="card tokens">
+          <strong>Tokens</strong>
+          <div class="swatch-row">
+            <div><div class="swatch" style="background:#e8eef2"></div><div class="token-label">Atmosphere</div></div>
+            <div><div class="swatch" style="background:#1c2430"></div><div class="token-label">Rail</div></div>
+            <div><div class="swatch" style="background:#2a6f7a"></div><div class="token-label">Teal</div></div>
+            <div><div class="swatch" style="background:#12141a"></div><div class="token-label">Ink CTA</div></div>
+          </div>
+          <p class="token-label" style="margin-top:8px">Type: Syne + DM Sans</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="signal" role="tabpanel">
+      <div class="shot">
+        <img src="atrium-direction-c-signal.jpg" alt="Atrium Signal direction — pipeline plus WhatsApp and AI drawer" />
+      </div>
+      <div class="meta">
+        <div class="card">
+          <span class="tag signal">Closest to Ruby’s product story</span>
+          <h2>Signal — ops + inbox</h2>
+          <p>
+            Dense pipeline with SLA timers, source filters, and a right drawer
+            for WhatsApp + AI activity. This is what makes a Ruby-like demo
+            believable — chat next to the deal.
+          </p>
+          <ul>
+            <li>Best for “agentic CRM” narrative</li>
+            <li>More screens/components in V1</li>
+            <li>Accent cobalt used sparingly</li>
+          </ul>
+        </div>
+        <div class="card tokens">
+          <strong>Tokens</strong>
+          <div class="swatch-row">
+            <div><div class="swatch" style="background:#ffffff;border:1px solid #ddd"></div><div class="token-label">White</div></div>
+            <div><div class="swatch" style="background:#f4f5f7"></div><div class="token-label">Stone</div></div>
+            <div><div class="swatch" style="background:#1d4ed8"></div><div class="token-label">Signal</div></div>
+            <div><div class="swatch" style="background:#d97706"></div><div class="token-label">SLA</div></div>
+          </div>
+          <p class="token-label" style="margin-top:8px">Type: Outfit + DM Sans</p>
+        </div>
+      </div>
+    </section>
+
+    <div class="pick">
+      <strong>Recommendation for V1.0</strong>
+      <p>
+        Start with <b>Cove</b> as the shell (fastest, cleanest), then steal
+        Signal’s lead drawer (chat + AI log) for the showcase moment. Atlas
+        photo cards can come in once seed listings look good. That gives you
+        a shippable pipeline first, without waiting for a full inbox product.
+      </p>
+    </div>
+
+    <div class="card v1" style="margin-top:16px">
+      <h3>Proposed V1.0 scope (after you pick a look)</h3>
+      <ol>
+        <li>Auth + sidebar shell</li>
+        <li>Leads kanban (New → Qualified → Viewing → Offer → Won)</li>
+        <li>Lead cards with property thumb, price, source badge</li>
+        <li>KPI strip (leads, pipeline AED, viewings / reply time)</li>
+        <li>Lead detail drawer stub (notes now; chat/AI next task)</li>
+        <li>Seeded Dubai demo data</li>
+      </ol>
+    </div>
+  </div>
+
+  <script>
+    const tabs = document.querySelectorAll(".tab");
+    const panels = document.querySelectorAll(".panel");
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        const id = tab.dataset.panel;
+        tabs.forEach((t) => t.setAttribute("aria-selected", String(t === tab)));
+        panels.forEach((p) => p.classList.toggle("active", p.id === id));
+      });
+    });
+  </script>
+</body>
+</html>

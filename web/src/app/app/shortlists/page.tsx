@@ -1,0 +1,137 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { api, formatAed } from "@/lib/api";
+
+type Listing = { id: string; title: string; priceAed: number; community: string };
+type Shortlist = {
+  id: string;
+  title: string;
+  token: string;
+  clientName: string | null;
+  openCount: number;
+  _count: { items: number };
+};
+
+export default function ShortlistsPage() {
+  const [list, setList] = useState<Shortlist[]>([]);
+  const [listings, setListings] = useState<Listing[]>([]);
+  const [title, setTitle] = useState("Client shortlist");
+  const [clientName, setClientName] = useState("");
+  const [picked, setPicked] = useState<string[]>([]);
+  const [createdUrl, setCreatedUrl] = useState("");
+
+  useEffect(() => {
+    Promise.all([
+      api<Shortlist[]>("/api/shortlists"),
+      api<Listing[]>("/api/listings"),
+    ]).then(([s, l]) => {
+      setList(s);
+      setListings(l);
+    });
+  }, []);
+
+  async function create(e: React.FormEvent) {
+    e.preventDefault();
+    if (!picked.length) return;
+    const s = await api<{ token: string }>("/api/shortlists", {
+      method: "POST",
+      body: JSON.stringify({ title, clientName, listingIds: picked }),
+    });
+    const url = `${window.location.origin}/s/${s.token}`;
+    setCreatedUrl(url);
+    const refreshed = await api<Shortlist[]>("/api/shortlists");
+    setList(refreshed);
+    setPicked([]);
+  }
+
+  return (
+    <div className="animate-rise space-y-5">
+      <div>
+        <h1 className="font-display text-3xl font-bold tracking-tight">Shortlists</h1>
+        <p className="text-muted">
+          Share a branded link — buyers browse your curated set, not the whole city.
+        </p>
+      </div>
+
+      <form
+        onSubmit={create}
+        className="space-y-3 rounded-2xl border border-line bg-paper p-5"
+      >
+        <div className="grid gap-3 sm:grid-cols-2">
+          <input
+            className="rounded-xl border border-line px-3 py-2"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Shortlist title"
+          />
+          <input
+            className="rounded-xl border border-line px-3 py-2"
+            value={clientName}
+            onChange={(e) => setClientName(e.target.value)}
+            placeholder="Client name"
+          />
+        </div>
+        <div className="grid max-h-56 gap-2 overflow-y-auto sm:grid-cols-2">
+          {listings.map((l) => {
+            const on = picked.includes(l.id);
+            return (
+              <button
+                key={l.id}
+                type="button"
+                onClick={() =>
+                  setPicked((p) =>
+                    on ? p.filter((id) => id !== l.id) : [...p, l.id],
+                  )
+                }
+                className={`rounded-xl border px-3 py-2 text-left text-sm ${
+                  on ? "border-cove bg-cove-soft" : "border-line"
+                }`}
+              >
+                <div className="font-semibold">{l.title}</div>
+                <div className="text-xs text-muted">
+                  {l.community} · {formatAed(l.priceAed)}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+        <button
+          type="submit"
+          className="rounded-xl bg-cove px-4 py-2.5 text-sm font-semibold text-white"
+        >
+          Create share link
+        </button>
+        {createdUrl && (
+          <p className="break-all rounded-xl bg-cove-soft px-3 py-2 text-sm text-cove">
+            {createdUrl}
+          </p>
+        )}
+      </form>
+
+      <div className="space-y-2">
+        {list.map((s) => (
+          <div
+            key={s.id}
+            className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-line bg-paper px-4 py-3"
+          >
+            <div>
+              <div className="font-semibold">{s.title}</div>
+              <div className="text-xs text-muted">
+                {s.clientName || "—"} · {s._count.items} homes · {s.openCount} opens
+              </div>
+            </div>
+            <a
+              className="rounded-xl border border-line px-3 py-1.5 text-sm font-semibold"
+              href={`/s/${s.token}`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Open public page
+            </a>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

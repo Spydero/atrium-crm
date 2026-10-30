@@ -1,0 +1,297 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  role          String    @default("agent") // owner | admin | agent
+  organizationId String?
+  organization  Organization? @relation(fields: [organizationId], references: [id])
+  sessions      Session[]
+  accounts      Account[]
+  assignedLeads Lead[]    @relation("AssignedLeads")
+  activities    ActivityEvent[]
+  notes         LeadNote[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+model Organization {
+  id        String    @id @default(cuid())
+  name      String
+  slug      String    @unique
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  users     User[]
+  listings  Listing[]
+  leads     Lead[]
+  events    CalendarEvent[]
+  shortlists Shortlist[]
+  portalBudgets PortalBudget[]
+}
+
+enum ListingStatus {
+  DRAFT
+  ACTIVE
+  RESERVED
+  SOLD
+  WITHDRAWN
+}
+
+enum PropertyType {
+  APARTMENT
+  VILLA
+  TOWNHOUSE
+  PENTHOUSE
+  OFFICE
+  LAND
+}
+
+enum PortalName {
+  BAYUT
+  PROPERTY_FINDER
+  DUBIZZLE
+  SKYLOOV
+}
+
+enum PortalPublishStatus {
+  OFF
+  PENDING
+  LIVE
+  REJECTED
+}
+
+model Listing {
+  id             String        @id @default(cuid())
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  title          String
+  description    String        @default("")
+  propertyType   PropertyType  @default(APARTMENT)
+  status         ListingStatus @default(DRAFT)
+  priceAed       Int
+  beds           Int           @default(0)
+  baths          Int           @default(0)
+  areaSqft       Int           @default(0)
+  community      String
+  building       String?
+  city           String        @default("Dubai")
+  address        String?
+  coverUrl       String?
+  photoUrls      String[]      @default([])
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  portals        ListingPortalStatus[]
+  leads          Lead[]
+  events         CalendarEvent[]
+  shortlistItems ShortlistItem[]
+}
+
+model ListingPortalStatus {
+  id         String              @id @default(cuid())
+  listingId  String
+  listing    Listing             @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  portal     PortalName
+  status     PortalPublishStatus @default(OFF)
+  externalId String?
+  updatedAt  DateTime            @updatedAt
+  createdAt  DateTime            @default(now())
+
+  @@unique([listingId, portal])
+}
+
+enum LeadStage {
+  NEW
+  QUALIFIED
+  VIEWING
+  OFFER
+  WON
+  LOST
+}
+
+enum LeadSource {
+  MANUAL
+  BAYUT
+  PROPERTY_FINDER
+  DUBIZZLE
+  SKYLOOV
+  WHATSAPP
+  META
+  REFERRAL
+  WEBSITE
+}
+
+model Lead {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String
+  email          String?
+  phone          String
+  stage          LeadStage    @default(NEW)
+  primarySource  LeadSource   @default(MANUAL)
+  budgetMin      Int?
+  budgetMax      Int?
+  bedsWanted     Int?
+  communities    String[]     @default([])
+  notesSummary   String?
+  listingId      String?
+  listing        Listing?     @relation(fields: [listingId], references: [id])
+  assignedToId   String?
+  assignedTo     User?        @relation("AssignedLeads", fields: [assignedToId], references: [id])
+  dealValueAed   Int?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  firstRespondedAt DateTime?
+  sources        LeadSourceEvent[]
+  notes          LeadNote[]
+  activities     ActivityEvent[]
+  events         CalendarEvent[]
+
+  @@index([organizationId, phone])
+  @@index([organizationId, stage])
+}
+
+model LeadSourceEvent {
+  id        String     @id @default(cuid())
+  leadId    String
+  lead      Lead       @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  source    LeadSource
+  listingId String?
+  message   String?
+  createdAt DateTime   @default(now())
+}
+
+model LeadNote {
+  id        String   @id @default(cuid())
+  leadId    String
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  authorId  String?
+  author    User?    @relation(fields: [authorId], references: [id])
+  body      String
+  createdAt DateTime @default(now())
+}
+
+model ActivityEvent {
+  id        String   @id @default(cuid())
+  leadId    String
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  actorId   String?
+  actor     User?    @relation(fields: [actorId], references: [id])
+  type      String
+  body      String
+  createdAt DateTime @default(now())
+}
+
+enum CalendarEventType {
+  VIEWING
+  CALL
+  FOLLOW_UP
+  TASK
+}
+
+enum ViewingOutcome {
+  SCHEDULED
+  COMPLETED
+  NO_SHOW
+  CANCELLED
+}
+
+model CalendarEvent {
+  id             String            @id @default(cuid())
+  organizationId String
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  title          String
+  type           CalendarEventType @default(FOLLOW_UP)
+  startsAt       DateTime
+  endsAt         DateTime?
+  leadId         String?
+  lead           Lead?             @relation(fields: [leadId], references: [id])
+  listingId      String?
+  listing        Listing?          @relation(fields: [listingId], references: [id])
+  outcome        ViewingOutcome?   @default(SCHEDULED)
+  feedback       String?
+  feedbackFit    String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+}
+
+model Shortlist {
+  id             String         @id @default(cuid())
+  organizationId String
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  title          String
+  token          String         @unique @default(cuid())
+  clientName     String?
+  openCount      Int            @default(0)
+  createdAt      DateTime       @default(now())
+  items          ShortlistItem[]
+}
+
+model ShortlistItem {
+  id          String    @id @default(cuid())
+  shortlistId String
+  shortlist   Shortlist @relation(fields: [shortlistId], references: [id], onDelete: Cascade)
+  listingId   String
+  listing     Listing   @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  sortOrder   Int       @default(0)
+
+  @@unique([shortlistId, listingId])
+}
+
+model PortalBudget {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  portal         PortalName
+  monthlySpendAed Int         @default(0)
+
+  @@unique([organizationId, portal])
+}
