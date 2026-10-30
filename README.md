@@ -1,4 +1,4 @@
-# Atrium - Brokerage OS (V1)
+# Atrium  Brokerage OS (V1)
 
 Internal CRM for real-estate brokerages: **listings**, **leads** (with Lead Fuse), **calendar / Viewing OS**, **Money Map**, and **client shortlist links**.
 
