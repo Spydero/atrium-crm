@@ -176,7 +176,7 @@ listingsRouter.get("/export.csv", async (req: AuthedRequest, res) => {
 listingsRouter.get("/:id", async (req: AuthedRequest, res) => {
   const organizationId = orgId(req);
   const listing = await prisma.listing.findFirst({
-    where: { id: req.params.id, organizationId: organizationId ?? undefined },
+    where: { id: String(req.params.id), organizationId: organizationId ?? undefined },
     include: { portals: true, leads: { take: 10, orderBy: { createdAt: "desc" } } },
   });
   if (!listing) return res.status(404).json({ error: "Not found" });
@@ -227,7 +227,7 @@ listingsRouter.post("/", async (req: AuthedRequest, res) => {
 listingsRouter.patch("/:id", async (req: AuthedRequest, res) => {
   const organizationId = orgId(req);
   const existing = await prisma.listing.findFirst({
-    where: { id: req.params.id, organizationId: organizationId ?? undefined },
+    where: { id: String(req.params.id), organizationId: organizationId ?? undefined },
   });
   if (!existing) return res.status(404).json({ error: "Not found" });
 
@@ -245,7 +245,7 @@ listingsRouter.patch("/:id", async (req: AuthedRequest, res) => {
 listingsRouter.get("/:id/brochure.pdf", async (req: AuthedRequest, res) => {
   const organizationId = orgId(req);
   const listing = await prisma.listing.findFirst({
-    where: { id: req.params.id, organizationId: organizationId ?? undefined },
+    where: { id: String(req.params.id), organizationId: organizationId ?? undefined },
     include: {
       organization: { select: { name: true, currencyLabel: true } },
     },
@@ -269,7 +269,7 @@ listingsRouter.post(
   async (req: AuthedRequest, res) => {
     const organizationId = orgId(req);
     const existing = await prisma.listing.findFirst({
-      where: { id: req.params.id, organizationId: organizationId ?? undefined },
+      where: { id: String(req.params.id), organizationId: organizationId ?? undefined },
     });
     if (!existing) return res.status(404).json({ error: "Not found" });
     if (!req.file) return res.status(400).json({ error: "No file" });
@@ -297,7 +297,7 @@ listingsRouter.post("/:id/publish", async (req: AuthedRequest, res) => {
   if (!parsed.success) return res.status(400).json(parsed.error.flatten());
 
   const listing = await prisma.listing.findFirst({
-    where: { id: req.params.id, organizationId: organizationId ?? undefined },
+    where: { id: String(req.params.id), organizationId: organizationId ?? undefined },
   });
   if (!listing) return res.status(404).json({ error: "Not found" });
 

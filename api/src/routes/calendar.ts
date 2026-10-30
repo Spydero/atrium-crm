@@ -94,7 +94,7 @@ calendarRouter.post("/", async (req: AuthedRequest, res) => {
 calendarRouter.patch("/:id", async (req: AuthedRequest, res) => {
   const organizationId = orgId(req);
   const existing = await prisma.calendarEvent.findFirst({
-    where: { id: req.params.id, organizationId: organizationId ?? undefined },
+    where: { id: String(req.params.id), organizationId: organizationId ?? undefined },
   });
   if (!existing) return res.status(404).json({ error: "Not found" });
 

@@ -439,7 +439,7 @@ leadsRouter.get("/", async (req: AuthedRequest, res) => {
 leadsRouter.get("/:id", async (req: AuthedRequest, res) => {
   const organizationId = orgId(req);
   const lead = await prisma.lead.findFirst({
-    where: { id: req.params.id, organizationId: organizationId ?? undefined },
+    where: { id: String(req.params.id), organizationId: organizationId ?? undefined },
     include: {
       listing: true,
       assignedTo: { select: { id: true, name: true } },
@@ -571,7 +571,7 @@ leadsRouter.post("/", async (req: AuthedRequest, res) => {
 leadsRouter.patch("/:id", async (req: AuthedRequest, res) => {
   const organizationId = orgId(req);
   const existing = await prisma.lead.findFirst({
-    where: { id: req.params.id, organizationId: organizationId ?? undefined },
+    where: { id: String(req.params.id), organizationId: organizationId ?? undefined },
   });
   if (!existing) return res.status(404).json({ error: "Not found" });
 
@@ -618,7 +618,7 @@ leadsRouter.patch("/:id", async (req: AuthedRequest, res) => {
 leadsRouter.post("/:id/notes", async (req: AuthedRequest, res) => {
   const organizationId = orgId(req);
   const existing = await prisma.lead.findFirst({
-    where: { id: req.params.id, organizationId: organizationId ?? undefined },
+    where: { id: String(req.params.id), organizationId: organizationId ?? undefined },
   });
   if (!existing) return res.status(404).json({ error: "Not found" });
   const body = z.object({ body: z.string().min(1) }).safeParse(req.body);
@@ -646,7 +646,7 @@ leadsRouter.post("/:id/notes", async (req: AuthedRequest, res) => {
 leadsRouter.get("/:id/match", async (req: AuthedRequest, res) => {
   const organizationId = orgId(req);
   const lead = await prisma.lead.findFirst({
-    where: { id: req.params.id, organizationId: organizationId ?? undefined },
+    where: { id: String(req.params.id), organizationId: organizationId ?? undefined },
   });
   if (!lead) return res.status(404).json({ error: "Not found" });
 
