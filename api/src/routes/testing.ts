@@ -22,12 +22,12 @@ testingRouter.get("/places", requireAuth, (_req, res) => {
   res.json({
     places: DEMO_PLACES,
     provider: "local",
-    note: "Local catalog — no API keys. Pick a place or search tags.",
+    note: "Local catalog - no API keys. Pick a place or search tags.",
   });
 });
 
 /**
- * Stock photos for TESTING only — local curated catalog (no third-party APIs).
+ * Stock photos for TESTING only - local curated catalog (no third-party APIs).
  * Place names stay yours; we only return image URLs.
  */
 testingRouter.get("/photos", requireAuth, async (req, res) => {

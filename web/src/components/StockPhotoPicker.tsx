@@ -20,7 +20,7 @@ type PlaceOption = {
 type Props = {
   selectedUrl: string | null;
   onSelect: (url: string) => void;
-  /** Used once on mount — not on every keystroke from the parent form */
+  /** Used once on mount - not on every keystroke from the parent form */
   initialQuery?: string;
 };
 

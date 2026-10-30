@@ -18,7 +18,7 @@ function normalizePhone(phone: string) {
   return phone.replace(/[^\d+]/g, "");
 }
 
-/** Simulate inbound portal lead — registered before /:id */
+/** Simulate inbound portal lead - registered before /:id */
 leadsRouter.post("/simulate", async (req: AuthedRequest, res) => {
   const organizationId = orgId(req);
   if (!organizationId) return res.status(400).json({ error: "No organization" });

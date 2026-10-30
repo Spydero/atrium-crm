@@ -14,7 +14,7 @@ const results = [];
 
 function log(ok, msg, detail = "") {
   results.push({ ok, msg, detail });
-  console.log(`${ok ? "PASS" : "FAIL"}  ${msg}${detail ? ` — ${detail}` : ""}`);
+  console.log(`${ok ? "PASS" : "FAIL"}  ${msg}${detail ? ` - ${detail}` : ""}`);
 }
 
 async function shot(page, name) {
@@ -165,7 +165,7 @@ try {
 }
 
 const failed = results.filter((r) => !r.ok);
-console.log("\n———");
+console.log("\n---");
 console.log(`${results.length - failed.length}/${results.length} checks passed`);
 if (failed.length) {
   console.error("Failures:");

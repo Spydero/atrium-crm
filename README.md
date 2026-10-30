@@ -1,11 +1,11 @@
-# Atrium — Brokerage OS (V1)
+# Atrium - Brokerage OS (V1)
 
 Internal CRM for real-estate brokerages: **listings**, **leads** (with Lead Fuse), **calendar / Viewing OS**, **Money Map**, and **client shortlist links**.
 
 ## Stack
 
-- `web/` — Next.js (App Router) + Tailwind — Cove UI
-- `api/` — Express + Better Auth + Prisma + PostgreSQL
+- `web/` - Next.js (App Router) + Tailwind - Cove UI
+- `api/` - Express + Better Auth + Prisma + PostgreSQL
 
 ## Quick start
 

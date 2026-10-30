@@ -1,4 +1,4 @@
-# Atrium — Stack & V1 decisions
+# Atrium - Stack & V1 decisions
 
 Working product name: **Atrium** (rename anytime).  
 UI: dark shell + gulf accent (evolving). Signal-style lead drawer later (no AI yet).  
@@ -43,7 +43,7 @@ Optional later: Redis, queues, S3, Resend/email, **Google OAuth login**, **Googl
 
 ---
 
-## Auth model (V1) — Better Auth
+## Auth model (V1) - Better Auth
 
 **Where it lives:** on **Express** (`toNodeHandler(auth)` at `/api/auth/*`), sharing the same Prisma + Postgres as the CRM API. Next is the client only.
 
@@ -64,26 +64,26 @@ Optional later: Redis, queues, S3, Resend/email, **Google OAuth login**, **Googl
 3. Next app shell checks session (client or server via `authClient.getSession`)  
 4. CRM calls (`/api/listings`, `/api/leads`) send cookies; Express rejects if no session  
 
-**Schema:** Better Auth CLI (`npx auth generate`) adds `User`, `Session`, `Account`, `Verification`, plus Organization tables — then we add CRM models (`Listing`, `Lead`, …) in the same Prisma schema.
+**Schema:** Better Auth CLI (`npx auth generate`) adds `User`, `Session`, `Account`, `Verification`, plus Organization tables - then we add CRM models (`Listing`, `Lead`, …) in the same Prisma schema.
 
 Docs: [Better Auth](https://www.better-auth.com/) · [Prisma adapter](https://www.better-auth.com/docs/adapters/prisma) · [Organization](https://www.better-auth.com/docs/plugins/organization)
 
 ---
 
-## Domain modules — when
+## Domain modules - when
 
 ### Market config (direction)
 - Per-org settings: currency, default city/regions, portal catalog, lead sources  
 - Portals as data/adapters, not hardwired product features  
 - Seed packs (e.g. `demo-uae.json`, `demo-india.json`) optional for demos  
 
-### V1.0 — Must ship (agreed)
+### V1.0 - Must ship (agreed)
 1. Auth (Better Auth: email + password; **Google login later**)
 2. App shell
-3. **Listings** — mandatory: CRUD, photos, status, beds/baths/price/area
+3. **Listings** - mandatory: CRUD, photos, status, beds/baths/price/area
 4. Mock portal publish (org-configured portal list; seed may show sample portals)
 5. **Leads** kanban linked to listings
-6. **Calendar** — in-app follow-ups / viewings / calls. **Google Calendar sync later**
+6. **Calendar** - in-app follow-ups / viewings / calls. **Google Calendar sync later**
 
 ### Build order
 1. Scaffold `web` + `api`
@@ -115,7 +115,7 @@ Lead (stage, source, listingId?, assignedToId?)
 LeadNote
 ActivityEvent (type, body, actorId, leadId)
 FollowUp (dueAt, leadId, done)
-Conversation / Message   — Phase 3 (mock WhatsApp)
+Conversation / Message   - Phase 3 (mock WhatsApp)
 ```
 
 ---
@@ -149,4 +149,4 @@ Postgres via Docker or local install.
 
 ## Immediate next task
 
-Scaffold `api` + `web`, Prisma + **Better Auth**, Cove login shell — **no AI, no portals yet**.
+Scaffold `api` + `web`, Prisma + **Better Auth**, Cove login shell - **no AI, no portals yet**.

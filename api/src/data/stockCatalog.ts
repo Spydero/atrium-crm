@@ -1,5 +1,5 @@
 /**
- * Local testing catalog — no API keys.
+ * Local testing catalog - no API keys.
  * Images are public Unsplash CDN URLs (display-only for demos).
  * Place names / tags are ours; search is local string match.
  */

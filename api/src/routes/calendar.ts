@@ -130,7 +130,7 @@ calendarRouter.patch("/:id", async (req: AuthedRequest, res) => {
         leadId: existing.leadId,
         actorId: userId(req),
         type: "viewing_outcome",
-        body: `Viewing ${parsed.data.outcome}${parsed.data.feedbackFit ? ` · fit: ${parsed.data.feedbackFit}` : ""}${parsed.data.feedback ? ` — ${parsed.data.feedback}` : ""}`,
+        body: `Viewing ${parsed.data.outcome}${parsed.data.feedbackFit ? ` · fit: ${parsed.data.feedbackFit}` : ""}${parsed.data.feedback ? ` - ${parsed.data.feedback}` : ""}`,
       },
     });
   }

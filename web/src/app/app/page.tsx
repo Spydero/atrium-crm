@@ -586,7 +586,7 @@ export default function DashboardPage() {
             {!kpis.attention.items.length && (
               <div className="flex items-center gap-2 rounded-[8px] bg-[#eef8f0] px-3 py-3 text-sm text-[#15803d]">
                 <Handshake size={16} />
-                Nothing overdue — desk is clear.
+                Nothing overdue - desk is clear.
               </div>
             )}
           </div>

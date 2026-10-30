@@ -1,4 +1,4 @@
-# Atrium — Product goal
+# Atrium - Product goal
 
 **Product name: Atrium**  
 Showcase / portfolio demo of a **market-agnostic** brokerage OS.  
@@ -83,21 +83,21 @@ Generic CRMs and even Ruby-class tools still leave money on the table in the sam
 |-----|----------------|
 | Same buyer from 2 portals = 2 leads, 2 agents calling | Looks unprofessional; burn trust; wrecked conversion stats |
 | Teams celebrate “leads” not **completed viewings / deals** | Portal spend continues on junk sources |
-| Slow first reply (nights/weekends) | Hot leads go to whoever answers first — often a competitor |
+| Slow first reply (nights/weekends) | Hot leads go to whoever answers first - often a competitor |
 | Viewings happen; feedback evaporates | Wrong shortlist repeats; landlords get no update |
 | Client shortlist lives in WhatsApp chaos | No branded experience; no “they opened the link” signal |
 
-Ruby leans hard on **AI + WhatsApp + portal glue**. We still need that story later — but our **sharp edges** are ops/money features many products mention and few make central.
+Ruby leans hard on **AI + WhatsApp + portal glue**. We still need that story later - but our **sharp edges** are ops/money features many products mention and few make central.
 
 ### Three signature features (lock these)
 
-#### 1. Lead Fuse — cross-source identity
+#### 1. Lead Fuse - cross-source identity
 **One person = one lead**, even if they enquire on Bayut Monday and PropertyFinder Wednesday (match on phone/email).  
-Second enquiry attaches as an **event + source**, same owner agent — no double-calling.  
+Second enquiry attaches as an **event + source**, same owner agent - no double-calling.  
 *Business value:* professionalism + clean ROI numbers.  
 *V1:* fuse on simulate/manual create by phone. *Later:* every real portal webhook.
 
-#### 2. Money Map — source ROI on outcomes, not vanity leads
+#### 2. Money Map - source ROI on outcomes, not vanity leads
 Dashboard: per portal/source → leads, **completed viewings**, wins, estimated cost (mock wallet) → **cost per viewing / per deal**.  
 Surface “at risk AED” = overdue follow-ups × deal value.  
 *Business value:* stop renewing the portal that only sends tyre-kickers.  
@@ -105,7 +105,7 @@ Surface “at risk AED” = overdue follow-ups × deal value.
 
 #### 3. Viewing OS + Client Shortlist Link
 Calendar isn’t a sticky note: **schedule viewing → mark completed/no-show → structured feedback** (fit / budget / area / next step). Feedback can auto-suggest alternate listings (rules).  
-Plus **Share Shortlist**: branded public link of 3–8 properties; track opens.  
+Plus **Share Shortlist**: branded public link of 3-8 properties; track opens.  
 *Business value:* faster shortlists, landlord-ready updates, client feels premium.  
 *V1:* viewing events + completed/feedback fields; shortlist link MVP. *Later:* SMS/WhatsApp share polish.
 
@@ -116,7 +116,7 @@ Plus **Share Shortlist**: branded public link of 3–8 properties; track opens.
 | **Reply SLA** | First-response timer; escalate to manager if breached |
 | **Smart Match** | Lead budget/beds/area → ranked listings (rules first, AI later) |
 | **Portal truth** | Per-listing Live/Pending/Rejected + wallet mock in one publish panel |
-| **AI (last)** | Auto-status / extract intent *on top of* Fuse + Money Map + Viewing OS — not instead of them |
+| **AI (last)** | Auto-status / extract intent *on top of* Fuse + Money Map + Viewing OS - not instead of them |
 
 ### Positioning line
 
@@ -151,7 +151,7 @@ Shipped in phases. **V1.0** = first shippable demo of the core loop.
 | **Public shortlist / light catalogue** | Buyer opens link; simple filters on *this brokerage’s* shared set | **V1** (shortlist); catalogue optional soon after |
 | Approval workflow / version history | Nice-to-have | Later |
 | Real portal APIs | Replace mock adapters | Later |
-| City-wide consumer portal | Out of scope — that’s Bayut/PF | Never (as Atrium) |
+| City-wide consumer portal | Out of scope - that’s Bayut/PF | Never (as Atrium) |
 
 ### C. Leads & pipeline
 | Feature | End state | Phase |
@@ -175,7 +175,7 @@ Shipped in phases. **V1.0** = first shippable demo of the core loop.
 | Google Calendar sync | Two-way OAuth | Later |
 | Reminders / email digests | Later | Later |
 
-### E. Messaging (showcase depth — after V1)
+### E. Messaging (showcase depth - after V1)
 | Feature | End state | Phase |
 |---------|-----------|-------|
 | WhatsApp-style inbox UI | Threads next to lead (mock) | After V1 |
@@ -209,9 +209,9 @@ Shipped in phases. **V1.0** = first shippable demo of the core loop.
 5. Seeded demo data + “simulate portal lead”
 
 **Signature (must appear in V1, even if thin)**
-6. **Lead Fuse** — same phone from second portal merges into one lead  
-7. **Money Map** — simple source → viewings/wins (+ mock cost) panel  
-8. **Viewing OS + Shortlist link** — complete viewing + feedback; shareable shortlist URL  
+6. **Lead Fuse** - same phone from second portal merges into one lead  
+7. **Money Map** - simple source → viewings/wins (+ mock cost) panel  
+8. **Viewing OS + Shortlist link** - complete viewing + feedback; shareable shortlist URL  
 
 **Out of V1**
 - Google login / Google Calendar  
@@ -232,4 +232,4 @@ Someone unfamiliar can, in ~5 minutes:
 5. Open Money Map and see which source produced the viewing  
 6. Open a shared shortlist link as the “client”
 
-If that story works, we are not “another CRM” — we are a brokerage ops product.
+If that story works, we are not “another CRM” - we are a brokerage ops product.

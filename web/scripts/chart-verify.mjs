@@ -11,7 +11,7 @@ const API = process.env.API_URL || "http://localhost:4000";
 fs.mkdirSync(OUT, { recursive: true });
 
 function log(ok, msg, detail = "") {
-  console.log(`${ok ? "PASS" : "FAIL"}  ${msg}${detail ? ` — ${detail}` : ""}`);
+  console.log(`${ok ? "PASS" : "FAIL"}  ${msg}${detail ? ` - ${detail}` : ""}`);
   return ok;
 }
 
@@ -158,7 +158,7 @@ try {
     log(true, "After screenshots", afterBox.text);
   }
 
-  // Visual: Recharts should render bars (rect) — not only an area path
+  // Visual: Recharts should render bars (rect) - not only an area path
   const viz = await page.evaluate(() => {
     const card = [...document.querySelectorAll(".surface")].find((n) =>
       /New leads/i.test(n.textContent || ""),
@@ -196,7 +196,7 @@ try {
   await browser.close();
 }
 
-console.log("\n———");
+console.log("\n---");
 if (failed) {
   console.error(`${failed} check(s) failed`);
   process.exit(1);

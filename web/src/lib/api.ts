@@ -37,7 +37,7 @@ export async function api<T>(
   if (!res.ok) {
     if (res.status === 401) {
       handleUnauthorized();
-      throw new ApiError("Session expired — sign in again", 401);
+      throw new ApiError("Session expired - sign in again", 401);
     }
     const err = await res.json().catch(() => ({ error: res.statusText }));
     throw new ApiError(
