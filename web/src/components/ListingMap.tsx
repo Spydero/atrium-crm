@@ -128,25 +128,37 @@ export function InventoryMap({
         maxZoom: 19,
       }).addTo(map);
 
+      const bounds =
+        pins.length > 0
+          ? L.latLngBounds(pins.map((p) => [p.lat, p.lng] as [number, number]))
+          : null;
+
       if (!pins.length) {
         map.setView([25.2048, 55.2708], 11);
       } else {
-        const bounds = L.latLngBounds(pins.map((p) => [p.lat, p.lng] as [number, number]));
         for (const pin of pins) {
           const marker = L.marker([pin.lat, pin.lng]).addTo(map!);
           const html = `<strong>${escapeHtml(pin.title)}</strong>${
-            pin.subtitle ? `<br/><span style="color:#66707a">${escapeHtml(pin.subtitle)}</span>` : ""
+            pin.subtitle
+              ? `<br/><span style="color:#66707a">${escapeHtml(pin.subtitle)}</span>`
+              : ""
           }`;
           marker.bindPopup(html);
           if (onSelect) {
             marker.on("click", () => onSelect(pin.id));
           }
         }
-        map.fitBounds(bounds.pad(0.2));
+        map.fitBounds(bounds!.pad(0.25));
       }
 
-      setTimeout(() => map?.invalidateSize(), 80);
-      setTimeout(() => map?.invalidateSize(), 300);
+      const refresh = () => {
+        if (!map) return;
+        map.invalidateSize();
+        if (bounds && pins.length) map.fitBounds(bounds.pad(0.25));
+      };
+      requestAnimationFrame(refresh);
+      setTimeout(refresh, 120);
+      setTimeout(refresh, 400);
     }
 
     mount();
