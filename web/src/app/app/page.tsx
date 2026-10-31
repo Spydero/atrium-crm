@@ -266,7 +266,7 @@ export default function DashboardPage() {
         })}
       </div>
 
-      <TrendChart range={dateRange} />
+      <TrendChart range={dateRange} onRangeChange={setDateRange} />
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <div className="surface p-5">

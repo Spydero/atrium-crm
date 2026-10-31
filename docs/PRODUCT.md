@@ -277,7 +277,8 @@ Lead Fuse still fuses exact same-phone enquiries on arrival; merge handles what 
 ## V1.5 scope (Interactive dashboard trends)
 
 1. The dashboard chart switches between New leads, Viewings and Deals won
-2. Group by day, week or month; options that make no sense for the chosen range are greyed out
+2. Group by day, week or month; the buttons are never greyed out, choosing one that does not fit the range moves the date filter to a range that does (week: 90d, month: 1y, day: 30d)
+2b. Sort by date (default), highest or lowest first; the previous period line is hidden while ranking
 3. Date presets 7d, 14d, 30d, 90d, 6m, 1y and a custom range
 4. Compare to the previous period of the same length: change, percentage and a comparison line
 5. Hover for exact dates, share of the period, running total, change vs previous, and the source (or viewing outcome) mix; click a bar to pin the details

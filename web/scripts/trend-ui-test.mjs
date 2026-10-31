@@ -74,9 +74,30 @@ try {
   log(group30 === "true", "Day grouping is active for 30d");
   const weekBtn = page.getByRole("button", { name: "Week", exact: true });
   const monthBtn = page.getByRole("button", { name: "Month", exact: true });
-  log(await weekBtn.isEnabled(), "Week is available for 30d");
-  log(await monthBtn.isDisabled(), "Month is disabled for 30d (too short)");
+  log(await weekBtn.isEnabled(), "Week is enabled for 30d");
+  log(await monthBtn.isEnabled(), "Month is enabled too (never greyed out)");
   await shot("v15-02-trend-30d.png");
+
+  // Picking Month on a short range widens the range to fit
+  await page.getByRole("button", { name: "7d", exact: true }).click();
+  await settle();
+  await page.getByRole("button", { name: "Month", exact: true }).click();
+  await settle();
+  const m1 = (await summary().innerText()).replace(/\s+/g, " ");
+  log(/by month|\/month/.test(m1) && /12 months/.test(m1), "Month on 7d jumps to a 12 month range", m1.slice(0, 110));
+  log(
+    (await page.getByRole("button", { name: "1y", exact: true }).first().getAttribute("class")).includes("bg-accent"),
+    "the date filter above now shows 1y",
+  );
+  await page.getByRole("button", { name: "Week", exact: true }).click();
+  await settle();
+  log(/\/week/.test((await summary().innerText()).replace(/\s+/g, " ")), "Week on a year works (same range)");
+  await page.getByRole("button", { name: "Day", exact: true }).click();
+  await settle();
+  const d1 = (await summary().innerText()).replace(/\s+/g, " ");
+  log(/\/day/.test(d1) && (await barCount()) === 30, "Day on a year jumps to 30 days", d1.slice(0, 100));
+  await page.getByRole("button", { name: "30d", exact: true }).click();
+  await settle();
 
   // 3. Hover tooltip shows real details
   await pickRange("90d");
@@ -116,10 +137,28 @@ try {
   await pickRange("1y");
   n = await barCount();
   log(n >= 12 && n <= 13, "1y defaults to monthly bars", `${n}`);
-  log(await page.getByRole("button", { name: "Day", exact: true }).isDisabled(), "Day is disabled for 1y");
+  log(await page.getByRole("button", { name: "Day", exact: true }).isEnabled(), "Day is still clickable on 1y");
   const sumY = (await summary().innerText()).replace(/\s+/g, " ");
   log(/avg [\d.]+\/month/.test(sumY), "summary uses the month unit", sumY.slice(0, 120));
   await shot("v15-05-trend-1y-month.png");
+
+  // 5b. Sort by
+  await pickRange("30d");
+  const firstTick = async () =>
+    (await page.locator('[data-testid="trend-plot"] .recharts-xAxis-tick-labels .recharts-cartesian-axis-tick-value').first().textContent()).trim();
+  const peakLabel = (await summary().innerText()).match(/Peak (.+?) ·/)?.[1]?.trim();
+  const dateFirst = await firstTick();
+  await page.getByRole("button", { name: "Highest", exact: true }).click();
+  await settle();
+  log((await firstTick()) === peakLabel, "Sort Highest puts the peak first", `${await firstTick()} vs peak ${peakLabel}`);
+  log(/highest first/i.test(await page.locator('[data-testid="trend-card"]').innerText()), "header says highest first");
+  await shot("v15-10-trend-sorted-high.png");
+  await page.getByRole("button", { name: "Lowest", exact: true }).click();
+  await settle();
+  log((await firstTick()) !== peakLabel, "Sort Lowest puts the peak elsewhere", await firstTick());
+  await page.getByRole("button", { name: "Date", exact: true }).click();
+  await settle();
+  log((await firstTick()) === dateFirst, "Sort Date restores chronological order", await firstTick());
 
   // 6. Compare
   await pickRange("30d");

@@ -16,7 +16,7 @@ import {
   YAxis,
 } from "recharts";
 import { api, formatAed, portalLabel } from "@/lib/api";
-import { dateRangeQuery, type DateRangeValue } from "@/components/DateRangeFilter";
+import { dateRangeQuery, defaultDateRange, type DateRangeValue } from "@/components/DateRangeFilter";
 
 type Group = "day" | "week" | "month";
 type Metric = "leads" | "viewings" | "won";
@@ -224,8 +224,30 @@ function Tip({
   );
 }
 
-export function TrendChart({ range }: { range: DateRangeValue }) {
+type Sort = "date" | "high" | "low";
+const SORTS: { id: Sort; label: string }[] = [
+  { id: "date", label: "Date" },
+  { id: "high", label: "Highest" },
+  { id: "low", label: "Lowest" },
+];
+
+/** If the chosen grouping makes no sense for the current range, widen or narrow the range to fit it. */
+function rangeFor(g: Group, days: number): DateRangeValue | null {
+  if (g === "day" && days > 120) return defaultDateRange("30d");
+  if (g === "week" && days < 14) return defaultDateRange("90d");
+  if (g === "month" && days < 45) return defaultDateRange("365d");
+  return null;
+}
+
+export function TrendChart({
+  range,
+  onRangeChange,
+}: {
+  range: DateRangeValue;
+  onRangeChange: (next: DateRangeValue) => void;
+}) {
   const [metric, setMetric] = useState<Metric>("leads");
+  const [sort, setSort] = useState<Sort>("date");
   // A grouping you pick only applies to the date range it was picked on; a new range goes back to auto.
   const [choice, setChoice] = useState<{ rk: string; g: Group } | null>(null);
   const [compare, setCompare] = useState(false);
@@ -262,8 +284,11 @@ export function TrendChart({ range }: { range: DateRangeValue }) {
 
   const data = useMemo(() => {
     if (!trend) return [];
-    return trend.buckets.map((b) => ({ ...b, avg: trend.totals.avgPerBucket }));
-  }, [trend]);
+    const rows = trend.buckets.map((b) => ({ ...b, avg: trend.totals.avgPerBucket }));
+    if (sort === "date") return rows;
+    // Ranking view: ties stay in date order
+    return [...rows].sort((a, b) => (sort === "high" ? b.count - a.count : a.count - b.count) || a.key.localeCompare(b.key));
+  }, [trend, sort]);
 
   const selectedRow = trend?.buckets.find((b) => b.key === selected) ?? null;
   const t = trend?.totals;
@@ -285,11 +310,19 @@ export function TrendChart({ range }: { range: DateRangeValue }) {
             label="Group by"
             value={(trend?.group ?? (group === "auto" ? "day" : group)) as Group}
             options={GROUPS}
-            disabled={(id) => !!trend && !trend.allowedGroups.includes(id)}
             onChange={(g) => {
-              setChoice({ rk: rangeKey, g });
+              const days = trend?.range.days ?? 7;
+              const next = rangeFor(g, days);
+              if (next) {
+                // the date range jumps to one that suits the grouping (shown in the range filter above)
+                onRangeChange(next);
+                setChoice({ rk: dateRangeQuery(next), g });
+              } else {
+                setChoice({ rk: rangeKey, g });
+              }
             }}
           />
+          <Seg label="Sort by" value={sort} options={SORTS} onChange={setSort} />
           <label className="flex cursor-pointer items-center gap-1.5 rounded-[8px] border border-line bg-paper px-2.5 py-1.5 text-xs font-bold text-muted hover:text-ink">
             <input
               type="checkbox"
@@ -311,6 +344,7 @@ export function TrendChart({ range }: { range: DateRangeValue }) {
       <div className="mb-3 flex flex-wrap items-baseline gap-x-4 gap-y-1.5">
         <div className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">
           {meta.label} · {trend?.range.label ?? "..."} · by {unit}
+          {sort !== "date" && ` · ${sort === "high" ? "highest" : "lowest"} first`}
         </div>
       </div>
 
@@ -419,7 +453,7 @@ export function TrendChart({ range }: { range: DateRangeValue }) {
                   />
                 )}
               </Bar>
-              {trend.compare && (
+              {trend.compare && sort === "date" && (
                 <Line
                   type="linear"
                   dataKey="prev"
@@ -456,7 +490,7 @@ export function TrendChart({ range }: { range: DateRangeValue }) {
         <span className="inline-flex items-center gap-1.5">
           <span className="inline-block h-0.5 w-4 border-t-2 border-dashed border-mark" /> Average per {unit}
         </span>
-        {trend?.compare && (
+        {trend?.compare && sort === "date" && (
           <span className="inline-flex items-center gap-1.5">
             <span className="inline-block h-0.5 w-4" style={{ background: "#7c8a97" }} /> Previous {trend.range.days} days
           </span>
