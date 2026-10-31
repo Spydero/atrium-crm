@@ -1,0 +1,17 @@
+---
+description: Commits must use the GitHub-linked author email so the contribution graph stays green
+alwaysApply: true
+---
+
+# Git author for GitHub contributions
+
+Before any `git commit` in this repo:
+
+1. Confirm author identity is GitHub-linked:
+   - `user.name` = `Spydero`
+   - `user.email` = `jyothiranands@gmail.com`
+   - Acceptable alternate email: `121573396+Spydero@users.noreply.github.com`
+2. Never commit as `*@*.local`, a machine hostname email, or any address not verified on the Spydero GitHub account. Those commits do **not** count on the contribution graph.
+3. If `git config user.email` is missing or wrong, set the repo (or global) config to `jyothiranands@gmail.com` before committing. The user has asked that contributions always show green.
+4. After commit, quickly check `git log -1 --format='%an <%ae>'` looks correct before pushing.
+5. Do not rewrite old commit history to fix emails unless the user explicitly asks.
