@@ -101,6 +101,12 @@ Docs: [Better Auth](https://www.better-auth.com/) · [Prisma adapter](https://ww
 4. Reports aggregates API + `/app/reports`
 5. Listing brochure PDF (`pdfkit`)
 
+### Money Map V1.5
+1. `SourceSpend` (monthly entered spend per `LeadSource`, carry-forward) and `Lead.wonAt`
+2. `GET /api/money/map` (date range, previous period, conversion rates, cues, callouts, at-risk by lead) and `GET/PUT /api/money/spend`
+3. Pure maths in `moneyStats.ts`; UI with KPI deltas, chart, sortable table, spend drawer, deep links into Leads
+4. Tests: `api/tests/moneyMap.test.ts`, browser `web/scripts/money-map-ui-test.mjs`
+
 ### V1.2 - Bulk actions + duplicate merge
 1. `GET /api/leads/agents`, `GET /api/leads/duplicates`, `GET /api/leads/compare?ids=`
 2. `POST /api/leads/bulk` (stage, assign, unassign) and `POST /api/leads/merge`, all before `/:id` routes

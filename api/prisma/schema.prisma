@@ -24,6 +24,7 @@ model User {
   assignedLeads Lead[]    @relation("AssignedLeads")
   activities    ActivityEvent[]
   notes         LeadNote[]
+  sourceSpendUpdates SourceSpend[] @relation("SourceSpendUpdater")
 }
 
 model Session {
@@ -83,6 +84,7 @@ model Organization {
   events         CalendarEvent[]
   shortlists     Shortlist[]
   portalBudgets  PortalBudget[]
+  sourceSpends   SourceSpend[]
   guides         Guide[]
 }
 
@@ -203,6 +205,7 @@ model Lead {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   firstRespondedAt DateTime?
+  wonAt          DateTime?
   sources        LeadSourceEvent[]
   notes          LeadNote[]
   activities     ActivityEvent[]
@@ -211,6 +214,7 @@ model Lead {
 
   @@index([organizationId, phone])
   @@index([organizationId, stage])
+  @@index([organizationId, wonAt])
 }
 
 model LeadSourceEvent {
@@ -308,6 +312,23 @@ model PortalBudget {
   monthlySpendAed Int         @default(0)
 
   @@unique([organizationId, portal])
+}
+
+/** Monthly marketing spend per lead source. Carry-forward: a month with no row inherits the latest earlier amount. */
+model SourceSpend {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  source         LeadSource
+  month          DateTime     @db.Date
+  amount         Int
+  updatedById    String?
+  updatedBy      User?        @relation("SourceSpendUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, source, month])
+  @@index([organizationId, month])
 }
 
 enum GuideAudience {

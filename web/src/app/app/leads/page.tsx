@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Check, ChevronDown, Copy, ListChecks, Merge } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Check, ChevronDown, Copy, ListChecks, Merge, X } from "lucide-react";
 import { ExportMenu } from "@/components/ExportMenu";
 import {
   DuplicatesDialog,
@@ -41,6 +42,11 @@ type LeadDetail = Lead & {
 type Listing = { id: string; title: string };
 
 export default function LeadsPage() {
+  const search = useSearchParams();
+  const router = useRouter();
+  const filterSource = search.get("source");
+  const filterStage = search.get("stage");
+  const openLeadId = search.get("lead");
   const [leads, setLeads] = useState<Lead[]>([]);
   const [listings, setListings] = useState<Listing[]>([]);
   const [selected, setSelected] = useState<LeadDetail | null>(null);
@@ -174,18 +180,41 @@ export default function LeadsPage() {
     await openLead(r.primaryId).catch(() => {});
   }
 
+  const filteredLeads = useMemo(() => {
+    return leads.filter((l) => {
+      if (filterStage && l.stage !== filterStage) return false;
+      if (filterSource) {
+        const hit =
+          l.primarySource === filterSource ||
+          l.sources.some((s) => s.source === filterSource);
+        if (!hit) return false;
+      }
+      return true;
+    });
+  }, [leads, filterSource, filterStage]);
+
   const columns = useMemo(() => {
     return STAGES.filter((s) => s !== "LOST").map((stage) => ({
       stage,
-      items: leads.filter((l) => l.stage === stage),
+      items: filteredLeads.filter((l) => l.stage === stage),
     }));
-  }, [leads]);
+  }, [filteredLeads]);
 
   async function openLead(id: string) {
     const detail = await api<LeadDetail>(`/api/leads/${id}`);
     setSelected(detail);
     const m = await api<typeof matches>(`/api/leads/${id}/match`);
     setMatches(m);
+  }
+
+  useEffect(() => {
+    if (!openLeadId || !leads.length) return;
+    openLead(openLeadId).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openLeadId, leads.length]);
+
+  function clearMoneyFilters() {
+    router.push("/app/leads");
   }
 
   async function moveStage(id: string, stage: string) {
@@ -254,8 +283,28 @@ export default function LeadsPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-display text-[1.75rem] font-bold tracking-[-0.04em]">Leads</h1>
+          {(filterSource || filterStage) && (
+            <button
+              type="button"
+              className="mt-1 inline-flex items-center gap-1.5 rounded-full bg-accent-soft px-2.5 py-1 text-xs font-bold text-accent"
+              onClick={clearMoneyFilters}
+              data-testid="money-filter-chip"
+            >
+              {[
+                filterSource ? `Source: ${portalLabel(filterSource)}` : null,
+                filterStage ? `Stage: ${stageTitle(filterStage)}` : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+              <X size={12} />
+            </button>
+          )}
           <p className="mt-0.5 text-sm text-muted">
-            {leads.length} in pipeline ·{" "}
+            {filteredLeads.length}
+            {(filterSource || filterStage) && filteredLeads.length !== leads.length
+              ? ` of ${leads.length}`
+              : ""}{" "}
+            in pipeline ·{" "}
             {selectMode ? "click cards to select them" : "drag cards to move stages"}
           </p>
         </div>

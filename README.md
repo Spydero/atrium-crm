@@ -50,7 +50,7 @@ Also: `owner@atrium.demo`, `manager@atrium.demo` (same password).
 - Listings CRUD + filters + mock portal publish
 - Leads kanban + notes/activity + **Lead Fuse** + simulate portal lead + Smart Match
 - Calendar with viewing complete + feedback
-- Money Map (source ROI + at-risk value)
+- Money Map: source ROI with date range, conversion rates, cost per viewing / win, decision cues (Scale / Cut / Review), chart, editable entered spend, and at-risk deal value
 - Public shortlist page `/s/[token]`
 
 **V1.1**

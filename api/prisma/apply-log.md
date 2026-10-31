@@ -23,3 +23,39 @@ Written by `scripts/db-tools.ts`. Do not edit old entries.
 - Old to new: 20261030185624_v1_init to 20261030132624_v1_init; 20261031010456_v1_1_org_market_and_places to 20261030193456_v1_1_org_market_and_places; 20261031020714_v1_4_guides to 20261030203714_v1_4_guides
 - File contents and checksums are unchanged. Nothing had been shared or applied elsewhere under the old names.
 - Check afterwards: `npm run db:status` reports 3 applied, 0 pending, no drift.
+
+## 2026-10-31 16:05:05 +05:30 - deploy - SUCCESS
+- Database: atrium @ localhost:5432 (schema public)
+- Run by: jyothiranands@Jyothiranands-MacBook-Pro.local
+- Code version: b92682a on main, uncommitted prisma changes: yes (uncommitted prisma changes)
+- Pending before: 20261031103435_money_map_source_spend
+- Applied: 20261031103435_money_map_source_spend
+- Backup: backups/2026-10-31-16-05-04-p05-30-before-20261031103435_money_map_source_spend.sql (299 KB)
+- Duration: 1.2s
+
+```
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "atrium", schema "public" at "localhost:5432"
+
+4 migrations found in prisma/migrations
+
+Applying migration `20261031103435_money_map_source_spend`
+
+The following migration(s) have been applied:
+
+migrations/
+  └─ 20261031103435_money_map_source_spend/
+    └─ migration.sql
+      
+All migrations have been successfully applied.
+┌─────────────────────────────────────────────────────────┐
+│  Update available 6.19.0 -> 8.0.0-rc.29                 │
+│                                                         │
+│  This is a major update - please follow the guide at    │
+│  https://pris.ly/d/major-version-upgrade                │
+│                                                         │
+│  Run the following to update                            │
+│    npm i --save-dev prisma@latest                       │
+│    npm i @prisma/client@latest                          │
+└─────────────────────────────────────────────────────────┘
+```

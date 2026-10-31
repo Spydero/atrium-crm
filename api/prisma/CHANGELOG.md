@@ -43,6 +43,20 @@ Folder names use UTC time (Prisma does this for new migrations). The three basel
 
 ## Migrations (newest first)
 
+### 20261031103435_money_map_source_spend  (Money Map V1.5)
+- Date applied: 2026-10-31 (see apply-log.md)
+- Purpose: Money Map needs a reliable win date and monthly entered spend for every lead source (including GUIDE, META, WhatsApp), not only the four portals.
+- Changes:
+  - `Lead.wonAt` (nullable timestamp) + index `(organizationId, wonAt)`.
+  - New table `SourceSpend` (`organizationId`, `source` LeadSource, `month` date, `amount`, optional `updatedById`), unique on `(organizationId, source, month)`.
+- Data impact:
+  - Backfills `wonAt` for existing WON leads from the latest stage activity mentioning WON, else `updatedAt`.
+  - Copies `PortalBudget` rows with `monthlySpendAed > 0` into `SourceSpend` for the current calendar month. Zero budget rows are not copied (they meant "not entered").
+  - `PortalBudget` is left in place but unused by Money Map going forward.
+- Risk: low. Additive columns/table plus a non-destructive copy. Portal enum values already exist as LeadSource values.
+- Reversal: drop `SourceSpend`, drop `Lead.wonAt`. Money Map code can temporarily read `PortalBudget` again if needed.
+- Code that depends on it: `src/lib/moneyStats.ts`, `src/routes/money.ts`, Money Map and Settings spend UI, lead stage updates that set/clear `wonAt`.
+
 ### 20261030203714_v1_4_guides  (V1.4, commit 471f97f)
 - Date applied: 2026-10-31 (recorded on the main database on 2026-10-31 02:18 +05:30, see apply-log.md)
 - Purpose: downloadable guides with gated PDFs, lead capture and daily stats.

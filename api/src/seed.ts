@@ -16,6 +16,7 @@ async function main() {
   await prisma.listingPortalStatus.deleteMany();
   await prisma.listing.deleteMany();
   await prisma.portalBudget.deleteMany();
+  await prisma.sourceSpend.deleteMany();
   await prisma.session.deleteMany();
   await prisma.account.deleteMany();
   await prisma.user.deleteMany();
@@ -40,6 +41,34 @@ async function main() {
       },
     },
   });
+
+  // Monthly entered spend for Money Map (carry-forward). Leave GUIDE / WHATSAPP empty on purpose.
+  {
+    const now = new Date();
+    const plan: { source: "BAYUT" | "PROPERTY_FINDER" | "DUBIZZLE" | "SKYLOOV" | "META" | "WEBSITE" | "REFERRAL" | "MANUAL"; older: number; recent: number }[] = [
+      { source: "BAYUT", older: 16000, recent: 18000 },
+      { source: "PROPERTY_FINDER", older: 20000, recent: 22000 },
+      { source: "DUBIZZLE", older: 11000, recent: 9000 },
+      { source: "SKYLOOV", older: 4000, recent: 4500 },
+      { source: "META", older: 6000, recent: 7500 },
+      { source: "WEBSITE", older: 0, recent: 0 },
+      { source: "REFERRAL", older: 0, recent: 0 },
+      { source: "MANUAL", older: 0, recent: 0 },
+    ];
+    for (let back = 0; back < 6; back++) {
+      const month = new Date(now.getFullYear(), now.getMonth() - back, 1);
+      for (const p of plan) {
+        await prisma.sourceSpend.create({
+          data: {
+            organizationId: org.id,
+            source: p.source,
+            month,
+            amount: back >= 3 ? p.older : p.recent,
+          },
+        });
+      }
+    }
+  }
 
   const signUps = [
     {

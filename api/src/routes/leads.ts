@@ -233,7 +233,10 @@ leadsRouter.post("/bulk", async (req: AuthedRequest, res) => {
       await prisma.$transaction([
         prisma.lead.updateMany({
           where: { id: { in: changed.map((l) => l.id) }, organizationId },
-          data: { stage: body.stage },
+          data: {
+            stage: body.stage,
+            wonAt: body.stage === "WON" ? new Date() : null,
+          },
         }),
         prisma.activityEvent.createMany({
           data: changed.map((l) => ({
@@ -591,9 +594,17 @@ leadsRouter.patch("/:id", async (req: AuthedRequest, res) => {
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(parsed.error.flatten());
 
+  const stageChanged = parsed.data.stage && parsed.data.stage !== existing.stage;
+  const wonPatch =
+    stageChanged && parsed.data.stage === "WON"
+      ? { wonAt: existing.wonAt ?? new Date() }
+      : stageChanged && parsed.data.stage !== "WON"
+        ? { wonAt: null }
+        : {};
+
   const lead = await prisma.lead.update({
     where: { id: existing.id },
-    data: parsed.data,
+    data: { ...parsed.data, ...wonPatch },
     include: {
       listing: true,
       sources: { orderBy: { createdAt: "desc" } },
@@ -601,7 +612,7 @@ leadsRouter.patch("/:id", async (req: AuthedRequest, res) => {
     },
   });
 
-  if (parsed.data.stage && parsed.data.stage !== existing.stage) {
+  if (stageChanged) {
     await prisma.activityEvent.create({
       data: {
         leadId: lead.id,

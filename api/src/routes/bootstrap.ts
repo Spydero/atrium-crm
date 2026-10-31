@@ -31,14 +31,6 @@ bootstrapRouter.post("/organization", async (req: AuthedRequest, res) => {
     data: {
       name: parsed.data.name,
       slug: `${slug}-${Date.now().toString(36)}`,
-      portalBudgets: {
-        create: [
-          { portal: "BAYUT", monthlySpendAed: 0 },
-          { portal: "PROPERTY_FINDER", monthlySpendAed: 0 },
-          { portal: "DUBIZZLE", monthlySpendAed: 0 },
-          { portal: "SKYLOOV", monthlySpendAed: 0 },
-        ],
-      },
     },
   });
 

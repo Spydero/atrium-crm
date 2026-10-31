@@ -101,7 +101,7 @@ Second enquiry attaches as an **event + source**, same owner agent - no double-c
 Dashboard: per portal/source → leads, **completed viewings**, wins, estimated cost (mock wallet) → **cost per viewing / per deal**.  
 Surface “at risk AED” = overdue follow-ups × deal value.  
 *Business value:* stop renewing the portal that only sends tyre-kickers.  
-*V1:* basic Money Map from seed + mock costs. *Later:* real spend inputs.
+*V1.5:* date range, conversion rates, cost per viewing / win vs previous period, decision cues (Scale / Cut / Review), chart, editable entered spend per source (carry-forward by month), Guide included, at-risk deduped by lead. *Later:* live Google / Meta spend sync.
 
 #### 3. Viewing OS + Client Shortlist Link
 Calendar isn’t a sticky note: **schedule viewing → mark completed/no-show → structured feedback** (fit / budget / area / next step). Feedback can auto-suggest alternate listings (rules).  
@@ -211,7 +211,7 @@ Shipped in phases. **V1.0** = first shippable demo of the core loop.
 
 **Signature (must appear in V1, even if thin)**
 6. **Lead Fuse** - same phone from second portal merges into one lead  
-7. **Money Map** - simple source → viewings/wins (+ mock cost) panel  
+7. **Money Map** - source ROI with date range, conversion rates, decision cues and editable spend  
 8. **Viewing OS + Shortlist link** - complete viewing + feedback; shareable shortlist URL  
 
 **Out of V1.0**

@@ -10,7 +10,7 @@ Successful PropTech / brokerage CRMs use a **hybrid**:
 
 | Layer | Own it (build) | Rent it (3rd party) |
 |-------|----------------|---------------------|
-| Listings, leads, pipeline, roles, Fuse, Money Map, viewings, shortlists | Yes | No |
+| Listings, leads, pipeline, roles, Fuse, Money Map, viewings, shortlists | Yes | No (Money Map spend is entered by the team; live ad sync later) |
 | File storage / CDN | Optional thin wrapper | Cloudinary, S3 |
 | Maps / geocode | UI + our lat/lng fields | Mapbox, Nominatim |
 | Email send | Templates + triggers | Resend, SES |
@@ -55,6 +55,7 @@ StorageAdapter (local → Cloudinary)
 |------|-------------|----------|
 | Now | Uploads + `TESTING_ENABLED` stock picker | Own listing fields (city/area). Photos: **upload** always, plus a **local curated catalog** (~48 place-tagged images) for demos - no third-party photo API keys (Unsplash/Pexels/Pixabay are often paused or rate-limited). |
 | V1.1 | Maps + geocode | Nominatim search proxy + Leaflet/OSM tiles; store `lat`/`lng`/`placeId` on listing. Manual address always allowed. |
+| Money Map V1.5 | Source ROI | `GET /api/money/map` (`range`, `from`, `to`; attribution=all only). `GET/PUT /api/money/spend` (`month=YYYY-MM`, per-`LeadSource` amounts with carry-forward). `Lead.wonAt` set on stage moves into WON. |
 | V1.1 | Brochure PDF | Server-side `pdfkit`: designed A4 layout, hero photo, spec cards, OSM tile map (3x3 tiles stitched server side, graceful fallback) |
 | V1.1 | Reports PDF / CSV exports | `GET /api/reports/export.pdf`, `/api/reports/export.csv`, `/api/leads/export.csv`, `/api/listings/export.csv` (CSV is UTF-8 with BOM and formula-injection protection) |
 | V1.4 | Downloadable guides | Public: `GET /api/public/guides/:org`, `GET /api/public/guides/:org/:guide`, `POST .../view`, `POST .../request`, `GET .../file` (open guides only), `GET /api/public/guide-requests/:token`, `GET /api/public/guide-files/:token`. Admin: `/api/guides` (list with `q`, `status`, `audience`, `access=gated|open`, `sort=status|newest|views|requests|downloads|conversion|leads|title`, `dir=asc|desc`; returns totals, previous period, channels), `/api/guides/trend` (`metric=views|requests|downloads`, `group`, `compare`, same filters), create, edit, `/:id/status`, `/:id/file`, `/:id/cover`, `/:id/requests`, `/:id/requests.csv`) |
