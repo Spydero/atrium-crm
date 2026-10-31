@@ -83,7 +83,7 @@ Docs: [Better Auth](https://www.better-auth.com/) · [Prisma adapter](https://ww
 3. **Listings** - mandatory: CRUD, photos, status, beds/baths/price/area
 4. Mock portal publish (org-configured portal list; seed may show sample portals)
 5. **Leads** kanban linked to listings
-6. **Calendar** - in-app follow-ups / viewings / calls. **Google Calendar sync later**
+6. **Calendar** - in-app follow-ups / viewings / calls with notes, edit, delete, outcomes and cancel reasons. **Google Calendar sync later**
 
 ### Build order
 1. Scaffold `web` + `api`

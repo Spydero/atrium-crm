@@ -43,6 +43,19 @@ Folder names use UTC time (Prisma does this for new migrations). The three basel
 
 ## Migrations (newest first)
 
+### 20261031105716_calendar_outcomes_notes  (Calendar V1.5)
+- Date applied: 2026-10-31 (see apply-log.md)
+- Purpose: calendar depth - notes, cancel reasons, outcome timestamps, creator; every event type can be completed or cancelled; delete and full edit become possible.
+- Changes:
+  - New enum `CancelReason` (CLIENT, AGENT, LANDLORD, LISTING_UNAVAILABLE, RESCHEDULED, DUPLICATE, OTHER).
+  - `CalendarEvent` gains `notes`, `cancelReason`, `outcomeAt`, `createdById` (FK to User, set null).
+  - `CalendarEvent.outcome` becomes required (NOT NULL), default SCHEDULED.
+  - Index `(organizationId, startsAt)`.
+- Data impact: null outcomes set to SCHEDULED; `outcomeAt` backfilled from `updatedAt` for non-SCHEDULED rows (approximate).
+- Risk: low. Additive columns plus a non-destructive backfill before NOT NULL.
+- Reversal: drop the four columns and the enum; make `outcome` nullable again.
+- Code that depends on it: `src/routes/calendar.ts`, `src/lib/eventOutcome.ts`, calendar UI, guide follow-up creation, dashboard upcoming viewings filter.
+
 ### 20261031103435_money_map_source_spend  (Money Map V1.5)
 - Date applied: 2026-10-31 (see apply-log.md)
 - Purpose: Money Map needs a reliable win date and monthly entered spend for every lead source (including GUIDE, META, WhatsApp), not only the four portals.

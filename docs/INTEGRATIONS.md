@@ -60,6 +60,7 @@ StorageAdapter (local → Cloudinary)
 | V1.1 | Reports PDF / CSV exports | `GET /api/reports/export.pdf`, `/api/reports/export.csv`, `/api/leads/export.csv`, `/api/listings/export.csv` (CSV is UTF-8 with BOM and formula-injection protection) |
 | V1.4 | Downloadable guides | Public: `GET /api/public/guides/:org`, `GET /api/public/guides/:org/:guide`, `POST .../view`, `POST .../request`, `GET .../file` (open guides only), `GET /api/public/guide-requests/:token`, `GET /api/public/guide-files/:token`. Admin: `/api/guides` (list with `q`, `status`, `audience`, `access=gated|open`, `sort=status|newest|views|requests|downloads|conversion|leads|title`, `dir=asc|desc`; returns totals, previous period, channels), `/api/guides/trend` (`metric=views|requests|downloads`, `group`, `compare`, same filters), create, edit, `/:id/status`, `/:id/file`, `/:id/cover`, `/:id/requests`, `/:id/requests.csv`) |
 | V1.5 | Dashboard trend chart | `GET /api/dashboard/trend` (metric, group, compare, same date range query as `/api/dashboard/kpis`) |
+| Calendar V1.5 | In-app calendar depth | `GET/POST /api/calendar`, `PATCH/DELETE /api/calendar/:id`, `GET /api/calendar/overdue`. Events carry `notes`, `cancelReason`, `outcomeAt`, `createdById`. Outcomes for every type. |
 | Later | Google Calendar | OAuth; our `CalendarEvent` remains canonical |
 | Later | Real portals | Official partner APIs only; mock adapters until then |
 | Later | WhatsApp | Meta Cloud API only when credentials exist; Conversation/Message tables. **No mock inbox, Slack, or Discord.** |

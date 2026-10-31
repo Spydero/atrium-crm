@@ -130,6 +130,8 @@ export async function recordGuideRequest(
         startsAt: due,
         endsAt: new Date(due.getTime() + 15 * 60_000),
         leadId,
+        outcome: "SCHEDULED",
+        notes: `Guide request: ${guide.title}`,
         createdAt: at,
       },
     });

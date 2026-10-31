@@ -60,6 +60,7 @@ dashboardRouter.get("/kpis", async (req: AuthedRequest, res) => {
       where: {
         organizationId,
         type: "VIEWING",
+        outcome: { not: "CANCELLED" },
         startsAt: { gte: range.from, lte: range.to },
       },
     }),
@@ -95,6 +96,7 @@ dashboardRouter.get("/kpis", async (req: AuthedRequest, res) => {
       where: {
         organizationId,
         type: "VIEWING",
+        outcome: "SCHEDULED",
         startsAt: { gte: now, lte: weekAhead },
       },
       include: {
@@ -109,7 +111,7 @@ dashboardRouter.get("/kpis", async (req: AuthedRequest, res) => {
         organizationId,
         type: "VIEWING",
         startsAt: { lt: now },
-        OR: [{ outcome: "SCHEDULED" }, { outcome: null }],
+        outcome: "SCHEDULED",
       },
       include: {
         lead: { select: { id: true, name: true, dealValueAed: true } },

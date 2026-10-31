@@ -500,7 +500,7 @@ export async function computeMoneyMap(
         organizationId,
         startsAt: { lt: now },
         leadId: { not: null },
-        OR: [{ outcome: "SCHEDULED" }, { outcome: null }],
+        outcome: "SCHEDULED",
         lead: { stage: { notIn: ["WON", "LOST"] } },
       },
       select: {

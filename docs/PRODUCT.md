@@ -104,10 +104,10 @@ Surface “at risk AED” = overdue follow-ups × deal value.
 *V1.5:* date range, conversion rates, cost per viewing / win vs previous period, decision cues (Scale / Cut / Review), chart, editable entered spend per source (carry-forward by month), Guide included, at-risk deduped by lead. *Later:* live Google / Meta spend sync.
 
 #### 3. Viewing OS + Client Shortlist Link
-Calendar isn’t a sticky note: **schedule viewing → mark completed/no-show → structured feedback** (fit / budget / area / next step). Feedback can auto-suggest alternate listings (rules).  
+Calendar isn’t a sticky note: **schedule → edit → notes → mark completed / no-show / cancelled (with reason) → or delete mistakes**. Every event type (viewing, call, follow-up, task) can be closed out. Month pills show Cancelled / No-show / Done / Overdue clearly.  
 Plus **Share Shortlist**: branded public link of 3-8 properties; track opens.  
-*Business value:* faster shortlists, landlord-ready updates, client feels premium.  
-*V1:* viewing events + completed/feedback fields; shortlist link MVP. *Later:* SMS/WhatsApp share polish.
+*Business value:* cleaner day planning, show-up and cancel rates, landlord-ready updates.  
+*V1.5:* full edit/delete/notes/cancel reasons + filters. *Later:* Google Calendar sync, SMS/WhatsApp share polish.
 
 ### Supporting differentiators (strong, not signature)
 

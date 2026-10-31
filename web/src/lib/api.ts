@@ -69,7 +69,12 @@ export async function api<T>(
       res.status,
     );
   }
-  return res.json() as Promise<T>;
+  if (res.status === 204 || res.headers.get("content-length") === "0") {
+    return undefined as T;
+  }
+  const text = await res.text();
+  if (!text) return undefined as T;
+  return JSON.parse(text) as T;
 }
 
 export function formatMoney(n: number, currencyLabel = "AED") {

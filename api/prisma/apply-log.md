@@ -59,3 +59,29 @@ All migrations have been successfully applied.
 │    npm i @prisma/client@latest                          │
 └─────────────────────────────────────────────────────────┘
 ```
+
+## 2026-10-31 16:28:11 +05:30 - deploy - SUCCESS
+- Database: atrium @ localhost:5432 (schema public)
+- Run by: jyothiranands@Jyothiranands-MacBook-Pro.local
+- Code version: 6070fb8 on main, uncommitted prisma changes: yes (uncommitted prisma changes)
+- Pending before: 20261031105716_calendar_outcomes_notes
+- Applied: 20261031105716_calendar_outcomes_notes
+- Backup: backups/2026-10-31-16-28-10-p05-30-before-20261031105716_calendar_outcomes_notes.sql (316 KB)
+- Duration: 1.0s
+
+```
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "atrium", schema "public" at "localhost:5432"
+
+5 migrations found in prisma/migrations
+
+Applying migration `20261031105716_calendar_outcomes_notes`
+
+The following migration(s) have been applied:
+
+migrations/
+  └─ 20261031105716_calendar_outcomes_notes/
+    └─ migration.sql
+      
+All migrations have been successfully applied.
+```
