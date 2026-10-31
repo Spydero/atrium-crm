@@ -9,7 +9,11 @@ export type TrendItem = {
   key?: string;
   /** Money value (AED) to add up, if any. */
   value?: number;
+  /** How many events this item stands for (daily totals use this). Default 1. */
+  n?: number;
 };
+
+export const totalOf = (items: TrendItem[]) => items.reduce((s, i) => s + (i.n ?? 1), 0);
 
 export type TrendBucket = {
   key: string;
@@ -130,9 +134,10 @@ function fill(spans: Span[], items: TrendItem[]) {
     const t = it.at.getTime();
     const row = rows.find((r) => t >= r.from && t <= r.to);
     if (!row) continue;
-    row.count += 1;
+    const n = it.n ?? 1;
+    row.count += n;
     row.value += it.value ?? 0;
-    if (it.key) row.by.set(it.key, (row.by.get(it.key) ?? 0) + 1);
+    if (it.key) row.by.set(it.key, (row.by.get(it.key) ?? 0) + n);
   }
   return rows;
 }

@@ -68,7 +68,7 @@ Also: `owner@atrium.demo`, `manager@atrium.demo` (same password).
 - Merge leads: pick the lead to keep; sources, notes, activity and calendar events move across and blanks are filled
 
 **V1.4**
-- Downloadable guides (Marketing > Guides): upload a PDF, publish it, share a link with campaign tags and a QR code
+- Downloadable guides (Marketing > Guides): upload a PDF, publish it, share a link with campaign tags and a QR code; search, filter, sort, see a trend chart and change vs the previous period
 - Public pages (no login): guide library, guide page with a short form (name and email, phone optional, separate marketing opt-in), personal download link that keeps working
 - Each request becomes a lead (new `GUIDE` source) or joins an existing one by email or phone, with a follow-up task for the guide owner
 - Open or form-first per guide, views and downloads counted, request log and CSV, guide section in Reports (screen, PDF, CSV)

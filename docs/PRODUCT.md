@@ -270,7 +270,9 @@ Lead Fuse still fuses exact same-phone enquiries on arrival; merge handles what 
 5. Share panel builds links with source, medium and campaign tags, and a QR code, so each channel can be measured
 6. Reports (screen, PDF page 3, CSV) show views, requests, downloads, request rate, leads, how many reached a viewing or were won, and requests by channel
 7. Guides can be archived (public page and personal links stop working) and restored. Guides with requests cannot be deleted
-8. Not included yet: building guides inside Atrium, email or WhatsApp delivery, A/B testing, multiple languages
+8. The Guides page is explorable like the dashboard: search, filter by status, audience and form-first or open, sort by status, newest, page views, requests, downloads, conversion, leads or title (either direction), and a trend chart (page views, requests, downloads by day, week or month, with compare to the previous period). Cards, chart and channel list all follow the same filters and date range, and every card shows its change against the previous period
+9. Metric definitions: request rate = requests / views of form-first guides. Download rate = downloads / views of open guides. Downloads = people who opened a guide for the first time (plus every download of an open guide). Channels show share, how many downloaded, leads, and how many reached a viewing
+10. Not included yet: building guides inside Atrium, email or WhatsApp delivery, A/B testing, multiple languages
 
 ---
 

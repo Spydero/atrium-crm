@@ -501,7 +501,7 @@ export async function buildReportPdf(
         const topGuide = [...g.guides].sort((a, b) => b.requests - a.requests)[0];
         const gSummary =
           `Guide pages were viewed ${gt.views} ${gt.views === 1 ? "time" : "times"}, producing ${plural(gt.requests, "request")} ` +
-          `(${pctRate(gt.requestRate)} of views). ${gt.downloaded} of those ${gt.downloaded === 1 ? "was" : "were"} downloaded. ` +
+          `(${pctRate(gt.requestRate)} of views of form-first guides). ${gt.downloaded} of those ${gt.downloaded === 1 ? "was" : "were"} downloaded. ` +
           (topGuide && topGuide.requests
             ? `The strongest guide was "${topGuide.title}" with ${plural(topGuide.requests, "request")}. `
             : "") +
@@ -515,7 +515,7 @@ export async function buildReportPdf(
         hairline(doc, MARGIN, y, PAGE_W - MARGIN, COLORS.navy, 1);
         hairline(doc, MARGIN, y + kh2, PAGE_W - MARGIN, COLORS.line, 0.6);
         indicator(doc, MARGIN, y, kw, kh2, String(gt.views), "Guide views", "page visits", false);
-        indicator(doc, MARGIN + kw, y, kw, kh2, String(gt.requests), "Requests", `${pctRate(gt.requestRate)} of views`, true);
+        indicator(doc, MARGIN + kw, y, kw, kh2, String(gt.requests), "Requests", `${pctRate(gt.requestRate)} of form-first views`, true);
         indicator(doc, MARGIN + kw * 2, y, kw, kh2, String(gt.totalDownloads), "Downloads", `${pctRate(gt.downloadRate)} of requests`, true);
         indicator(doc, MARGIN + kw * 3, y, kw, kh2, String(gt.reachedViewing), "Reached viewing", `${gt.won} won`, true);
         y += kh2 + 24;

@@ -9,6 +9,21 @@ export type GuideStats = {
   leads: number;
   reachedViewing: number;
   won: number;
+  gatedViews: number;
+  openViews: number;
+  newDownloads: number;
+  conversionRate: number;
+  conversionKind: "request" | "download";
+};
+
+export type GuideTotals = GuideStats & { openDownloadRate: number };
+
+export type ChannelRow = {
+  channel: string;
+  requests: number;
+  downloaded: number;
+  leads: number;
+  reachedViewing: number;
 };
 
 export type AdminGuide = {

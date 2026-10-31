@@ -12,6 +12,7 @@ import {
   buildTrend,
   pickGroup,
   summarize,
+  totalOf,
   type TrendItem,
   type TrendMetric,
 } from "../lib/trendBuckets.js";
@@ -261,7 +262,7 @@ dashboardRouter.get("/trend", async (req: AuthedRequest, res) => {
 
   const buckets = buildTrend(range, group, items, prevItems);
   const prevValue = prevItems ? prevItems.reduce((s, i) => s + (i.value ?? 0), 0) : null;
-  const totals = summarize(buckets, prevItems ? prevItems.length : null, prevValue);
+  const totals = summarize(buckets, prevItems ? totalOf(prevItems) : null, prevValue);
 
   res.json({
     metric,

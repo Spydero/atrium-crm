@@ -7,7 +7,8 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { requireAuth, type AuthedRequest } from "../middleware/requireAuth.js";
 import { csvFilename, toCsv } from "../lib/csv.js";
-import { resolveDateRange } from "../lib/dateRange.js";
+import { previousRange, resolveDateRange } from "../lib/dateRange.js";
+import { allowedGroups, buildTrend, pickGroup, summarize, totalOf, type TrendItem } from "../lib/trendBuckets.js";
 import { computeGuideStats } from "../lib/guideStats.js";
 import { channelLabel, checkImage, checkPdf, MAX_PDF_BYTES, slugify, uniqueSlug } from "../lib/guideTools.js";
 import { deleteGuideFile, downloadName, guideFilePath, saveGuideFile } from "../lib/guideStorage.js";
@@ -55,30 +56,154 @@ function present(g: {
   return { ...rest, hasFile: !!filePath };
 }
 
-/** Library with funnel numbers for the chosen date range. */
+const SORTS = ["status", "newest", "title", "views", "requests", "downloads", "conversion", "leads"] as const;
+type SortKey = (typeof SORTS)[number];
+
+/** Library filters shared by the list and the trend chart: q, status, audience, access (gated | open). */
+async function filteredGuides(organizationId: string, query: Record<string, unknown>) {
+  const q = typeof query.q === "string" ? query.q.trim().slice(0, 80) : "";
+  const status = STATUS.safeParse(query.status);
+  const audience = AUDIENCE.safeParse(query.audience);
+  const access = query.access === "gated" || query.access === "open" ? query.access : null;
+  const active = !!q || status.success || audience.success || !!access;
+  const guides = await prisma.guide.findMany({
+    where: {
+      organizationId,
+      ...(q ? { OR: [{ title: { contains: q, mode: "insensitive" } }, { summary: { contains: q, mode: "insensitive" } }] } : {}),
+      ...(status.success ? { status: status.data } : {}),
+      ...(audience.success ? { audience: audience.data } : {}),
+      ...(access ? { gated: access === "gated" } : {}),
+    },
+    include: { owner: { select: { id: true, name: true } } },
+    orderBy: { createdAt: "desc" },
+  });
+  return { guides, active, ids: active ? guides.map((g) => g.id) : undefined };
+}
+
+/** Library with funnel numbers for the chosen date range, filters and sort. */
 guidesRouter.get("/", async (req: AuthedRequest, res) => {
   const organizationId = orgId(req);
   if (!organizationId) return res.status(400).json({ error: "No organization" });
   const range = resolveDateRange(req.query);
-  const [guides, stats] = await Promise.all([
-    prisma.guide.findMany({
-      where: { organizationId },
-      include: { owner: { select: { id: true, name: true } } },
-      orderBy: { createdAt: "desc" },
-    }),
-    computeGuideStats(organizationId, range),
+  const sort: SortKey = SORTS.includes(req.query.sort as SortKey) ? (req.query.sort as SortKey) : "status";
+  const dir = req.query.dir === "asc" ? 1 : req.query.dir === "desc" ? -1 : sort === "title" ? 1 : -1;
+  const { guides, active, ids } = await filteredGuides(organizationId, req.query);
+  const [stats, previous, totalGuides] = await Promise.all([
+    computeGuideStats(organizationId, range, ids),
+    computeGuideStats(organizationId, previousRange(range), ids),
+    prisma.guide.count({ where: { organizationId } }),
   ]);
+
+  const statOf = (id: string) => stats.guides.find((x) => x.guideId === id) ?? null;
+  const val = (g: (typeof guides)[number]) => {
+    const st = statOf(g.id);
+    switch (sort) {
+      case "views": return st?.views ?? 0;
+      case "requests": return st?.requests ?? 0;
+      case "downloads": return st?.newDownloads ?? 0;
+      case "conversion": return st?.conversionRate ?? 0;
+      case "leads": return st?.leads ?? 0;
+      case "newest": return g.createdAt.getTime();
+      default: return 0;
+    }
+  };
+  const ordered = [...guides];
+  if (sort === "status") {
+    ordered.sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]);
+  } else if (sort === "title") {
+    ordered.sort((a, b) => dir * a.title.localeCompare(b.title));
+  } else {
+    ordered.sort((a, b) => dir * (val(a) - val(b)) || a.title.localeCompare(b.title));
+  }
+  const rows = ordered.map((g) => ({ ...present(g), stats: statOf(g.id) }));
+
   res.json({
-    range: { preset: range.preset, from: range.fromKey, to: range.toKey, label: range.label },
+    range: { preset: range.preset, from: range.fromKey, to: range.toKey, label: range.label, days: range.days },
+    filters: { active, shown: rows.length, total: totalGuides },
+    sort: { key: sort, dir: dir === 1 ? "asc" : "desc" },
     totals: stats.totals,
+    previous: previous.totals,
     channels: stats.channels,
     guideLeadShare: stats.guideLeadShare,
-    guides: [...guides]
-      .sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status])
-      .map((g) => ({
-        ...present(g),
-        stats: stats.guides.find((s) => s.guideId === g.id) ?? null,
-      })),
+    guides: rows,
+  });
+});
+
+const TREND_METRICS = ["views", "requests", "downloads"] as const;
+type TrendMetricKey = (typeof TREND_METRICS)[number];
+
+async function guideTrendItems(
+  guideIds: string[],
+  titles: Map<string, string>,
+  metric: TrendMetricKey,
+  from: Date,
+  to: Date,
+  fromKey: string,
+  toKey: string,
+): Promise<TrendItem[]> {
+  if (!guideIds.length) return [];
+  const daily = async (field: "views" | "downloads") => {
+    const rows = await prisma.guideDailyStat.findMany({
+      where: { guideId: { in: guideIds }, date: { gte: fromKey, lte: toKey } },
+    });
+    return rows
+      .filter((r) => r[field] > 0)
+      .map((r) => {
+        const [y, m, d] = r.date.split("-").map(Number);
+        return { at: new Date(y, m - 1, d, 12), n: r[field], key: titles.get(r.guideId) ?? "Guide" };
+      });
+  };
+  if (metric === "views") return daily("views");
+  if (metric === "requests") {
+    const rows = await prisma.guideRequest.findMany({
+      where: { guideId: { in: guideIds }, createdAt: { gte: from, lte: to } },
+      select: { createdAt: true, utmSource: true, utmMedium: true, referrer: true },
+    });
+    return rows.map((r) => ({ at: r.createdAt, key: channelLabel(r.utmSource, r.utmMedium, r.referrer) }));
+  }
+  const first = await prisma.guideRequest.findMany({
+    where: { guideId: { in: guideIds }, firstDownloadedAt: { gte: from, lte: to } },
+    select: { firstDownloadedAt: true, guideId: true },
+  });
+  return [
+    ...first.map((r) => ({ at: r.firstDownloadedAt as Date, key: titles.get(r.guideId) ?? "Guide" })),
+    ...(await daily("downloads")),
+  ];
+}
+
+/**
+ * Over-time data for the Guides chart. Same query as the library (range, q, status, audience, access)
+ * plus metric=views|requests|downloads, group=day|week|month, compare=1.
+ */
+guidesRouter.get("/trend", async (req: AuthedRequest, res) => {
+  const organizationId = orgId(req);
+  if (!organizationId) return res.status(400).json({ error: "No organization" });
+  const metric: TrendMetricKey = TREND_METRICS.includes(req.query.metric as TrendMetricKey)
+    ? (req.query.metric as TrendMetricKey)
+    : "requests";
+  const range = resolveDateRange(req.query);
+  const group = pickGroup(req.query.group, range.days);
+  const compare = req.query.compare === "1" || req.query.compare === "true";
+  const { guides } = await filteredGuides(organizationId, req.query);
+  const ids = guides.map((g) => g.id);
+  const titles = new Map(guides.map((g) => [g.id, g.title]));
+
+  const items = await guideTrendItems(ids, titles, metric, range.from, range.to, range.fromKey, range.toKey);
+  let prevItems: TrendItem[] | null = null;
+  if (compare) {
+    const p = previousRange(range);
+    prevItems = await guideTrendItems(ids, titles, metric, p.from, p.to, p.fromKey, p.toKey);
+  }
+  const buckets = buildTrend(range, group, items, prevItems);
+  const totals = summarize(buckets, prevItems ? totalOf(prevItems) : null, null);
+  res.json({
+    metric,
+    group,
+    allowedGroups: allowedGroups(range.days),
+    compare,
+    range: { preset: range.preset, from: range.fromKey, to: range.toKey, label: range.label, days: range.days },
+    totals,
+    buckets,
   });
 });
 

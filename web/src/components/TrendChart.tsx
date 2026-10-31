@@ -19,7 +19,7 @@ import { api, formatAed, portalLabel } from "@/lib/api";
 import { dateRangeQuery, defaultDateRange, type DateRangeValue } from "@/components/DateRangeFilter";
 
 type Group = "day" | "week" | "month";
-type Metric = "leads" | "viewings" | "won";
+type Metric = string;
 
 type Bucket = {
   key: string;
@@ -58,17 +58,15 @@ type Trend = {
   buckets: Bucket[];
 };
 
-const METRICS: { id: Metric; label: string; one: string; many: string; href: string; cta: string }[] = [
-  { id: "leads", label: "New leads", one: "new lead", many: "new leads", href: "/app/leads", cta: "Open leads" },
-  { id: "viewings", label: "Viewings", one: "viewing", many: "viewings", href: "/app/calendar", cta: "Open calendar" },
-  { id: "won", label: "Deals won", one: "deal won", many: "deals won", href: "/app/leads", cta: "Open leads" },
-];
+export type MetricMeta = { id: Metric; label: string; one: string; many: string; href: string; cta: string };
 
-const GROUPS: { id: Group; label: string }[] = [
-  { id: "day", label: "Day" },
-  { id: "week", label: "Week" },
-  { id: "month", label: "Month" },
-];
+export type TrendConfig = {
+  endpoint: string;
+  metrics: MetricMeta[];
+  /** Metric whose bucket value is money (shown as AED) */
+  moneyMetric?: Metric;
+  breakdown: (metric: Metric) => { title: string; label: (key: string) => string };
+};
 
 const OUTCOME_LABEL: Record<string, string> = {
   SCHEDULED: "Scheduled",
@@ -77,9 +75,38 @@ const OUTCOME_LABEL: Record<string, string> = {
   CANCELLED: "Cancelled",
 };
 
-function breakdownLabel(metric: Metric, key: string) {
-  return metric === "viewings" ? OUTCOME_LABEL[key] || key : portalLabel(key);
-}
+export const DASHBOARD_TREND: TrendConfig = {
+  endpoint: "/api/dashboard/trend",
+  moneyMetric: "won",
+  metrics: [
+    { id: "leads", label: "New leads", one: "new lead", many: "new leads", href: "/app/leads", cta: "Open leads" },
+    { id: "viewings", label: "Viewings", one: "viewing", many: "viewings", href: "/app/calendar", cta: "Open calendar" },
+    { id: "won", label: "Deals won", one: "deal won", many: "deals won", href: "/app/leads", cta: "Open leads" },
+  ],
+  breakdown: (m) =>
+    m === "viewings"
+      ? { title: "Outcome", label: (k) => OUTCOME_LABEL[k] || k }
+      : { title: "Source", label: (k) => portalLabel(k) },
+};
+
+export const GUIDES_TREND: TrendConfig = {
+  endpoint: "/api/guides/trend",
+  metrics: [
+    { id: "views", label: "Page views", one: "page view", many: "page views", href: "/app/leads", cta: "Open leads" },
+    { id: "requests", label: "Requests", one: "request", many: "requests", href: "/app/leads", cta: "Open leads" },
+    { id: "downloads", label: "Downloads", one: "download", many: "downloads", href: "/app/leads", cta: "Open leads" },
+  ],
+  breakdown: (m) =>
+    m === "requests"
+      ? { title: "Channel", label: (k) => k }
+      : { title: "Guide", label: (k) => k },
+};
+
+const GROUPS: { id: Group; label: string }[] = [
+  { id: "day", label: "Day" },
+  { id: "week", label: "Week" },
+  { id: "month", label: "Month" },
+];
 
 function pctOf(n: number, total: number) {
   return total > 0 ? Math.round((n / total) * 100) : 0;
@@ -138,11 +165,14 @@ function Details({
   row,
   trend,
   noun,
+  cfg,
 }: {
   row: Bucket;
   trend: Trend;
   noun: { one: string; many: string };
+  cfg: TrendConfig;
 }) {
+  const bd = cfg.breakdown(trend.metric);
   const total = trend.totals.count;
   const topBreak = row.breakdown.slice(0, 4);
   const maxBreak = Math.max(1, ...topBreak.map((b) => b.count));
@@ -159,7 +189,7 @@ function Details({
       <div className="mt-1 text-muted">
         <span className="text-base font-bold text-accent">{row.count}</span>{" "}
         {row.count === 1 ? noun.one : noun.many}
-        {trend.metric === "won" && row.value > 0 && (
+        {cfg.moneyMetric === trend.metric && row.value > 0 && (
           <span className="ml-1.5 font-semibold text-ink">worth {formatAed(row.value)}</span>
         )}
       </div>
@@ -182,12 +212,12 @@ function Details({
       {topBreak.length > 0 && (
         <div className="mt-2.5 space-y-1.5 border-t border-line pt-2.5">
           <div className="text-[10px] font-bold uppercase tracking-[0.1em] text-muted">
-            {trend.metric === "viewings" ? "Outcome" : "Source"}
+            {bd.title}
           </div>
           {topBreak.map((b) => (
             <div key={b.key}>
               <div className="flex justify-between">
-                <span className="font-semibold text-ink">{breakdownLabel(trend.metric, b.key)}</span>
+                <span className="font-semibold text-ink">{bd.label(b.key)}</span>
                 <span className="text-muted">{b.count}</span>
               </div>
               <div className="mt-0.5 h-1 overflow-hidden rounded-full bg-[#eef1f4]">
@@ -210,16 +240,18 @@ function Tip({
   payload,
   trend,
   noun,
+  cfg,
 }: {
   active?: boolean;
   payload?: { payload: Bucket }[];
   trend: Trend;
   noun: { one: string; many: string };
+  cfg: TrendConfig;
 }) {
   if (!active || !payload?.length) return null;
   return (
     <div className="w-[230px]">
-      <Details row={payload[0].payload} trend={trend} noun={noun} />
+      <Details row={payload[0].payload} trend={trend} noun={noun} cfg={cfg} />
     </div>
   );
 }
@@ -242,11 +274,17 @@ function rangeFor(g: Group, days: number): DateRangeValue | null {
 export function TrendChart({
   range,
   onRangeChange,
+  config = DASHBOARD_TREND,
+  extraQuery = "",
 }: {
   range: DateRangeValue;
   onRangeChange: (next: DateRangeValue) => void;
+  config?: TrendConfig;
+  /** Extra query string (filters) sent with every request, e.g. "status=PUBLISHED" */
+  extraQuery?: string;
 }) {
-  const [metric, setMetric] = useState<Metric>("leads");
+  const cfg = config;
+  const [metric, setMetric] = useState<Metric>(cfg.metrics[0].id);
   const [sort, setSort] = useState<Sort>("date");
   // A grouping you pick only applies to the date range it was picked on; a new range goes back to auto.
   const [choice, setChoice] = useState<{ rk: string; g: Group } | null>(null);
@@ -260,15 +298,16 @@ export function TrendChart({
 
   const query = useMemo(() => {
     const p = new URLSearchParams(rangeKey);
+    new URLSearchParams(extraQuery).forEach((v, k) => p.set(k, v));
     p.set("metric", metric);
     if (group !== "auto") p.set("group", group);
     if (compare) p.set("compare", "1");
     return p.toString();
-  }, [rangeKey, metric, group, compare]);
+  }, [rangeKey, metric, group, compare, extraQuery]);
 
   useEffect(() => {
     let live = true;
-    api<Trend>(`/api/dashboard/trend?${query}`)
+    api<Trend>(`${cfg.endpoint}?${query}`)
       .then((trend) => live && setResult({ key: query, trend }))
       .catch((e) => live && setResult({ key: query, error: e instanceof Error ? e.message : "Failed to load" }));
     return () => {
@@ -279,7 +318,7 @@ export function TrendChart({
   const selected = pin && pin.q === query ? pin.key : null;
   const trend = result?.trend;
   const loading = !result || result.key !== query;
-  const meta = METRICS.find((m) => m.id === metric)!;
+  const meta = cfg.metrics.find((m) => m.id === metric) ?? cfg.metrics[0];
   const unit = trend?.group ?? (group === "auto" ? "day" : group);
 
   const data = useMemo(() => {
@@ -300,7 +339,7 @@ export function TrendChart({
         <Seg
           label="Metric"
           value={metric}
-          options={METRICS.map((m) => ({ id: m.id, label: m.label }))}
+          options={cfg.metrics.map((m) => ({ id: m.id, label: m.label }))}
           onChange={(m) => {
             setMetric(m);
           }}
@@ -361,7 +400,7 @@ export function TrendChart({
               {t.count === 1 ? meta.one : meta.many}
             </span>
           </div>
-          {metric === "won" && (
+          {cfg.moneyMetric === metric && (
             <div className="text-sm font-bold text-ink">{formatAed(t.value)}</div>
           )}
           {delta !== null && (
@@ -421,7 +460,7 @@ export function TrendChart({
               />
               <Tooltip
                 cursor={{ fill: "rgba(26,95,122,0.07)" }}
-                content={<Tip trend={trend} noun={meta} />}
+                content={<Tip trend={trend} noun={meta} cfg={cfg} />}
                 allowEscapeViewBox={{ x: false, y: true }}
                 wrapperStyle={{ zIndex: 20, outline: "none" }}
               />
@@ -500,7 +539,7 @@ export function TrendChart({
 
       {trend && selectedRow && (
         <div data-testid="trend-pinned" className="max-w-[320px]">
-          <Details row={selectedRow} trend={trend} noun={meta} />
+          <Details row={selectedRow} trend={trend} noun={meta} cfg={cfg} />
         </div>
       )}
     </div>

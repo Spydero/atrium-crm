@@ -199,4 +199,20 @@ export function buildChartBuckets(
   return chart;
 }
 
+/** The period of equal length that ends the day before `range` starts. */
+export function previousRange(range: ResolvedRange): ResolvedRange {
+  const to = endOfDay(new Date(startOfDay(range.from).getTime() - 86400000));
+  const from = startOfDay(new Date(to));
+  from.setDate(from.getDate() - (range.days - 1));
+  return {
+    ...range,
+    from,
+    to,
+    fromKey: localKey(from),
+    toKey: localKey(to),
+    preset: "custom",
+    label: `${localKey(from)} to ${localKey(to)}`,
+  };
+}
+
 export { localKey, startOfDay, endOfDay };

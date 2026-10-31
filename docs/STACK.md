@@ -116,7 +116,8 @@ Docs: [Better Auth](https://www.better-auth.com/) · [Prisma adapter](https://ww
 5. `recordGuideRequest` (`guideService.ts`): one transaction that finds or creates the lead, logs source and activity, stores the request and consent, and schedules a next business day follow-up
 6. Pure helpers in `guideTools.ts` (slugs, tokens, PDF and image checks, rate limiter, channel names); funnel maths in `guideStats.ts`, reused by Reports
 7. Web: `/app/guides`, `/app/guides/[id]`, public `/guides/[org]`, `/guides/[org]/[guide]`, personal link `/g/[token]`
-8. Tests: `api/tests/guideTools.test.ts` (unit), `api/tests/guides.test.ts` (integration), browser test `web/scripts/guides-ui-test.mjs`
+8. Tests: `api/tests/guideTools.test.ts` (unit), `api/tests/guides.test.ts` and `api/tests/guidesInsights.test.ts` (integration: filters, sort, trend equals the card numbers), browser tests `web/scripts/guides-ui-test.mjs` and `web/scripts/guides-insights-ui-test.mjs`
+9. Guides insights: the list and `/api/guides/trend` share `filteredGuides`; the trend reuses `trendBuckets.ts` (views and open downloads from `GuideDailyStat` with weights, requests from `GuideRequest`, first downloads from `firstDownloadedAt`); the web `TrendChart` is config driven (`DASHBOARD_TREND`, `GUIDES_TREND`)
 
 ### V1.5 - Interactive dashboard trends
 1. `GET /api/dashboard/trend?range|from|to&metric=leads|viewings|won&group=day|week|month&compare=1` returns buckets (label, tooltip title, count, value, previous period count, running total, current marker, breakdown) plus totals (change, average, peak, active periods)
