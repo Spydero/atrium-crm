@@ -6,7 +6,7 @@
  *   npx tsx scripts/seed-history.ts [orgSlug]
  */
 import "dotenv/config";
-import type { LeadSource, LeadStage, ViewingOutcome } from "@prisma/client";
+import type { LeadStage, ViewingOutcome } from "@prisma/client";
 import { prisma } from "../src/lib/prisma.js";
 
 const DOMAIN = "history.example";
@@ -31,16 +31,16 @@ function weighted<T>(rows: [T, number][]): T {
 const FIRST = ["Amira", "Karim", "Layla", "Omar", "Noor", "Yusuf", "Hana", "Tariq", "Mariam", "Faisal", "Dina", "Sami", "Rania", "Zaid", "Lina", "Hadi", "Salma", "Nabil", "Aya", "Rashid", "Elena", "Viktor", "Priya", "Arjun", "Sofia", "Lucas", "Mei", "Daniel", "Chloe", "Ivan"];
 const LAST = ["Haddad", "Nasser", "Farouk", "Mansour", "Khalil", "Saleh", "Aziz", "Hamdan", "Barakat", "Sharif", "Petrov", "Nair", "Kapoor", "Rossi", "Larsen", "Weber", "Tanaka", "Silva", "Moreau", "Novak"];
 
-const SOURCES: [LeadSource, number][] = [
-  ["BAYUT", 24],
-  ["PROPERTY_FINDER", 24],
-  ["DUBIZZLE", 10],
-  ["SKYLOOV", 4],
-  ["WHATSAPP", 8],
-  ["META", 8],
-  ["REFERRAL", 7],
-  ["WEBSITE", 9],
-  ["MANUAL", 6],
+const SOURCES: [string, number][] = [
+  ["bayut", 24],
+  ["property_finder", 24],
+  ["dubizzle", 10],
+  ["skyloov", 4],
+  ["whatsapp", 8],
+  ["meta", 8],
+  ["referral", 7],
+  ["website", 9],
+  ["manual", 6],
 ];
 
 function stageFor(ageDays: number): LeadStage {

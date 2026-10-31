@@ -4,8 +4,11 @@ Internal CRM for real-estate brokerages: **listings**, **leads** (with Lead Fuse
 
 ## Stack
 
-- `web/` - Next.js (App Router) + Tailwind - Cove UI
+- `web/` - Next.js (App Router) + Tailwind - Cove UI (brokerage CRM)
+- `admin/` - Next.js Atrium Ops (platform operators) on port 3001
 - `api/` - Express + Better Auth + Prisma + PostgreSQL
+
+Accounts are **invite-only**. Public self-signup is disabled. Platform operators provision brokerages in Ops.
 
 ## Quick start
 
@@ -21,14 +24,14 @@ createdb atrium   # if needed
 
 ```bash
 cd api
-cp .env.example .env   # or use existing .env
+cp .env.example .env   # set CLIENT_ORIGIN=3000 and ADMIN_ORIGIN=3001
 npm install
 npm run db:deploy      # applies migrations, backs up first, logs to prisma/apply-log.md
 npm run db:seed
 npm run dev            # http://localhost:4000
 ```
 
-### 3. Web
+### 3. Web (CRM)
 
 ```bash
 cd web
@@ -36,27 +39,40 @@ npm install
 npm run dev            # http://localhost:3000
 ```
 
-### Demo login
+### 4. Admin (Ops)
 
-- Email: `agent@atrium.demo`
-- Password: `demo1234`
+```bash
+cd admin
+npm install
+npm run dev            # http://localhost:3001
+```
 
-Also: `owner@atrium.demo`, `manager@atrium.demo` (same password).
+### Logins (local seed)
+
+| App | Email | Password | Role |
+|---|---|---|---|
+| Ops `:3001` | `platform@atrium.demo` | `demo1234` | platform operator |
+| CRM `:3000` | `owner@atrium.demo` | `demo1234` | brokerage owner |
+| CRM | `manager@atrium.demo` | `demo1234` | admin |
+| CRM | `agent@atrium.demo` | `demo1234` | broker |
+
+**Ops (`:3001`) is for platform operators only** - provision brokerages and invite the first owner.
+Brokers, org admins, and owners work only in the CRM (`:3000`). Invite links always open on the CRM.
 
 ## Features
 
 **V1.0**
 - Auth (Better Auth email/password)
-- Listings CRUD + filters + mock portal publish
-- Leads kanban + notes/activity + **Lead Fuse** + simulate portal lead + Smart Match
+- Listings CRUD + filters + portal publish status tracking
+- Leads kanban + notes/activity + **Lead Fuse** + log enquiry + Smart Match
 - Calendar with viewing complete + feedback
-- Money Map: source ROI with date range, conversion rates, cost per viewing / win, decision cues (Scale / Cut / Review), chart, editable entered spend, and at-risk deal value
+- Money Map: org-channel ROI with date range, conversion rates, cost per viewing / win, decision cues (Scale / Cut / Review), chart, editable entered spend, and at-risk deal value
 - Calendar depth: edit, delete, free-text notes, cancel reasons, Done / No-show / Cancelled for every event type, clear month labels and filters
 - Public shortlist page `/s/[token]`
 
 **V1.1**
 - Grouped nav: Work / Inventory / Insights / Admin
-- Org Settings (currency, default city, enabled portals)
+- Org Settings (currency, default city, org channel catalog)
 - Real place search (Nominatim) + Leaflet/OSM maps (listing detail, inventory Map page, shortlists)
 - Date-range filters on Dashboard and Reports
 - Reports dashboard

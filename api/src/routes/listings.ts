@@ -6,6 +6,7 @@ import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { requireAuth, type AuthedRequest } from "../middleware/requireAuth.js";
 import { csvFilename, labelize, toCsv } from "../lib/csv.js";
+import { enabledPortalKeys, normalizeChannelKey } from "../lib/channels.js";
 
 const uploadDir = path.join(process.cwd(), "uploads");
 fs.mkdirSync(uploadDir, { recursive: true });
@@ -175,8 +176,9 @@ listingsRouter.get("/export.csv", async (req: AuthedRequest, res) => {
 
 listingsRouter.get("/:id", async (req: AuthedRequest, res) => {
   const organizationId = orgId(req);
+  if (!organizationId) return res.status(400).json({ error: "No organization" });
   const listing = await prisma.listing.findFirst({
-    where: { id: String(req.params.id), organizationId: organizationId ?? undefined },
+    where: { id: String(req.params.id), organizationId },
     include: { portals: true, leads: { take: 10, orderBy: { createdAt: "desc" } } },
   });
   if (!listing) return res.status(404).json({ error: "Not found" });
@@ -211,12 +213,10 @@ listingsRouter.post("/", async (req: AuthedRequest, res) => {
       coverUrl: data.coverUrl ?? null,
       photoUrls: data.photoUrls ?? [],
       portals: {
-        create: [
-          { portal: "BAYUT", status: "OFF" },
-          { portal: "PROPERTY_FINDER", status: "OFF" },
-          { portal: "DUBIZZLE", status: "OFF" },
-          { portal: "SKYLOOV", status: "OFF" },
-        ],
+        create: (await enabledPortalKeys(organizationId)).map((portal) => ({
+          portal,
+          status: "OFF" as const,
+        })),
       },
     },
     include: { portals: true },
@@ -226,8 +226,9 @@ listingsRouter.post("/", async (req: AuthedRequest, res) => {
 
 listingsRouter.patch("/:id", async (req: AuthedRequest, res) => {
   const organizationId = orgId(req);
+  if (!organizationId) return res.status(400).json({ error: "No organization" });
   const existing = await prisma.listing.findFirst({
-    where: { id: String(req.params.id), organizationId: organizationId ?? undefined },
+    where: { id: String(req.params.id), organizationId },
   });
   if (!existing) return res.status(404).json({ error: "Not found" });
 
@@ -244,8 +245,9 @@ listingsRouter.patch("/:id", async (req: AuthedRequest, res) => {
 
 listingsRouter.get("/:id/brochure.pdf", async (req: AuthedRequest, res) => {
   const organizationId = orgId(req);
+  if (!organizationId) return res.status(400).json({ error: "No organization" });
   const listing = await prisma.listing.findFirst({
-    where: { id: String(req.params.id), organizationId: organizationId ?? undefined },
+    where: { id: String(req.params.id), organizationId },
     include: {
       organization: { select: { name: true, currencyLabel: true } },
     },
@@ -268,8 +270,9 @@ listingsRouter.post(
   upload.single("photo"),
   async (req: AuthedRequest, res) => {
     const organizationId = orgId(req);
+    if (!organizationId) return res.status(400).json({ error: "No organization" });
     const existing = await prisma.listing.findFirst({
-      where: { id: String(req.params.id), organizationId: organizationId ?? undefined },
+      where: { id: String(req.params.id), organizationId },
     });
     if (!existing) return res.status(404).json({ error: "Not found" });
     if (!req.file) return res.status(400).json({ error: "No file" });
@@ -289,38 +292,45 @@ listingsRouter.post(
 
 listingsRouter.post("/:id/publish", async (req: AuthedRequest, res) => {
   const organizationId = orgId(req);
+  if (!organizationId) return res.status(400).json({ error: "No organization" });
   const schema = z.object({
-    portal: z.enum(["BAYUT", "PROPERTY_FINDER", "DUBIZZLE", "SKYLOOV"]),
+    portal: z.string().min(1).max(40),
     status: z.enum(["OFF", "PENDING", "LIVE", "REJECTED"]),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(parsed.error.flatten());
 
   const listing = await prisma.listing.findFirst({
-    where: { id: String(req.params.id), organizationId: organizationId ?? undefined },
+    where: { id: String(req.params.id), organizationId },
   });
   if (!listing) return res.status(404).json({ error: "Not found" });
 
-  // Mock adapter: PENDING briefly then LIVE (we set requested status directly for demo control)
+  const portalKey = normalizeChannelKey(parsed.data.portal);
+  const allowed = await enabledPortalKeys(organizationId);
+  if (!allowed.includes(portalKey)) {
+    return res.status(400).json({ error: `Portal channel "${portalKey}" is not enabled` });
+  }
+
+  // Local publish status only (no live portal API). PENDING then LIVE for demo timing.
   const portal = await prisma.listingPortalStatus.upsert({
     where: {
-      listingId_portal: { listingId: listing.id, portal: parsed.data.portal },
+      listingId_portal: { listingId: listing.id, portal: portalKey },
     },
     create: {
       listingId: listing.id,
-      portal: parsed.data.portal,
+      portal: portalKey,
       status: parsed.data.status === "LIVE" ? "PENDING" : parsed.data.status,
       externalId:
         parsed.data.status === "OFF"
           ? null
-          : `MOCK-${parsed.data.portal.slice(0, 3)}-${listing.id.slice(-6)}`,
+          : `LOCAL-${portalKey.slice(0, 3)}-${listing.id.slice(-6)}`,
     },
     update: {
       status: parsed.data.status === "LIVE" ? "PENDING" : parsed.data.status,
       externalId:
         parsed.data.status === "OFF"
           ? null
-          : `MOCK-${parsed.data.portal.slice(0, 3)}-${listing.id.slice(-6)}`,
+          : `LOCAL-${portalKey.slice(0, 3)}-${listing.id.slice(-6)}`,
     },
   });
 

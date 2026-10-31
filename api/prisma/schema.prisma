@@ -8,24 +8,29 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  name          String
-  email         String    @unique
-  emailVerified Boolean   @default(false)
-  image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  role          String    @default("agent") // owner | admin | agent
+  id             String    @id @default(cuid())
+  name           String
+  email          String    @unique
+  emailVerified  Boolean   @default(false)
+  image          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  /** Brokerage role: owner | admin | broker (legacy: agent treated as broker). */
+  role           String    @default("broker")
+  /** Platform operator role: operator | super. Null = not a platform admin. */
+  platformRole   String?
+  disabledAt     DateTime?
   organizationId String?
-  organization  Organization? @relation(fields: [organizationId], references: [id])
-  ownedGuides   Guide[]   @relation("GuideOwner")
-  sessions      Session[]
-  accounts      Account[]
-  assignedLeads Lead[]    @relation("AssignedLeads")
-  activities    ActivityEvent[]
-  notes         LeadNote[]
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  ownedGuides    Guide[]   @relation("GuideOwner")
+  sessions       Session[]
+  accounts       Account[]
+  assignedLeads  Lead[]    @relation("AssignedLeads")
+  activities     ActivityEvent[]
+  notes          LeadNote[]
   sourceSpendUpdates SourceSpend[] @relation("SourceSpendUpdater")
   calendarEventsCreated CalendarEvent[] @relation("CalendarCreatedBy")
+  invitesCreated Invitation[] @relation("InviteCreator")
 }
 
 model Session {
@@ -70,15 +75,16 @@ model Organization {
   id             String    @id @default(cuid())
   name           String
   slug           String    @unique
+  status         String    @default("ACTIVE") // ACTIVE | SUSPENDED
   currencyCode   String    @default("AED")
   currencyLabel  String    @default("AED")
   defaultCity    String    @default("")
-  enabledPortals String[]  @default(["BAYUT", "PROPERTY_FINDER", "DUBIZZLE", "SKYLOOV"])
   privacyUrl     String?
   licenseLabel   String    @default("Licence no.")
   licenseNumber  String?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+  suspendedAt    DateTime?
   users          User[]
   listings       Listing[]
   leads          Lead[]
@@ -87,6 +93,73 @@ model Organization {
   portalBudgets  PortalBudget[]
   sourceSpends   SourceSpend[]
   guides         Guide[]
+  channels       OrgChannel[]
+  invitations    Invitation[]
+}
+
+/** Single-use invite to join a brokerage (set password on accept). */
+model Invitation {
+  id             String    @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  name           String
+  role           String    // owner | admin | broker
+  token          String    @unique
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  createdById    String?
+  createdBy      User?     @relation("InviteCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, email])
+  @@index([expiresAt])
+}
+
+/** Public request for access - not a User until platform approves. */
+model AccessRequest {
+  id              String    @id @default(cuid())
+  name            String
+  email           String
+  brokerageName   String
+  website         String?
+  teamSize        String?
+  note            String?
+  status          String    @default("SUBMITTED") // SUBMITTED | EMAIL_VERIFIED | APPROVED | REJECTED | PROVISIONED
+  emailVerifiedAt DateTime?
+  reviewedAt      DateTime?
+  reviewedById    String?
+  organizationId  String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([status, createdAt])
+  @@index([email])
+}
+
+enum ChannelKind {
+  SYSTEM
+  PORTAL
+  ADS
+  OTHER
+}
+
+/** Org-owned lead / publish channel. Keys are stable slugs (manual, bayut, google_ads, ...). */
+model OrgChannel {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  key            String
+  label          String
+  kind           ChannelKind  @default(OTHER)
+  enabled        Boolean      @default(true)
+  sortOrder      Int          @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, key])
+  @@index([organizationId, enabled])
 }
 
 enum ListingStatus {
@@ -104,13 +177,6 @@ enum PropertyType {
   PENTHOUSE
   OFFICE
   LAND
-}
-
-enum PortalName {
-  BAYUT
-  PROPERTY_FINDER
-  DUBIZZLE
-  SKYLOOV
 }
 
 enum PortalPublishStatus {
@@ -153,7 +219,8 @@ model ListingPortalStatus {
   id         String              @id @default(cuid())
   listingId  String
   listing    Listing             @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  portal     PortalName
+  /// Matches OrgChannel.key for kind=PORTAL
+  portal     String
   status     PortalPublishStatus @default(OFF)
   externalId String?
   updatedAt  DateTime            @updatedAt
@@ -171,19 +238,6 @@ enum LeadStage {
   LOST
 }
 
-enum LeadSource {
-  MANUAL
-  BAYUT
-  PROPERTY_FINDER
-  DUBIZZLE
-  SKYLOOV
-  WHATSAPP
-  META
-  REFERRAL
-  WEBSITE
-  GUIDE
-}
-
 model Lead {
   id             String       @id @default(cuid())
   organizationId String
@@ -192,7 +246,8 @@ model Lead {
   email          String?
   phone          String?
   stage          LeadStage    @default(NEW)
-  primarySource  LeadSource   @default(MANUAL)
+  /// OrgChannel.key
+  primarySource  String       @default("manual")
   budgetMin      Int?
   budgetMax      Int?
   bedsWanted     Int?
@@ -219,13 +274,14 @@ model Lead {
 }
 
 model LeadSourceEvent {
-  id        String     @id @default(cuid())
+  id        String   @id @default(cuid())
   leadId    String
-  lead      Lead       @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  source    LeadSource
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  /// OrgChannel.key
+  source    String
   listingId String?
   message   String?
-  createdAt DateTime   @default(now())
+  createdAt DateTime @default(now())
 }
 
 model LeadNote {
@@ -323,21 +379,23 @@ model ShortlistItem {
 }
 
 model PortalBudget {
-  id             String       @id @default(cuid())
-  organizationId String
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  portal         PortalName
-  monthlySpendAed Int         @default(0)
+  id              String       @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  /// OrgChannel.key (portal)
+  portal          String
+  monthlySpendAed Int          @default(0)
 
   @@unique([organizationId, portal])
 }
 
-/** Monthly marketing spend per lead source. Carry-forward: a month with no row inherits the latest earlier amount. */
+/** Monthly marketing spend per channel key. Carry-forward: a month with no row inherits the latest earlier amount. */
 model SourceSpend {
   id             String       @id @default(cuid())
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  source         LeadSource
+  /// OrgChannel.key
+  source         String
   month          DateTime     @db.Date
   amount         Int
   updatedById    String?

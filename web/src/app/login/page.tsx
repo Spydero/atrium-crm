@@ -7,8 +7,8 @@ import { authClient } from "@/lib/auth-client";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("agent@atrium.demo");
-  const [password, setPassword] = useState("demo1234");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -81,12 +81,12 @@ export default function LoginPage() {
             </button>
           </form>
           <p className="mt-5 text-sm text-muted">
-            New here?{" "}
+            Have an invite? Check your link, or{" "}
             <Link href="/register" className="font-semibold text-accent">
-              Create account
+              learn how access works
             </Link>
+            .
           </p>
-          <p className="mt-3 text-xs text-muted">agent@atrium.demo / demo1234</p>
         </div>
       </section>
     </div>

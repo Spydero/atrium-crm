@@ -74,15 +74,15 @@ try {
   await page.waitForURL(/\/app/, { timeout: 15000 });
 
   // ---- Test data ----
-  const bulkA = await createLead({ name: "UITest Bulk A", phone: `+97150${digits()}`, primarySource: "BAYUT" });
+  const bulkA = await createLead({ name: "UITest Bulk A", phone: `+97150${digits()}`, primarySource: "bayut" });
   const bulkB = await createLead({ name: "UITest Bulk B", phone: `+97150${digits()}`, primarySource: "DUBIZZLE" });
   const sharedDigits = digits();
   const dupA = await createLead(
-    { name: "UITest Layla Hamdan", phone: `+97150${sharedDigits}`, primarySource: "BAYUT" },
+    { name: "UITest Layla Hamdan", phone: `+97150${sharedDigits}`, primarySource: "bayut" },
     "NEW",
   );
   const dupB = await createLead(
-    { name: "UITest Layla H.", phone: `050${sharedDigits}`, email: `layla-${run}@example.com`, primarySource: "PROPERTY_FINDER" },
+    { name: "UITest Layla H.", phone: `050${sharedDigits}`, email: `layla-${run}@example.com`, primarySource: "property_finder" },
     "QUALIFIED",
   );
   const mailA = await createLead({ name: "UITest Mail A", phone: `+97150${digits()}`, email: `shared-${run}@example.com` });
@@ -228,7 +228,7 @@ try {
 
   // Cancel path: nothing changes
   const cd = digits();
-  const cancelA = await createLead({ name: "UITest Cancel A", phone: `+97150${cd}`, primarySource: "BAYUT" });
+  const cancelA = await createLead({ name: "UITest Cancel A", phone: `+97150${cd}`, primarySource: "bayut" });
   const cancelB = await createLead({ name: "UITest Cancel B", phone: `050${cd}`, primarySource: "DUBIZZLE" });
   await page.reload({ waitUntil: "networkidle" });
   await page.getByRole("button", { name: /Duplicates/ }).click();

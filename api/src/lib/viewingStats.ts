@@ -1,4 +1,4 @@
-import type { CancelReason, LeadSource, ViewingOutcome } from "@prisma/client";
+import type { CancelReason, ViewingOutcome } from "@prisma/client";
 import { prisma } from "./prisma.js";
 import { previousRange, type ResolvedRange } from "./dateRange.js";
 import { allowedGroups, makeSpans, pickGroup, type TrendGroup } from "./trendBuckets.js";
@@ -49,7 +49,7 @@ export type RawViewing = {
   lead: {
     id: string;
     name: string;
-    primarySource: LeadSource;
+    primarySource: string;
     assignedToId: string | null;
     assignedTo: { id: string; name: string } | null;
   } | null;

@@ -56,7 +56,7 @@ export async function recordGuideRequest(
       await tx.leadSourceEvent.create({
         data: {
           leadId,
-          source: "GUIDE",
+          source: "guide",
           message: `Requested guide "${guide.title}"`,
           createdAt: at,
         },
@@ -82,11 +82,11 @@ export async function recordGuideRequest(
           name: input.name,
           email,
           phone,
-          primarySource: "GUIDE",
+          primarySource: "guide",
           assignedToId: guide.ownerId,
           createdAt: at,
           sources: {
-            create: { source: "GUIDE", message: `Requested guide "${guide.title}"`, createdAt: at },
+            create: { source: "guide", message: `Requested guide "${guide.title}"`, createdAt: at },
           },
           activities: {
             create: {

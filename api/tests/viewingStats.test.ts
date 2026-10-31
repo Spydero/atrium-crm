@@ -178,7 +178,7 @@ describe("viewingStats helpers", () => {
           lead: {
             id: "l1",
             name: "Ada",
-            primarySource: "MANUAL",
+            primarySource: "manual",
             assignedToId: null,
             assignedTo: null,
           },
@@ -201,7 +201,7 @@ describe("viewingStats helpers", () => {
         lead: {
           id: "1",
           name: "A",
-          primarySource: "MANUAL",
+          primarySource: "manual",
           assignedToId: "a1",
           assignedTo: { id: "a1", name: "Assignee" },
         },

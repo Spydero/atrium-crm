@@ -1,8 +1,9 @@
-import { LeadSource } from "@prisma/client";
 import { prisma } from "./prisma.js";
 import { previousRange, type ResolvedRange, localKey, startOfDay } from "./dateRange.js";
+import { listOrgChannels } from "./channels.js";
 
-export const ALL_SOURCES = Object.values(LeadSource);
+/** Channel key (OrgChannel.key). */
+export type ChannelKey = string;
 
 export type SpendStatus = "entered" | "zero" | "none";
 export type CueKind = "ADD_SPEND" | "ORGANIC" | "TOO_EARLY" | "CUT" | "REVIEW" | "SCALE" | "HOLD";
@@ -32,7 +33,8 @@ export type SourceMetrics = {
 };
 
 export type MoneyRow = SourceMetrics & {
-  source: LeadSource;
+  source: ChannelKey;
+  label: string;
   atRisk: { value: number; leads: number; items: number };
   prev: SourceMetrics;
   delta: Record<string, MetricDelta | null>;
@@ -61,16 +63,17 @@ export type MoneyMapResult = {
     eligibleSources: number;
   };
   callouts: {
-    best: { source: LeadSource; metric: string; value: number } | null;
-    worst: { source: LeadSource; metric: string; value: number } | null;
+    best: { source: ChannelKey; metric: string; value: number } | null;
+    worst: { source: ChannelKey; metric: string; value: number } | null;
     reallocation: {
-      from: LeadSource;
-      to: LeadSource;
+      from: ChannelKey;
+      to: ChannelKey;
       amount: number;
       extraViewings: number;
     } | null;
-    missingSpend: LeadSource[];
+    missingSpend: ChannelKey[];
   };
+  channels: { key: string; label: string; kind: string; enabled: boolean }[];
   atRisk: {
     value: number;
     items: number;
@@ -81,7 +84,7 @@ export type MoneyMapResult = {
       leadName: string;
       stage: string;
       dealValue: number | null;
-      sources: LeadSource[];
+      sources: ChannelKey[];
       overdueItems: number;
       oldest: {
         eventId: string;
@@ -94,7 +97,7 @@ export type MoneyMapResult = {
   };
 };
 
-type SpendEntry = { source: LeadSource; month: Date; amount: number };
+type SpendEntry = { source: ChannelKey; month: Date; amount: number };
 
 export function monthKey(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -135,7 +138,7 @@ function costs(spend: number | null, viewings: number, wins: number) {
 
 export function resolveSpendForRange(
   entries: SpendEntry[],
-  source: LeadSource,
+  source: ChannelKey,
   range: { from: Date; to: Date },
 ): { spend: number | null; status: SpendStatus; partial: boolean } {
   const mine = entries
@@ -349,12 +352,12 @@ export function pickCallouts(
 }
 
 type RawBundle = {
-  events: { leadId: string; source: LeadSource; createdAt: Date }[];
+  events: { leadId: string; source: ChannelKey; createdAt: Date }[];
   viewings: {
     id: string;
     startsAt: Date;
     leadId: string | null;
-    sources: { source: LeadSource; createdAt: Date }[];
+    sources: { source: ChannelKey; createdAt: Date }[];
   }[];
   wins: {
     id: string;
@@ -362,13 +365,13 @@ type RawBundle = {
     stage: string;
     wonAt: Date | null;
     updatedAt: Date;
-    sources: { source: LeadSource; createdAt: Date }[];
+    sources: { source: ChannelKey; createdAt: Date }[];
   }[];
   allViewingsByLead: Map<string, boolean>;
   spend: SpendEntry[];
 };
 
-function credited(sources: { source: LeadSource; createdAt: Date }[], source: LeadSource, at: Date) {
+function credited(sources: { source: ChannelKey; createdAt: Date }[], source: ChannelKey, at: Date) {
   return sources.some((s) => s.source === source && s.createdAt.getTime() <= at.getTime());
 }
 
@@ -378,7 +381,7 @@ function winAt(w: { stage: string; wonAt: Date | null; updatedAt: Date }) {
 }
 
 function metricsFor(
-  source: LeadSource | null,
+  source: ChannelKey | null,
   range: { from: Date; to: Date },
   raw: RawBundle,
 ): SourceMetrics {
@@ -554,7 +557,7 @@ export async function computeMoneyMap(
       leadName: string;
       stage: string;
       dealValue: number | null;
-      sources: LeadSource[];
+      sources: ChannelKey[];
       items: typeof overdue;
     }
   >();
@@ -578,23 +581,41 @@ export async function computeMoneyMap(
   );
   const atRiskValue = atRiskLeads.reduce((s, l) => s + (l.dealValue ?? 0), 0);
   const unvaluedLeads = atRiskLeads.filter((l) => l.dealValue == null || l.dealValue === 0).length;
-  const atRiskBySource = new Map<LeadSource, { value: number; leads: number; items: number }>();
-  for (const s of ALL_SOURCES) atRiskBySource.set(s, { value: 0, leads: 0, items: 0 });
+  const catalog = await listOrgChannels(organizationId);
+  const labelByKey = new Map(catalog.map((c) => [c.key, c.label]));
+  const keys = new Set<string>(catalog.filter((c) => c.enabled).map((c) => c.key));
+  for (const e of events) keys.add(e.source);
+  for (const s of spendRows) keys.add(s.source);
+  for (const v of viewings) for (const s of v.lead?.sources ?? []) keys.add(s.source);
+  for (const w of wins) for (const s of w.sources) keys.add(s.source);
+  const sourceKeys = [...keys].sort((a, b) => {
+    const ao = catalog.find((c) => c.key === a)?.sortOrder ?? 999;
+    const bo = catalog.find((c) => c.key === b)?.sortOrder ?? 999;
+    return ao - bo || a.localeCompare(b);
+  });
+
+  const atRiskBySource = new Map<ChannelKey, { value: number; leads: number; items: number }>();
+  for (const s of sourceKeys) atRiskBySource.set(s, { value: 0, leads: 0, items: 0 });
   for (const l of atRiskLeads) {
     for (const src of l.sources) {
-      const cell = atRiskBySource.get(src)!;
+      let cell = atRiskBySource.get(src);
+      if (!cell) {
+        cell = { value: 0, leads: 0, items: 0 };
+        atRiskBySource.set(src, cell);
+      }
       cell.leads += 1;
       cell.items += l.items.length;
       cell.value += l.dealValue ?? 0;
     }
   }
 
-  const rows: MoneyRow[] = ALL_SOURCES.map((source) => {
+  const rows: MoneyRow[] = sourceKeys.map((source) => {
     const cur = metricsFor(source, range, raw);
     const prevM = metricsFor(source, prev, raw);
-    const atRisk = atRiskBySource.get(source)!;
+    const atRisk = atRiskBySource.get(source) ?? { value: 0, leads: 0, items: 0 };
     return {
       source,
+      label: labelByKey.get(source) || source,
       ...cur,
       atRisk,
       prev: prevM,
@@ -672,6 +693,12 @@ export async function computeMoneyMap(
     previous: { from: prev.fromKey, to: prev.toKey, label: prev.label },
     currency: { code: "AED", label: "AED" },
     attribution: "all_touch",
+    channels: catalog.map((c) => ({
+      key: c.key,
+      label: c.label,
+      kind: c.kind,
+      enabled: c.enabled,
+    })),
     totals: {
       ...totalCur,
       prev: totalPrev,

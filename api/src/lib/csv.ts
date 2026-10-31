@@ -34,15 +34,16 @@ export function csvFilename(base: string) {
 export function labelize(value: string | null | undefined) {
   if (!value) return "";
   const map: Record<string, string> = {
-    BAYUT: "Bayut",
-    PROPERTY_FINDER: "PropertyFinder",
-    DUBIZZLE: "Dubizzle",
-    SKYLOOV: "Skyloov",
-    WHATSAPP: "WhatsApp",
-    META: "Meta",
+    manual: "Manual",
     MANUAL: "Manual",
+    referral: "Referral",
     REFERRAL: "Referral",
+    website: "Website",
     WEBSITE: "Website",
+    whatsapp: "WhatsApp",
+    WHATSAPP: "WhatsApp",
+    guide: "Guide",
+    GUIDE: "Guide",
     NO_SHOW: "No-show",
     CANCELLED: "Cancelled",
     COMPLETED: "Completed",
@@ -51,6 +52,11 @@ export function labelize(value: string | null | undefined) {
     UPCOMING: "Upcoming",
   };
   if (map[value]) return map[value];
-  const lower = value.replace(/_/g, " ").toLowerCase();
-  return lower.charAt(0).toUpperCase() + lower.slice(1);
+  const key = value.trim().toLowerCase();
+  if (map[key]) return map[key];
+  return key
+    .split("_")
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
 }

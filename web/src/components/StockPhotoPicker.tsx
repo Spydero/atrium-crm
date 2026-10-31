@@ -66,32 +66,31 @@ export function StockPhotoPicker({ selectedUrl, onSelect, initialQuery }: Props)
   const visible = photos.filter((p) => !broken[p.id]);
 
   return (
-    <div className="space-y-2 rounded-[var(--radius)] border border-dashed border-line p-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">
-          Stock photos {provider ? `(${provider})` : ""}
-        </div>
-        <div className="flex min-w-0 flex-1 justify-end gap-2">
-          <input
-            className="field min-w-0 max-w-[200px] flex-1 py-1.5 text-sm"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                load();
-              }
-            }}
-            placeholder="villa pool, office…"
-          />
-          <button
-            type="button"
-            className="btn-ghost shrink-0 px-2.5 py-1.5 text-xs"
-            onClick={() => load()}
-          >
-            {loading ? "…" : "Search"}
-          </button>
-        </div>
+    <div className="space-y-3 rounded-[var(--radius)] border border-dashed border-line bg-[#fafbfc] p-3">
+      <div className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">
+        Stock photos {provider ? `(${provider})` : "(local)"}
+      </div>
+      <div className="flex items-center gap-2">
+        <input
+          className="field min-w-0 flex-1 py-1.5 text-sm"
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              load();
+            }
+          }}
+          placeholder="villa pool, office…"
+          aria-label="Search stock photos"
+        />
+        <button
+          type="button"
+          className="btn-ghost h-[38px] shrink-0 px-3 text-xs"
+          onClick={() => load()}
+        >
+          {loading ? "…" : "Search"}
+        </button>
       </div>
 
       {places.length > 0 && (
@@ -113,9 +112,8 @@ export function StockPhotoPicker({ selectedUrl, onSelect, initialQuery }: Props)
         </div>
       )}
 
-      {note && <p className="text-xs text-muted">{note}</p>}
       {error && <p className="text-xs text-[var(--danger)]">{error}</p>}
-      <div className="grid max-h-48 grid-cols-3 gap-2 overflow-y-auto sm:grid-cols-4">
+      <div className="grid max-h-52 grid-cols-3 gap-2 overflow-y-auto overscroll-contain pr-0.5 sm:grid-cols-4">
         {visible.map((p) => {
           const on = selectedUrl === p.url;
           return (
@@ -140,6 +138,7 @@ export function StockPhotoPicker({ selectedUrl, onSelect, initialQuery }: Props)
           );
         })}
       </div>
+      {note && <p className="text-[11px] leading-snug text-muted">{note}</p>}
       {!loading && !visible.length && (
         <p className="text-xs text-muted">No photos for that search. Try a place chip.</p>
       )}

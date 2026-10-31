@@ -15,7 +15,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { api, formatAed, portalLabel } from "@/lib/api";
+import { api, formatAed, portalLabel, type OrgSettings } from "@/lib/api";
 import { dateRangeQuery, defaultDateRange, type DateRangeValue } from "@/components/DateRangeFilter";
 
 type Group = "day" | "week" | "month";
@@ -101,6 +101,23 @@ export const DASHBOARD_TREND: TrendConfig = {
       ? { title: "Outcome", label: (k) => OUTCOME_LABEL[k] || k }
       : { title: "Source", label: (k) => portalLabel(k) },
 };
+
+function withChannelLabels(
+  cfg: TrendConfig,
+  labels: Map<string, string>,
+): TrendConfig {
+  return {
+    ...cfg,
+    breakdown: (m) => {
+      const base = cfg.breakdown(m);
+      if (base.title !== "Source") return base;
+      return {
+        ...base,
+        label: (k) => labels.get(k) || portalLabel(k),
+      };
+    },
+  };
+}
 
 export const GUIDES_TREND: TrendConfig = {
   endpoint: "/api/guides/trend",
@@ -314,7 +331,11 @@ export function TrendChart({
   /** Extra query string (filters) sent with every request, e.g. "status=PUBLISHED" */
   extraQuery?: string;
 }) {
-  const cfg = config;
+  const [channelLabels, setChannelLabels] = useState<Map<string, string>>(() => new Map());
+  const cfg = useMemo(
+    () => withChannelLabels(config, channelLabels),
+    [config, channelLabels],
+  );
   const [metric, setMetric] = useState<Metric>(cfg.metrics[0].id);
   const [sort, setSort] = useState<Sort>("date");
   // A grouping you pick only applies to the date range it was picked on; a new range goes back to auto.
@@ -326,6 +347,16 @@ export function TrendChart({
   const [pin, setPin] = useState<{ q: string; key: string } | null>(null);
   const [result, setResult] = useState<{ key: string; trend?: Trend; error?: string } | null>(null);
   const stackOn = cfg.stackMetric === metric;
+
+  useEffect(() => {
+    api<OrgSettings>("/api/settings")
+      .then((s) => {
+        const m = new Map<string, string>();
+        for (const c of s.channels || []) m.set(c.key, c.label);
+        setChannelLabels(m);
+      })
+      .catch(() => {});
+  }, []);
 
   const rangeKey = dateRangeQuery(range);
   const group: Group | "auto" = choice && choice.rk === rangeKey ? choice.g : "auto";

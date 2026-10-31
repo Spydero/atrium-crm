@@ -85,3 +85,55 @@ migrations/
       
 All migrations have been successfully applied.
 ```
+
+## 2026-10-31 17:24:41 +05:30 - deploy - SUCCESS
+- Database: atrium @ localhost:5432 (schema public)
+- Run by: jyothiranands@Jyothiranands-MacBook-Pro.local
+- Code version: b893f2a on main, uncommitted prisma changes: yes (uncommitted prisma changes)
+- Pending before: 20261031115409_org_channels
+- Applied: 20261031115409_org_channels
+- Backup: backups/2026-10-31-17-24-40-p05-30-before-20261031115409_org_channels.sql (330 KB)
+- Duration: 1.2s
+
+```
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "atrium", schema "public" at "localhost:5432"
+
+6 migrations found in prisma/migrations
+
+Applying migration `20261031115409_org_channels`
+
+The following migration(s) have been applied:
+
+migrations/
+  └─ 20261031115409_org_channels/
+    └─ migration.sql
+      
+All migrations have been successfully applied.
+```
+
+## 2026-10-31 18:17:30 +05:30 - deploy - SUCCESS
+- Database: atrium @ localhost:5432 (schema public)
+- Run by: jyothiranands@Jyothiranands-MacBook-Pro.local
+- Code version: b893f2a on main, uncommitted prisma changes: yes (uncommitted prisma changes)
+- Pending before: 20261031124641_platform_admin
+- Applied: 20261031124641_platform_admin
+- Backup: backups/2026-10-31-18-17-29-p05-30-before-20261031124641_platform_admin.sql (225 KB)
+- Duration: 1.1s
+
+```
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "atrium", schema "public" at "localhost:5432"
+
+7 migrations found in prisma/migrations
+
+Applying migration `20261031124641_platform_admin`
+
+The following migration(s) have been applied:
+
+migrations/
+  └─ 20261031124641_platform_admin/
+    └─ migration.sql
+      
+All migrations have been successfully applied.
+```

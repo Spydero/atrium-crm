@@ -1,43 +1,16 @@
 import { Router } from "express";
-import { z } from "zod";
-import { prisma } from "../lib/prisma.js";
 import { requireAuth, type AuthedRequest } from "../middleware/requireAuth.js";
 
+/**
+ * Public self-serve org bootstrap is closed.
+ * Organizations are created by platform operators via /api/platform/organizations.
+ */
 export const bootstrapRouter = Router();
 bootstrapRouter.use(requireAuth);
 
-bootstrapRouter.post("/organization", async (req: AuthedRequest, res) => {
-  const user = req.session!.user as {
-    id: string;
-    organizationId?: string | null;
-  };
-  if (user.organizationId) {
-    return res.json({ organizationId: user.organizationId, existing: true });
-  }
-
-  const parsed = z
-    .object({ name: z.string().min(2), slug: z.string().min(2).optional() })
-    .safeParse(req.body);
-  if (!parsed.success) return res.status(400).json(parsed.error.flatten());
-
-  const slug =
-    parsed.data.slug ||
-    parsed.data.name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/(^-|-$)/g, "");
-
-  const org = await prisma.organization.create({
-    data: {
-      name: parsed.data.name,
-      slug: `${slug}-${Date.now().toString(36)}`,
-    },
+bootstrapRouter.post("/organization", async (_req: AuthedRequest, res) => {
+  return res.status(403).json({
+    error:
+      "Self-serve brokerage creation is disabled. Ask an Atrium operator to provision your organization, or accept an invite.",
   });
-
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { organizationId: org.id, role: "owner" },
-  });
-
-  res.status(201).json({ organizationId: org.id, existing: false });
 });

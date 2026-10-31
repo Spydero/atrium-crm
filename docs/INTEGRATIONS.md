@@ -55,18 +55,19 @@ StorageAdapter (local → Cloudinary)
 |------|-------------|----------|
 | Now | Uploads + `TESTING_ENABLED` stock picker | Own listing fields (city/area). Photos: **upload** always, plus a **local curated catalog** (~48 place-tagged images) for demos - no third-party photo API keys (Unsplash/Pexels/Pixabay are often paused or rate-limited). |
 | V1.1 | Maps + geocode | Nominatim search proxy + Leaflet/OSM tiles; store `lat`/`lng`/`placeId` on listing. Manual address always allowed. |
-| Money Map V1.5 | Source ROI | `GET /api/money/map` (`range`, `from`, `to`; attribution=all only). `GET/PUT /api/money/spend` (`month=YYYY-MM`, per-`LeadSource` amounts with carry-forward). `Lead.wonAt` set on stage moves into WON. |
+| Money Map V1.5+ | Source ROI | `GET /api/money/map` (`range`, `from`, `to`; attribution=all only). Rows follow org `OrgChannel` catalog. `GET/PUT /api/money/spend` (`month=YYYY-MM`, per channel key, carry-forward). Spend is entered by the team until a real ads adapter exists. `Lead.wonAt` set on stage moves into WON. |
+| Org channels | Catalog | `GET/PATCH /api/settings`, `GET/POST /api/settings/channels`, `PATCH/DELETE /api/settings/channels/:key`. System keys: manual, referral, website, whatsapp, guide. `POST /api/leads/enquiries` logs inbound leads on an enabled channel. |
 | V1.1 | Brochure PDF | Server-side `pdfkit`: designed A4 layout, hero photo, spec cards, OSM tile map (3x3 tiles stitched server side, graceful fallback) |
 | V1.1 | Reports PDF / CSV exports | `GET /api/reports/export.pdf`, `/api/reports/export.csv`, `/api/leads/export.csv`, `/api/listings/export.csv` (CSV is UTF-8 with BOM and formula-injection protection) |
 | V1.4 | Downloadable guides | Public: `GET /api/public/guides/:org`, `GET /api/public/guides/:org/:guide`, `POST .../view`, `POST .../request`, `GET .../file` (open guides only), `GET /api/public/guide-requests/:token`, `GET /api/public/guide-files/:token`. Admin: `/api/guides` (list with `q`, `status`, `audience`, `access=gated|open`, `sort=status|newest|views|requests|downloads|conversion|leads|title`, `dir=asc|desc`; returns totals, previous period, channels), `/api/guides/trend` (`metric=views|requests|downloads`, `group`, `compare`, same filters), create, edit, `/:id/status`, `/:id/file`, `/:id/cover`, `/:id/requests`, `/:id/requests.csv`) |
 | V1.5 | Dashboard trend chart | `GET /api/dashboard/trend` (metric, group, compare, same date range query as `/api/dashboard/kpis`) |
 | Calendar V1.5 | In-app calendar depth | `GET/POST /api/calendar`, `PATCH/DELETE /api/calendar/:id`, `GET /api/calendar/overdue`. Events carry `notes`, `cancelReason`, `outcomeAt`, `createdById`. Outcomes for every type. |
 | Later | Google Calendar | OAuth; our `CalendarEvent` remains canonical |
-| Later | Real portals | Official partner APIs only; mock adapters until then |
+| Later | Real portals | Official partner APIs only; adapters ingest into OrgChannel keys |
 | Later | WhatsApp | Meta Cloud API only when credentials exist; Conversation/Message tables. **No mock inbox, Slack, or Discord.** |
 | Last | AI | Our rules + audit; LLM as a service behind a flag |
 
-Mock adapters today = same UI and org settings as production. Credentials appear in org settings when available; until then simulate.
+Publish status and log-enquiry today = same UI and org settings as production. Credentials appear in org settings when partner APIs exist; until then channels are org-owned labels with entered spend and local publish tracking - not fake live APIs.
 
 ---
 

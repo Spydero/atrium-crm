@@ -18,14 +18,22 @@ import { settingsRouter } from "./routes/settings.js";
 import { reportsRouter } from "./routes/reports.js";
 import { guidesRouter } from "./routes/guides.js";
 import { publicGuidesRouter } from "./routes/publicGuides.js";
+import { platformRouter } from "./routes/platform.js";
+import { invitesRouter } from "./routes/invites.js";
 
 const app = express();
 const port = Number(process.env.PORT || 4000);
-const origin = process.env.CLIENT_ORIGIN || "http://localhost:3000";
+const allowedOrigins = [
+  process.env.CLIENT_ORIGIN || "http://localhost:3000",
+  process.env.ADMIN_ORIGIN || "http://localhost:3001",
+].filter(Boolean);
 
 app.use(
   cors({
-    origin,
+    origin(origin, cb) {
+      if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+      return cb(new Error(`Origin ${origin} not allowed`));
+    },
     credentials: true,
     exposedHeaders: ["Content-Disposition"],
   }),
@@ -46,6 +54,8 @@ app.use("/api/money", moneyRouter);
 app.use("/api/shortlists", shortlistsRouter);
 app.use("/api/dashboard", dashboardRouter);
 app.use("/api/bootstrap", bootstrapRouter);
+app.use("/api/platform", platformRouter);
+app.use("/api/invites", invitesRouter);
 app.use("/api/testing", testingRouter);
 app.use("/api/places", placesRouter);
 app.use("/api/settings", settingsRouter);

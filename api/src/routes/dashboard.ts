@@ -17,6 +17,7 @@ import {
   type TrendMetric,
 } from "../lib/trendBuckets.js";
 import { viewingTrendItems } from "../lib/viewingStats.js";
+import { channelLabel, listOrgChannels } from "../lib/channels.js";
 
 export const dashboardRouter = Router();
 dashboardRouter.use(requireAuth);
@@ -147,13 +148,18 @@ dashboardRouter.get("/kpis", async (req: AuthedRequest, res) => {
     };
   });
 
+  const channels = await listOrgChannels(organizationId);
   const bySource = new Map<string, Set<string>>();
   for (const e of sourceEvents) {
     if (!bySource.has(e.source)) bySource.set(e.source, new Set());
     bySource.get(e.source)!.add(e.leadId);
   }
   const sourceMix = [...bySource.entries()]
-    .map(([source, set]) => ({ source, count: set.size }))
+    .map(([source, set]) => ({
+      source,
+      label: channelLabel(source, channels),
+      count: set.size,
+    }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 6);
 

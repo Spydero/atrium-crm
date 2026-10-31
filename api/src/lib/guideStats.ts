@@ -96,7 +96,7 @@ export async function computeGuideStats(
     prisma.lead.count({
       where: {
         organizationId,
-        primarySource: "GUIDE",
+        primarySource: "guide",
         createdAt: { gte: range.from, lte: range.to },
       },
     }),

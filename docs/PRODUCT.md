@@ -95,13 +95,13 @@ Ruby leans hard on **AI + WhatsApp + portal glue**. We still need that story lat
 **One person = one lead**, even if they enquire on Bayut Monday and PropertyFinder Wednesday (match on phone/email).  
 Second enquiry attaches as an **event + source**, same owner agent - no double-calling.  
 *Business value:* professionalism + clean ROI numbers.  
-*V1:* fuse on simulate/manual create by phone. *Later:* every real portal webhook.
+*V1:* fuse on log enquiry / manual create by phone. *Later:* every real portal webhook.
 
 #### 2. Money Map - source ROI on outcomes, not vanity leads
-Dashboard: per portal/source → leads, **completed viewings**, wins, estimated cost (mock wallet) → **cost per viewing / per deal**.  
+Dashboard: per org channel → leads, **completed viewings**, wins, entered spend → **cost per viewing / per deal**.  
 Surface “at risk AED” = overdue follow-ups × deal value.  
-*Business value:* stop renewing the portal that only sends tyre-kickers.  
-*V1.5:* date range, conversion rates, cost per viewing / win vs previous period, decision cues (Scale / Cut / Review), chart, editable entered spend per source (carry-forward by month), Guide included, at-risk deduped by lead. *Later:* live Google / Meta spend sync.
+*Business value:* stop renewing the channel that only sends tyre-kickers.  
+*V1.5+:* org channel catalog, date range, conversion rates, cost per viewing / win vs previous period, decision cues (Scale / Cut / Review), chart, editable entered spend per channel (carry-forward by month), Guide included, at-risk deduped by lead. *Later:* live Google / Meta spend sync.
 
 #### 3. Viewing OS + Client Shortlist Link
 Calendar isn’t a sticky note: **schedule → edit → notes → mark completed / no-show / cancelled (with reason) → or delete mistakes**. Every event type (viewing, call, follow-up, task) can be closed out. Month pills show Cancelled / No-show / Done / Overdue clearly.  
@@ -115,7 +115,7 @@ Plus **Share Shortlist**: branded public link of 3-8 properties; track opens.
 |---------|------------------------|
 | **Reply SLA** | First-response timer; escalate to manager if breached |
 | **Smart Match** | Lead budget/beds/area → ranked listings (rules first, AI later) |
-| **Portal truth** | Per-listing Live/Pending/Rejected + wallet mock in one publish panel |
+| **Portal truth** | Per-listing Live/Pending/Rejected publish status we track (until partner adapters) |
 | **AI (last)** | Auto-status / extract intent *on top of* Fuse + Money Map + Viewing OS - not instead of them |
 
 ### Positioning line
@@ -158,11 +158,11 @@ Shipped in phases. **V1.0** = first shippable demo of the core loop.
 |---------|-----------|-------|
 | Lead kanban | New → Qualified → Viewing → Offer → Won/Lost | **V1** |
 | Lead ↔ listing | Every lead can attach a property | **V1** |
-| Sources | Manual, portal mock, CSV later | **V1** (manual + simulate portal) |
+| Sources | Org channel catalog (system + custom) | **V1.6** |
 | Assignment | Assign to agent | **V1** |
 | Notes + activity log | Manual timeline on lead | **V1** |
 | KPI strip | Open leads, pipeline AED, viewings count | **V1** |
-| Simulate inbound portal lead | Button / stub webhook for demo | **V1** |
+| Log enquiry | Record inbound lead on an enabled channel (Lead Fuse) | **V1.6** |
 | Lead scoring / SLA timers | Signal-style polish | Later |
 | Duplicate merge, bulk ops | Select mode + bulk stage/assign; duplicate review and merge | **V1.2** |
 | Guide leads | Downloadable guides capture leads with source and campaign | **V1.4** |
@@ -204,10 +204,10 @@ Shipped in phases. **V1.0** = first shippable demo of the core loop.
 
 **Core loop**
 1. Auth + org + roles + Cove shell  
-2. Listings + photos + mock portals  
+2. Listings + photos + publish status on portal channels  
 3. Leads kanban + notes/activity + link to listing  
 4. In-app calendar + follow-ups  
-5. Seeded demo data + “simulate portal lead”
+5. Seeded demo data + log enquiry
 
 **Signature (must appear in V1, even if thin)**
 6. **Lead Fuse** - same phone from second portal merges into one lead  
@@ -289,7 +289,14 @@ Lead Fuse still fuses exact same-phone enquiries on arrival; merge handles what 
 
 ---
 
-## V1.6 scope (Viewing health)
+## V1.6 scope (Org channels)
+
+1. Lead sources and listing portals are an **org channel catalog** (`OrgChannel`), not hardcoded Bayut/Meta enums. System channels: manual, referral, website, whatsapp, guide. Brokerages add/rename/enable their own portal and ads channels in Settings.
+2. Money Map rows follow the org catalog; spend stays **entered by the team** (no live Meta/Google pull). Demo org may seed sample portal labels as org data only.
+3. Inbound leads use **Log enquiry** on an enabled channel (Lead Fuse unchanged). No "simulate Bayut API" copy.
+4. Live portal / Meta / WhatsApp Cloud APIs remain later adapters.
+
+## Viewing health
 
 1. Reports `#viewings` is the home for viewing outcomes: booked, held rate, no-show rate, cancel rate, unlogged count, stacked outcome trend, cancel reasons by party, notice-before-cancel buckets, logging speed, agent/listing/source breakdown, and recent cancellations
 2. Dashboard shows a Viewing health card (rates vs previous period) that links to Reports; the viewings trend stacks outcomes and can hide cancelled so it matches the KPI (excl. cancelled)

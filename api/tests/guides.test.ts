@@ -324,11 +324,11 @@ test("a request creates a lead (email only), logs everything and schedules a fol
   });
   assert.equal(lead.name, "Nina Newlead");
   assert.equal(lead.phone, null);
-  assert.equal(lead.primarySource, "GUIDE");
+  assert.equal(lead.primarySource, "guide");
   assert.equal(lead.stage, "NEW");
   assert.equal(lead.assignedToId, agentId);
   assert.equal(lead.sources.length, 1);
-  assert.equal(lead.sources[0].source, "GUIDE");
+  assert.equal(lead.sources[0].source, "guide");
   assert.match(lead.sources[0].message ?? "", /UITest Lead/);
   assert.ok(lead.activities.some((a) => /guide/i.test(a.body)));
   assert.equal(lead.events.length, 1);
@@ -378,7 +378,7 @@ test("Lead Fuse: same email (any case) or same phone (any format) joins the exis
 
   // Phone match across formats: existing lead has a local style number, the guide form uses +country style
   const digits = String(Math.floor(1_000_000 + Math.random() * 8_999_999));
-  const created = await post("/api/leads", { name: `UITest GuideLead ${run}`, phone: `050${digits}`, primarySource: "MANUAL" });
+  const created = await post("/api/leads", { name: `UITest GuideLead ${run}`, phone: `050${digits}`, primarySource: "manual" });
   assert.equal(created.status, 201, JSON.stringify(created.json));
   const leadId = created.json.lead.id;
   const em2 = email("phonematch");
@@ -519,7 +519,7 @@ test("merging leads keeps guide requests attached to the surviving lead", async 
   const token = (await request(g.slug, { name: "Mia Merge", email: em })).json.token as string;
   const guideLead = await prisma.lead.findFirstOrThrow({ where: { organizationId: orgId, email: em } });
   const digits = String(Math.floor(1_000_000 + Math.random() * 8_999_999));
-  const manual = await post("/api/leads", { name: `UITest GuideLead ${run} keep`, phone: `+97155${digits}`, primarySource: "MANUAL" });
+  const manual = await post("/api/leads", { name: `UITest GuideLead ${run} keep`, phone: `+97155${digits}`, primarySource: "manual" });
   const keepId = manual.json.lead.id as string;
   const m = await post("/api/leads/merge", { primaryId: keepId, duplicateIds: [guideLead.id] });
   assert.equal(m.status, 200, JSON.stringify(m.json));
@@ -576,7 +576,7 @@ test("reports include guide figures in summary, CSV and PDF", async () => {
   assert.equal(row.downloadRate, 1);
   assert.ok(s.json.guides.totals.requests >= 1);
   assert.ok(s.json.guides.guideLeadShare.guideLeads >= 1);
-  assert.ok(s.json.leadsBySource.some((x: any) => x.source === "GUIDE"));
+  assert.ok(s.json.leadsBySource.some((x: any) => x.source === "guide"));
 
   const csv = await call("/api/reports/export.csv?range=7d");
   assert.ok(csv.text.includes(`Guide: UITest Reports ${run}`));

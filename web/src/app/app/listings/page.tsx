@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
-import { BedDouble, Bath, Maximize2, MapPin, FileDown } from "lucide-react";
-import { api, downloadFile, formatAed, portalLabel, PORTALS, type OrgSettings } from "@/lib/api";
+import { BedDouble, Bath, Maximize2, MapPin, FileDown, X } from "lucide-react";
+import { api, downloadFile, formatMoney, portalLabel, type OrgSettings } from "@/lib/api";
 import { ExportMenu } from "@/components/ExportMenu";
 import { StockPhotoPicker } from "@/components/StockPhotoPicker";
 import { PlaceInput, type PlaceValue } from "@/components/PlaceInput";
@@ -54,12 +55,16 @@ export default function ListingsPage() {
   const [propertyType, setPropertyType] = useState("");
   const [communities, setCommunities] = useState<string[]>([]);
   const [showCreate, setShowCreate] = useState(false);
+  const [createError, setCreateError] = useState("");
+  const [loadError, setLoadError] = useState("");
   const [testingEnabled, setTestingEnabled] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [defaultCity, setDefaultCity] = useState("");
-  const [enabledPortals, setEnabledPortals] = useState<string[]>([...PORTALS]);
+  const [currencyLabel, setCurrencyLabel] = useState("AED");
+  const [enabledPortals, setEnabledPortals] = useState<string[]>([]);
   const [editPlace, setEditPlace] = useState<PlaceValue | null>(null);
   const [savingPlace, setSavingPlace] = useState(false);
+  const [placeError, setPlaceError] = useState("");
   const [form, setForm] = useState({
     title: "",
     community: "",
@@ -84,20 +89,27 @@ export default function ListingsPage() {
     if (community) params.set("community", community);
     if (status) params.set("status", status);
     if (propertyType) params.set("propertyType", propertyType);
-    const data = await api<Listing[]>(`/api/listings?${params}`);
-    setListings(data);
+    try {
+      const data = await api<Listing[]>(`/api/listings?${params}`);
+      setListings(data);
+      setLoadError("");
+    } catch (e) {
+      if (e instanceof Error && /session expired|unauthorized/i.test(e.message)) return;
+      setListings([]);
+      setSelected(null);
+      setLoadError(e instanceof Error ? e.message : "Failed to load listings");
+    }
   }, [q, beds, minPrice, maxPrice, community, status, propertyType]);
 
   useEffect(() => {
-    load().catch(() => {
-      /* 401 redirects via api() */
-    });
+    load().catch(() => {});
     api<{ testingEnabled: boolean }>("/api/testing/status")
       .then((s) => setTestingEnabled(s.testingEnabled))
       .catch(() => setTestingEnabled(false));
     api<OrgSettings>("/api/settings")
       .then((s) => {
         setDefaultCity(s.defaultCity || "");
+        setCurrencyLabel(s.currencyLabel || s.currencyCode || "AED");
         if (s.enabledPortals?.length) setEnabledPortals(s.enabledPortals);
       })
       .catch(() => {});
@@ -127,51 +139,57 @@ export default function ListingsPage() {
 
   async function createListing(e: React.FormEvent) {
     e.preventDefault();
-    const created = await api<Listing>("/api/listings", {
-      method: "POST",
-      body: JSON.stringify({
-        title: form.title,
-        community: form.community,
-        city: form.city || defaultCity || undefined,
-        address: form.address || null,
-        lat: form.lat,
-        lng: form.lng,
-        placeId: form.placeId,
-        priceAed: form.priceAed,
-        beds: form.beds,
-        baths: form.baths,
-        areaSqft: form.areaSqft,
-        coverUrl: form.coverUrl || null,
-        photoUrls: form.coverUrl ? [form.coverUrl] : [],
-        status: "ACTIVE",
-        propertyType: "APARTMENT",
-      }),
-    });
-    setShowCreate(false);
-    setForm({
-      title: "",
-      community: "",
-      city: defaultCity,
-      address: "",
-      lat: null,
-      lng: null,
-      placeId: null,
-      priceAed: 0,
-      beds: 2,
-      baths: 2,
-      areaSqft: 1000,
-      coverUrl: "",
-    });
-    await load();
-    setSelected(created);
-    setEditPlace({
-      community: created.community,
-      city: created.city || "",
-      address: created.address || "",
-      lat: created.lat ?? null,
-      lng: created.lng ?? null,
-      placeId: created.placeId ?? null,
-    });
+    setCreateError("");
+    try {
+      const created = await api<Listing>("/api/listings", {
+        method: "POST",
+        body: JSON.stringify({
+          title: form.title,
+          community: form.community,
+          city: form.city || defaultCity || undefined,
+          address: form.address || null,
+          lat: form.lat,
+          lng: form.lng,
+          placeId: form.placeId,
+          priceAed: form.priceAed,
+          beds: form.beds,
+          baths: form.baths,
+          areaSqft: form.areaSqft,
+          coverUrl: form.coverUrl || null,
+          photoUrls: form.coverUrl ? [form.coverUrl] : [],
+          status: "ACTIVE",
+          propertyType: "APARTMENT",
+        }),
+      });
+      setShowCreate(false);
+      setForm({
+        title: "",
+        community: "",
+        city: defaultCity,
+        address: "",
+        lat: null,
+        lng: null,
+        placeId: null,
+        priceAed: 0,
+        beds: 2,
+        baths: 2,
+        areaSqft: 1000,
+        coverUrl: "",
+      });
+      await load();
+      setSelected(created);
+      setEditPlace({
+        community: created.community,
+        city: created.city || "",
+        address: created.address || "",
+        lat: created.lat ?? null,
+        lng: created.lng ?? null,
+        placeId: created.placeId ?? null,
+      });
+    } catch (err) {
+      if (err instanceof Error && /session expired|unauthorized/i.test(err.message)) return;
+      setCreateError(err instanceof Error ? err.message : "Could not create listing");
+    }
   }
 
   function setPlace(next: PlaceValue) {
@@ -226,12 +244,29 @@ export default function ListingsPage() {
 
   return (
     <div className="animate-rise space-y-4">
+      {loadError && (
+        <div className="rounded-[var(--radius)] border border-[var(--danger)]/30 bg-[var(--danger)]/5 px-4 py-3 text-sm text-[var(--danger)]">
+          {loadError === "No organization" ? (
+            <>
+              This account is not linked to a brokerage (or Ops signed in and replaced your
+              session). Sign out and sign back in with a brokerage account.
+            </>
+          ) : (
+            loadError
+          )}{" "}
+          <button type="button" className="font-semibold underline" onClick={() => load()}>
+            Retry
+          </button>
+        </div>
+      )}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-display text-[1.75rem] font-bold tracking-[-0.04em]">
             Listings
           </h1>
-          <p className="mt-0.5 text-sm text-muted">{listings.length} properties</p>
+          <p className="mt-0.5 text-sm text-muted">
+            {listings.length} {listings.length === 1 ? "property" : "properties"}
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <ExportMenu
@@ -245,7 +280,14 @@ export default function ListingsPage() {
               },
             ]}
           />
-          <button type="button" onClick={() => setShowCreate(true)} className="btn-primary">
+          <button
+            type="button"
+            onClick={() => {
+              setCreateError("");
+              setShowCreate(true);
+            }}
+            className="btn-primary"
+          >
             Add listing
           </button>
         </div>
@@ -388,7 +430,7 @@ export default function ListingsPage() {
                 </span>
                 <div className="absolute bottom-2.5 left-2.5 right-2.5 flex items-end justify-between gap-2">
                   <div className="font-display text-lg font-bold tracking-[-0.02em] text-white drop-shadow">
-                    {formatAed(l.priceAed)}
+                    {formatMoney(l.priceAed, currencyLabel)}
                   </div>
                   {live > 0 && (
                     <span className="rounded bg-white/95 px-1.5 py-0.5 text-[10px] font-bold text-accent">
@@ -459,10 +501,15 @@ export default function ListingsPage() {
                     {selected.title}
                   </h2>
                   <p className="mt-1 text-sm text-muted">
-                    {[selected.community, selected.city].filter(Boolean).join(", ")}
+                    {[
+                      editPlace?.community ?? selected.community,
+                      editPlace?.city ?? selected.city,
+                    ]
+                      .filter(Boolean)
+                      .join(", ")}
                   </p>
                   <p className="font-display mt-2 text-2xl font-bold tracking-[-0.03em]">
-                    {formatAed(selected.priceAed)}
+                    {formatMoney(selected.priceAed, currencyLabel)}
                   </p>
                   <div className="mt-3 flex gap-4">
                     <span className="meta-pill">
@@ -535,6 +582,7 @@ export default function ListingsPage() {
                 )}
                 <div className="mt-3 space-y-2">
                   <PlaceInput
+                    key={selected.id}
                     defaultCity={defaultCity}
                     value={
                       editPlace || {
@@ -548,6 +596,9 @@ export default function ListingsPage() {
                     }
                     onChange={setEditPlace}
                   />
+                  {placeError && (
+                    <p className="text-sm text-[var(--danger)]">{placeError}</p>
+                  )}
                   <button
                     type="button"
                     className="btn-primary text-sm"
@@ -555,6 +606,7 @@ export default function ListingsPage() {
                     onClick={async () => {
                       if (!editPlace) return;
                       setSavingPlace(true);
+                      setPlaceError("");
                       try {
                         const updated = await api<Listing>(`/api/listings/${selected.id}`, {
                           method: "PATCH",
@@ -577,6 +629,11 @@ export default function ListingsPage() {
                           placeId: updated.placeId ?? null,
                         });
                         await load();
+                      } catch (e) {
+                        if (e instanceof Error && /session expired|unauthorized/i.test(e.message)) {
+                          return;
+                        }
+                        setPlaceError(e instanceof Error ? e.message : "Could not save location");
                       } finally {
                         setSavingPlace(false);
                       }
@@ -630,109 +687,158 @@ export default function ListingsPage() {
         </div>
       )}
 
-      {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <form
-            onSubmit={createListing}
-            className="surface max-h-[90vh] w-full max-w-lg space-y-3 overflow-y-auto p-6"
+      {showCreate &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            className="animate-fade fixed inset-0 z-[80] flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4"
+            onMouseDown={(e) => {
+              if (e.target === e.currentTarget) setShowCreate(false);
+            }}
+            role="presentation"
           >
-            <h3 className="font-display text-lg font-bold">New listing</h3>
-            <input
-              className="field w-full"
-              placeholder="Title"
-              value={form.title}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
-              required
-            />
-            <PlaceInput
-              defaultCity={defaultCity}
-              value={{
-                community: form.community,
-                city: form.city,
-                address: form.address,
-                lat: form.lat,
-                lng: form.lng,
-                placeId: form.placeId,
+            <form
+              onSubmit={createListing}
+              className="flex max-h-[min(92vh,880px)] w-full max-w-lg flex-col overflow-hidden rounded-t-[14px] border border-line bg-paper shadow-[0_24px_64px_rgba(16,20,24,0.28)] sm:rounded-[var(--radius)]"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="new-listing-title"
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setShowCreate(false);
               }}
-              onChange={setPlace}
-            />
-            <input
-              type="number"
-              className="field w-full"
-              placeholder="Price"
-              value={form.priceAed || ""}
-              onChange={(e) => setForm({ ...form, priceAed: Number(e.target.value) })}
-              required
-            />
-            <div className="grid grid-cols-3 gap-2">
-              <label className="space-y-1">
-                <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
-                  Beds
-                </span>
-                <input
-                  type="number"
-                  min={0}
-                  className="field w-full"
-                  value={form.beds}
-                  onChange={(e) => setForm({ ...form, beds: Number(e.target.value) })}
-                />
-              </label>
-              <label className="space-y-1">
-                <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
-                  Baths
-                </span>
-                <input
-                  type="number"
-                  min={0}
-                  className="field w-full"
-                  value={form.baths}
-                  onChange={(e) => setForm({ ...form, baths: Number(e.target.value) })}
-                />
-              </label>
-              <label className="space-y-1">
-                <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
-                  Sqft
-                </span>
-                <input
-                  type="number"
-                  min={0}
-                  className="field w-full"
-                  value={form.areaSqft}
-                  onChange={(e) => setForm({ ...form, areaSqft: Number(e.target.value) })}
-                />
-              </label>
-            </div>
+            >
+              <div className="flex shrink-0 items-start justify-between gap-3 border-b border-line px-5 py-4">
+                <div>
+                  <h3 id="new-listing-title" className="font-display text-lg font-bold tracking-[-0.03em]">
+                    New listing
+                  </h3>
+                  <p className="mt-0.5 text-xs text-muted">Title, place, price, then optional cover photo.</p>
+                </div>
+                <button
+                  type="button"
+                  className="btn-ghost p-1.5"
+                  aria-label="Close"
+                  onClick={() => setShowCreate(false)}
+                >
+                  <X size={18} />
+                </button>
+              </div>
 
-            {form.coverUrl && (
-              <div
-                className="h-28 rounded-[var(--radius)] bg-cover bg-center"
-                style={{ backgroundImage: `url(${form.coverUrl})` }}
-              />
-            )}
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-5 py-4">
+                <label className="block space-y-1">
+                  <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
+                    Title
+                  </span>
+                  <input
+                    className="field w-full"
+                    placeholder="e.g. Marina Vista 2BR"
+                    value={form.title}
+                    onChange={(e) => setForm({ ...form, title: e.target.value })}
+                    required
+                    autoFocus
+                  />
+                </label>
+                <PlaceInput
+                  defaultCity={defaultCity}
+                  value={{
+                    community: form.community,
+                    city: form.city,
+                    address: form.address,
+                    lat: form.lat,
+                    lng: form.lng,
+                    placeId: form.placeId,
+                  }}
+                  onChange={setPlace}
+                />
+                <label className="block space-y-1">
+                  <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
+                    Price ({currencyLabel})
+                  </span>
+                  <input
+                    type="number"
+                    className="field w-full"
+                    placeholder={`Amount in ${currencyLabel}`}
+                    value={form.priceAed || ""}
+                    onChange={(e) => setForm({ ...form, priceAed: Number(e.target.value) })}
+                    required
+                  />
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <label className="space-y-1">
+                    <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
+                      Beds
+                    </span>
+                    <input
+                      type="number"
+                      min={0}
+                      className="field w-full"
+                      value={form.beds}
+                      onChange={(e) => setForm({ ...form, beds: Number(e.target.value) })}
+                    />
+                  </label>
+                  <label className="space-y-1">
+                    <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
+                      Baths
+                    </span>
+                    <input
+                      type="number"
+                      min={0}
+                      className="field w-full"
+                      value={form.baths}
+                      onChange={(e) => setForm({ ...form, baths: Number(e.target.value) })}
+                    />
+                  </label>
+                  <label className="space-y-1">
+                    <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
+                      Sqft
+                    </span>
+                    <input
+                      type="number"
+                      min={0}
+                      className="field w-full"
+                      value={form.areaSqft}
+                      onChange={(e) => setForm({ ...form, areaSqft: Number(e.target.value) })}
+                    />
+                  </label>
+                </div>
 
-            {testingEnabled ? (
-              <StockPhotoPicker
-                selectedUrl={form.coverUrl || null}
-                onSelect={(url) => setForm((f) => ({ ...f, coverUrl: url }))}
-                initialQuery="apartment living"
-              />
-            ) : (
-              <p className="text-xs text-muted">
-                Upload a photo after create, or enable TESTING_ENABLED for stock picks.
-              </p>
-            )}
+                {form.coverUrl && (
+                  <div
+                    className="h-28 rounded-[var(--radius)] bg-cover bg-center ring-1 ring-line"
+                    style={{ backgroundImage: `url(${form.coverUrl})` }}
+                  />
+                )}
 
-            <div className="flex justify-end gap-2 pt-1">
-              <button type="button" onClick={() => setShowCreate(false)} className="btn-ghost">
-                Cancel
-              </button>
-              <button type="submit" className="btn-primary">
-                Create
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
+                {testingEnabled ? (
+                  <StockPhotoPicker
+                    selectedUrl={form.coverUrl || null}
+                    onSelect={(url) => setForm((f) => ({ ...f, coverUrl: url }))}
+                    initialQuery="apartment living"
+                  />
+                ) : (
+                  <p className="text-xs text-muted">
+                    Upload a photo after create, or enable TESTING_ENABLED for stock picks.
+                  </p>
+                )}
+              </div>
+
+              <div className="flex shrink-0 flex-col gap-2 border-t border-line bg-paper px-5 py-3">
+                {createError && (
+                  <p className="text-sm text-[var(--danger)]">{createError}</p>
+                )}
+                <div className="flex justify-end gap-2">
+                  <button type="button" onClick={() => setShowCreate(false)} className="btn-ghost">
+                    Cancel
+                  </button>
+                  <button type="submit" className="btn-primary">
+                    Create
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

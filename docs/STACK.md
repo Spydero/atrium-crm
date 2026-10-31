@@ -96,13 +96,13 @@ Docs: [Better Auth](https://www.better-auth.com/) · [Prisma adapter](https://ww
 
 ### V1.1 - Docs, analytics, places + maps
 1. Grouped AppShell nav (Work / Inventory / Insights / Admin)
-2. Org settings (currency, default city, enabled portals)
+2. Org settings (currency, default city, org channel catalog)
 3. Nominatim places search + listing lat/lng; Leaflet maps
 4. Reports aggregates API + `/app/reports`
 5. Listing brochure PDF (`pdfkit`)
 
 ### Money Map V1.5
-1. `SourceSpend` (monthly entered spend per `LeadSource`, carry-forward) and `Lead.wonAt`
+1. `SourceSpend` (monthly entered spend per org channel key, carry-forward) and `Lead.wonAt`
 2. `GET /api/money/map` (date range, previous period, conversion rates, cues, callouts, at-risk by lead) and `GET/PUT /api/money/spend`
 3. Pure maths in `moneyStats.ts`; UI with KPI deltas, chart, sortable table, spend drawer, deep links into Leads
 4. Tests: `api/tests/moneyMap.test.ts`, browser `web/scripts/money-map-ui-test.mjs`

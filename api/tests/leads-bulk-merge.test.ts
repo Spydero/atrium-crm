@@ -56,7 +56,7 @@ async function makeLead(opts: {
       name: opts.name,
       phone,
       email: opts.email,
-      primarySource: opts.source ?? "MANUAL",
+      primarySource: opts.source ?? "manual",
     }),
   });
   assert.equal(r.status, 201, `create lead failed: ${JSON.stringify(r.json)}`);
@@ -298,12 +298,12 @@ test("compare validates the number of leads and org scope", async () => {
 
 test("merge moves sources, notes, activity and calendar events to the kept lead", async () => {
   const digits = nextDigits();
-  const keep = await makeLead({ name: "Keep Me", digits, format: "intl", source: "BAYUT" });
+  const keep = await makeLead({ name: "Keep Me", digits, format: "intl", source: "bayut" });
   const dup = await makeLead({
     name: "Merge Me",
     digits,
     format: "local",
-    source: "PROPERTY_FINDER",
+    source: "property_finder",
     email: `fill-${run}@example.com`,
   });
 
@@ -346,7 +346,7 @@ test("merge moves sources, notes, activity and calendar events to the kept lead"
   assert.equal(after.phone, keep.phone, "primary phone wins");
   assert.equal(after.email, `fill-${run}@example.com`, "blank email filled from duplicate");
   assert.equal(after.sources.length, 2);
-  assert.deepEqual([...new Set(after.sources.map((s: any) => s.source))].sort(), ["BAYUT", "PROPERTY_FINDER"]);
+  assert.deepEqual([...new Set(after.sources.map((s: any) => s.source))].sort(), ["bayut", "property_finder"]);
   assert.ok(after.notes.some((n: any) => n.body === "Wants a sea view"));
   assert.ok(
     after.notes.some((n: any) => /Merged from duplicate lead "Merge Me"/.test(n.body) && n.body.includes(dup.phone)),

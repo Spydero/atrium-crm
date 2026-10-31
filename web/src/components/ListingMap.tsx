@@ -217,7 +217,101 @@ export function ListingMapEmpty({ className = "" }: { className?: string }) {
     <div
       className={`flex items-center justify-center rounded-[8px] border border-dashed border-line bg-[#f3f5f7] px-4 py-8 text-center text-sm text-muted ${className}`}
     >
-      No map pin yet. Search a real place below, or leave location text-only.
+      No map pin. Area/city text still saves — pick a Location search result to place it on the map.
+    </div>
+  );
+}
+
+/** Click (or drag) to set a listing pin. Centers on lat/lng when set, else fallbackCenter. */
+export function ClickPinMap({
+  lat,
+  lng,
+  fallbackCenter,
+  onPin,
+  height = 220,
+  className = "",
+}: {
+  lat: number | null;
+  lng: number | null;
+  fallbackCenter?: { lat: number; lng: number };
+  onPin: (lat: number, lng: number) => void;
+  height?: number;
+  className?: string;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const onPinRef = useStableCallback(onPin);
+  const hasPin = lat != null && lng != null;
+  const centerLat = hasPin ? (lat as number) : fallbackCenter?.lat ?? 19.076;
+  const centerLng = hasPin ? (lng as number) : fallbackCenter?.lng ?? 72.8777;
+  const zoom = hasPin ? 15 : 11;
+
+  useEffect(() => {
+    let map: import("leaflet").Map | null = null;
+    let marker: import("leaflet").Marker | null = null;
+    let cancelled = false;
+
+    async function mount() {
+      const L = await import("leaflet");
+      if (cancelled || !ref.current) return;
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      delete (L.Icon.Default.prototype as any)._getIconUrl;
+      L.Icon.Default.mergeOptions({
+        iconRetinaUrl:
+          "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+        iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+        shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+      });
+
+      ref.current.innerHTML = "";
+      map = L.map(ref.current, {
+        scrollWheelZoom: false,
+        zoomControl: true,
+      }).setView([centerLat, centerLng], zoom);
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+        maxZoom: 19,
+      }).addTo(map);
+
+      if (hasPin) {
+        marker = L.marker([lat as number, lng as number], { draggable: true }).addTo(map);
+        marker.on("dragend", () => {
+          const p = marker?.getLatLng();
+          if (p) onPinRef.current?.(p.lat, p.lng);
+        });
+      }
+
+      map.on("click", (e: { latlng: { lat: number; lng: number } }) => {
+        onPinRef.current?.(e.latlng.lat, e.latlng.lng);
+      });
+
+      setTimeout(() => map?.invalidateSize(), 80);
+      setTimeout(() => map?.invalidateSize(), 300);
+    }
+
+    mount();
+
+    return () => {
+      cancelled = true;
+      if (map) {
+        map.remove();
+        map = null;
+      }
+    };
+  }, [centerLat, centerLng, zoom, hasPin, lat, lng, onPinRef]);
+
+  return (
+    <div className={`space-y-1 ${className}`}>
+      <div
+        ref={ref}
+        className="cursor-crosshair overflow-hidden rounded-[8px] border border-line bg-[#e8ecf0]"
+        style={{ height }}
+      />
+      <p className="text-[11px] text-muted">
+        {hasPin ? "Drag the pin or tap the map to move it." : "Tap the map to drop a pin."}
+      </p>
     </div>
   );
 }

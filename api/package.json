@@ -12,6 +12,7 @@
     "db:history": "tsx scripts/db-tools.ts history",
     "db:push": "echo 'db push is disabled: it changes the database without a record. Use npm run db:new -- <name> then npm run db:deploy (see prisma/CHANGELOG.md)' && exit 1",
     "db:seed": "tsx src/seed.ts",
+    "db:seed:demo": "tsx src/seed.ts && tsx scripts/seed-history.ts",
     "db:generate": "prisma generate",
     "test": "tsx --test tests/*.test.ts",
     "test:unit": "tsx --test tests/leadTools.test.ts tests/guideTools.test.ts"

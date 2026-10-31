@@ -25,7 +25,7 @@ import {
 } from "@/components/DateRangeFilter";
 
 type StageRow = { stage: string; count: number; valueAed: number };
-type SourceRow = { source: string; count: number };
+type SourceRow = { source: string; label?: string; count: number };
 type Viewing = {
   id: string;
   title: string;
@@ -319,12 +319,21 @@ export default function DashboardPage() {
         </div>
 
         <div className="surface p-5 lg:col-span-1">
-          <div className="mb-4 flex items-center justify-between">
-            <div className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">
-              Lead sources
+          <div className="mb-4 flex items-center justify-between gap-2">
+            <div>
+              <div className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">
+                Leads by source
+              </div>
+              <p className="mt-0.5 text-[11px] text-muted">
+                Unique leads in this range · all-touch
+              </p>
             </div>
-            <Link href="/app/money" className="text-xs font-semibold text-accent hover:underline">
-              Money Map
+            <Link
+              href={`/app/money?${dateRangeQuery(dateRange)}`}
+              className="shrink-0 text-xs font-semibold text-accent hover:underline"
+              title="Source ROI with team-entered spend"
+            >
+              View source ROI
             </Link>
           </div>
           <div className="space-y-3">
@@ -339,7 +348,7 @@ export default function DashboardPage() {
                 >
                   <div className="mb-1 flex items-center justify-between text-sm">
                     <span className={`font-semibold ${on ? "text-accent" : ""}`}>
-                      {portalLabel(row.source)}
+                      {row.label || portalLabel(row.source)}
                     </span>
                     <span className="text-muted">{row.count}</span>
                   </div>

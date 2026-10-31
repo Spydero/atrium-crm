@@ -2,6 +2,7 @@ import { prisma } from "./prisma.js";
 import type { ResolvedRange } from "./dateRange.js";
 import { computeGuideStats } from "./guideStats.js";
 import { computeViewingHealth } from "./viewingStats.js";
+import { channelLabel, listOrgChannels } from "./channels.js";
 
 const STAGES = ["NEW", "QUALIFIED", "VIEWING", "OFFER", "WON", "LOST"] as const;
 
@@ -80,22 +81,34 @@ export async function computeReportSummary(organizationId: string, range: Resolv
     count: stageGroups.find((g) => g.stage === stage)?._count._all ?? 0,
   }));
 
+  const channels = await listOrgChannels(organizationId);
   const bySource = new Map<string, Set<string>>();
   for (const e of sourceEvents) {
     if (!bySource.has(e.source)) bySource.set(e.source, new Set());
     bySource.get(e.source)!.add(e.leadId);
   }
   const leadsBySource = [...bySource.entries()]
-    .map(([source, set]) => ({ source, count: set.size }))
+    .map(([source, set]) => ({
+      source,
+      label: channelLabel(source, channels),
+      count: set.size,
+    }))
     .sort((a, b) => b.count - a.count);
 
   const winsBySourceMap = new Map<string, number>();
   for (const w of wins) {
-    const src = w.sources[0]?.source || w.primarySource;
+    const ordered = [...w.sources].sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+    );
+    const src = ordered[0]?.source || w.primarySource;
     winsBySourceMap.set(src, (winsBySourceMap.get(src) || 0) + 1);
   }
   const winsBySource = [...winsBySourceMap.entries()]
-    .map(([source, count]) => ({ source, count }))
+    .map(([source, count]) => ({
+      source,
+      label: channelLabel(source, channels),
+      count,
+    }))
     .sort((a, b) => b.count - a.count);
 
   const viewingOutcomes = ["SCHEDULED", "COMPLETED", "NO_SHOW", "CANCELLED"].map(

@@ -89,6 +89,15 @@ export function formatAed(n: number) {
   return formatMoney(n, "AED");
 }
 
+export type OrgChannel = {
+  id: string;
+  key: string;
+  label: string;
+  kind: "SYSTEM" | "PORTAL" | "ADS" | "OTHER";
+  enabled: boolean;
+  sortOrder: number;
+};
+
 export type OrgSettings = {
   id: string;
   name: string;
@@ -96,32 +105,35 @@ export type OrgSettings = {
   currencyCode: string;
   currencyLabel: string;
   defaultCity: string;
+  channels?: OrgChannel[];
+  /** @deprecated derived from enabled PORTAL channels */
   enabledPortals: string[];
   privacyUrl?: string | null;
   licenseLabel?: string;
   licenseNumber?: string | null;
-  availablePortals?: string[];
 };
 
 export const STAGES = ["NEW", "QUALIFIED", "VIEWING", "OFFER", "WON", "LOST"] as const;
-export const PORTALS = ["BAYUT", "PROPERTY_FINDER", "DUBIZZLE", "SKYLOOV"] as const;
 
+/** Fallback label for a channel key when OrgChannel.label is not in hand. */
 export function portalLabel(p: string) {
-  return (
-    {
-      BAYUT: "Bayut",
-      PROPERTY_FINDER: "PropertyFinder",
-      DUBIZZLE: "Dubizzle",
-      SKYLOOV: "Skyloov",
-      WHATSAPP: "WhatsApp",
-      META: "Meta",
-      MANUAL: "Manual",
-      REFERRAL: "Referral",
-      WEBSITE: "Website",
-      GUIDE: "Guide",
-    } as Record<string, string>
-  )[p] || p;
+  const key = p.trim().toLowerCase();
+  const system: Record<string, string> = {
+    manual: "Manual",
+    referral: "Referral",
+    website: "Website",
+    whatsapp: "WhatsApp",
+    guide: "Guide",
+  };
+  if (system[key]) return system[key];
+  return key
+    .split("_")
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
 }
+
+export const channelLabel = portalLabel;
 
 export function pct(rate: number) {
   return `${Math.round(rate * 1000) / 10}%`;

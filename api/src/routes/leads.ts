@@ -4,6 +4,7 @@ import { prisma } from "../lib/prisma.js";
 import { requireAuth, type AuthedRequest } from "../middleware/requireAuth.js";
 import { csvFilename, labelize, toCsv } from "../lib/csv.js";
 import { groupDuplicates, mergeLeadFields, mergedFromNote, suggestPrimary } from "../lib/leadTools.js";
+import { assertChannelEnabled, normalizeChannelKey } from "../lib/channels.js";
 
 export const leadsRouter = Router();
 leadsRouter.use(requireAuth);
@@ -20,15 +21,15 @@ function normalizePhone(phone: string) {
   return phone.replace(/[^\d+]/g, "");
 }
 
-/** Simulate inbound portal lead - registered before /:id */
-leadsRouter.post("/simulate", async (req: AuthedRequest, res) => {
+/** Log an inbound enquiry on an enabled org channel (replaces portal "simulate"). */
+leadsRouter.post("/enquiries", async (req: AuthedRequest, res) => {
   const organizationId = orgId(req);
   if (!organizationId) return res.status(400).json({ error: "No organization" });
 
   const schema = z.object({
     name: z.string().min(1),
     phone: z.string().min(5),
-    source: z.enum(["BAYUT", "PROPERTY_FINDER", "DUBIZZLE", "SKYLOOV"]),
+    source: z.string().min(1).max(40),
     listingId: z.string().optional(),
     email: z.string().optional(),
     budgetMax: z.number().optional(),
@@ -37,8 +38,15 @@ leadsRouter.post("/simulate", async (req: AuthedRequest, res) => {
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(parsed.error.flatten());
 
+  let channel;
+  try {
+    channel = await assertChannelEnabled(organizationId, parsed.data.source);
+  } catch (e) {
+    const err = e as { status?: number; message?: string };
+    return res.status(err.status || 400).json({ error: err.message || "Invalid channel" });
+  }
+  const source = channel.key;
   const phone = normalizePhone(parsed.data.phone);
-  const source = parsed.data.source;
   const existing = await prisma.lead.findFirst({
     where: { organizationId, phone },
   });
@@ -49,7 +57,7 @@ leadsRouter.post("/simulate", async (req: AuthedRequest, res) => {
         leadId: existing.id,
         source,
         listingId: parsed.data.listingId ?? existing.listingId,
-        message: `Simulated portal enquiry from ${source}`,
+        message: `Enquiry via ${channel.label}`,
       },
     });
     await prisma.activityEvent.create({
@@ -57,7 +65,7 @@ leadsRouter.post("/simulate", async (req: AuthedRequest, res) => {
         leadId: existing.id,
         actorId: userId(req),
         type: "fuse",
-        body: `Lead Fuse: ${source} enquiry merged (same phone ${phone}).`,
+        body: `Lead Fuse: ${channel.label} enquiry merged (same phone ${phone}).`,
       },
     });
     const fused = await prisma.lead.findUnique({
@@ -94,14 +102,14 @@ leadsRouter.post("/simulate", async (req: AuthedRequest, res) => {
         create: {
           source,
           listingId: listing?.id ?? null,
-          message: `Simulated ${source} lead`,
+          message: `Enquiry via ${channel.label}`,
         },
       },
       activities: {
         create: {
           actorId: userId(req),
           type: "created",
-          body: `Lead captured from ${source}`,
+          body: `Lead captured from ${channel.label}`,
         },
       },
     },
@@ -441,8 +449,9 @@ leadsRouter.get("/", async (req: AuthedRequest, res) => {
 
 leadsRouter.get("/:id", async (req: AuthedRequest, res) => {
   const organizationId = orgId(req);
+  if (!organizationId) return res.status(400).json({ error: "No organization" });
   const lead = await prisma.lead.findFirst({
-    where: { id: String(req.params.id), organizationId: organizationId ?? undefined },
+    where: { id: String(req.params.id), organizationId },
     include: {
       listing: true,
       assignedTo: { select: { id: true, name: true } },
@@ -464,20 +473,7 @@ leadsRouter.post("/", async (req: AuthedRequest, res) => {
     name: z.string().min(1),
     phone: z.string().min(5),
     email: z.string().email().optional().nullable(),
-    primarySource: z
-      .enum([
-        "MANUAL",
-        "BAYUT",
-        "PROPERTY_FINDER",
-        "DUBIZZLE",
-        "SKYLOOV",
-        "WHATSAPP",
-        "META",
-        "REFERRAL",
-        "WEBSITE",
-        "GUIDE",
-      ])
-      .optional(),
+    primarySource: z.string().min(1).max(40).optional(),
     listingId: z.string().optional().nullable(),
     budgetMin: z.number().optional().nullable(),
     budgetMax: z.number().optional().nullable(),
@@ -490,7 +486,13 @@ leadsRouter.post("/", async (req: AuthedRequest, res) => {
   if (!parsed.success) return res.status(400).json(parsed.error.flatten());
 
   const phone = normalizePhone(parsed.data.phone);
-  const source = parsed.data.primarySource ?? "MANUAL";
+  let source = normalizeChannelKey(parsed.data.primarySource ?? "manual");
+  try {
+    source = (await assertChannelEnabled(organizationId, source)).key;
+  } catch (e) {
+    const err = e as { status?: number; message?: string };
+    return res.status(err.status || 400).json({ error: err.message || "Invalid channel" });
+  }
 
   // Lead Fuse: same phone in org → attach source event, don't create duplicate
   const existing = await prisma.lead.findFirst({
@@ -573,8 +575,9 @@ leadsRouter.post("/", async (req: AuthedRequest, res) => {
 
 leadsRouter.patch("/:id", async (req: AuthedRequest, res) => {
   const organizationId = orgId(req);
+  if (!organizationId) return res.status(400).json({ error: "No organization" });
   const existing = await prisma.lead.findFirst({
-    where: { id: String(req.params.id), organizationId: organizationId ?? undefined },
+    where: { id: String(req.params.id), organizationId },
   });
   if (!existing) return res.status(404).json({ error: "Not found" });
 
@@ -628,8 +631,9 @@ leadsRouter.patch("/:id", async (req: AuthedRequest, res) => {
 
 leadsRouter.post("/:id/notes", async (req: AuthedRequest, res) => {
   const organizationId = orgId(req);
+  if (!organizationId) return res.status(400).json({ error: "No organization" });
   const existing = await prisma.lead.findFirst({
-    where: { id: String(req.params.id), organizationId: organizationId ?? undefined },
+    where: { id: String(req.params.id), organizationId },
   });
   if (!existing) return res.status(404).json({ error: "Not found" });
   const body = z.object({ body: z.string().min(1) }).safeParse(req.body);
@@ -656,14 +660,15 @@ leadsRouter.post("/:id/notes", async (req: AuthedRequest, res) => {
 /** Smart Match: rule-based listing suggestions for a lead */
 leadsRouter.get("/:id/match", async (req: AuthedRequest, res) => {
   const organizationId = orgId(req);
+  if (!organizationId) return res.status(400).json({ error: "No organization" });
   const lead = await prisma.lead.findFirst({
-    where: { id: String(req.params.id), organizationId: organizationId ?? undefined },
+    where: { id: String(req.params.id), organizationId },
   });
   if (!lead) return res.status(404).json({ error: "Not found" });
 
   const listings = await prisma.listing.findMany({
     where: {
-      organizationId: organizationId!,
+      organizationId,
       status: { in: ["ACTIVE", "RESERVED"] },
       ...(lead.bedsWanted ? { beds: { gte: lead.bedsWanted } } : {}),
       ...(lead.budgetMax ? { priceAed: { lte: Math.round(lead.budgetMax * 1.1) } } : {}),

@@ -29,8 +29,8 @@ type Summary = {
     days: number;
   };
   leadsByStage: { stage: string; count: number }[];
-  leadsBySource: { source: string; count: number }[];
-  winsBySource: { source: string; count: number }[];
+  leadsBySource: { source: string; label?: string; count: number }[];
+  winsBySource: { source: string; label?: string; count: number }[];
   viewingOutcomes: { outcome: string; count: number }[];
   viewingHealth?: { totals: { booked: number } };
   listingsByStatus: { status: string; count: number }[];
@@ -217,7 +217,7 @@ export default function ReportsPage() {
               <BarChart
                 data={data.leadsBySource.map((r) => ({
                   ...r,
-                  label: portalLabel(r.source),
+                  label: r.label || portalLabel(r.source),
                 }))}
               >
                 <CartesianGrid stroke="#e8ecf0" vertical={false} strokeDasharray="3 6" />
@@ -244,7 +244,7 @@ export default function ReportsPage() {
                 <BarChart
                   data={data.winsBySource.map((r) => ({
                     ...r,
-                    label: portalLabel(r.source),
+                    label: r.label || portalLabel(r.source),
                   }))}
                 >
                   <CartesianGrid stroke="#e8ecf0" vertical={false} strokeDasharray="3 6" />

@@ -1,7 +1,8 @@
 import "dotenv/config";
 import { prisma } from "./lib/prisma.js";
-import { auth } from "./lib/auth.js";
 import { coverForPlace } from "./data/stockCatalog.js";
+import { ensureOrgChannels } from "./lib/channels.js";
+import { createUserWithPassword } from "./lib/createUserAccount.js";
 
 async function main() {
   console.log("Seeding Atrium…");
@@ -17,12 +18,15 @@ async function main() {
   await prisma.listing.deleteMany();
   await prisma.portalBudget.deleteMany();
   await prisma.sourceSpend.deleteMany();
+  await prisma.orgChannel.deleteMany();
+  await prisma.invitation.deleteMany();
+  await prisma.accessRequest.deleteMany();
   await prisma.session.deleteMany();
   await prisma.account.deleteMany();
   await prisma.user.deleteMany();
   await prisma.organization.deleteMany();
 
-  // Demo seed pack (UAE sample data only - not product geography)
+  // Demo seed pack (UAE sample channel labels as org data only - not product geography)
   const org = await prisma.organization.create({
     data: {
       name: "Levante Demo Realty",
@@ -30,30 +34,30 @@ async function main() {
       currencyCode: "AED",
       currencyLabel: "AED",
       defaultCity: "Dubai",
-      enabledPortals: ["BAYUT", "PROPERTY_FINDER", "DUBIZZLE", "SKYLOOV"],
       portalBudgets: {
         create: [
-          { portal: "BAYUT", monthlySpendAed: 18000 },
-          { portal: "PROPERTY_FINDER", monthlySpendAed: 22000 },
-          { portal: "DUBIZZLE", monthlySpendAed: 9000 },
-          { portal: "SKYLOOV", monthlySpendAed: 4500 },
+          { portal: "bayut", monthlySpendAed: 18000 },
+          { portal: "property_finder", monthlySpendAed: 22000 },
+          { portal: "dubizzle", monthlySpendAed: 9000 },
+          { portal: "skyloov", monthlySpendAed: 4500 },
         ],
       },
     },
   });
+  await ensureOrgChannels(org.id, { includeDemoSamples: true });
 
-  // Monthly entered spend for Money Map (carry-forward). Leave GUIDE / WHATSAPP empty on purpose.
+  // Monthly entered spend for Money Map (carry-forward). Leave guide / whatsapp empty on purpose.
   {
     const now = new Date();
-    const plan: { source: "BAYUT" | "PROPERTY_FINDER" | "DUBIZZLE" | "SKYLOOV" | "META" | "WEBSITE" | "REFERRAL" | "MANUAL"; older: number; recent: number }[] = [
-      { source: "BAYUT", older: 16000, recent: 18000 },
-      { source: "PROPERTY_FINDER", older: 20000, recent: 22000 },
-      { source: "DUBIZZLE", older: 11000, recent: 9000 },
-      { source: "SKYLOOV", older: 4000, recent: 4500 },
-      { source: "META", older: 6000, recent: 7500 },
-      { source: "WEBSITE", older: 0, recent: 0 },
-      { source: "REFERRAL", older: 0, recent: 0 },
-      { source: "MANUAL", older: 0, recent: 0 },
+    const plan: { source: string; older: number; recent: number }[] = [
+      { source: "bayut", older: 16000, recent: 18000 },
+      { source: "property_finder", older: 20000, recent: 22000 },
+      { source: "dubizzle", older: 11000, recent: 9000 },
+      { source: "skyloov", older: 4000, recent: 4500 },
+      { source: "meta", older: 6000, recent: 7500 },
+      { source: "website", older: 0, recent: 0 },
+      { source: "referral", older: 0, recent: 0 },
+      { source: "manual", older: 0, recent: 0 },
     ];
     for (let back = 0; back < 6; back++) {
       const month = new Date(now.getFullYear(), now.getMonth() - back, 1);
@@ -70,38 +74,46 @@ async function main() {
     }
   }
 
+  // Platform operator (Atrium Ops admin app) - not a brokerage member
+  await createUserWithPassword({
+    name: "Atrium Operator",
+    email: "platform@atrium.demo",
+    password: "demo1234",
+    role: "broker",
+    organizationId: null,
+    platformRole: "operator",
+    emailVerified: true,
+  });
+
   const signUps = [
     {
       email: "owner@atrium.demo",
       password: "demo1234",
       name: "Sara Al Maktoum",
-      role: "owner",
+      role: "owner" as const,
     },
     {
       email: "agent@atrium.demo",
       password: "demo1234",
       name: "Omar Hassan",
-      role: "agent",
+      role: "broker" as const,
     },
     {
       email: "manager@atrium.demo",
       password: "demo1234",
       name: "Mina Alami",
-      role: "admin",
+      role: "admin" as const,
     },
   ];
 
   for (const u of signUps) {
-    await auth.api.signUpEmail({
-      body: {
-        email: u.email,
-        password: u.password,
-        name: u.name,
-      },
-    });
-    await prisma.user.update({
-      where: { email: u.email },
-      data: { role: u.role, organizationId: org.id, emailVerified: true },
+    await createUserWithPassword({
+      name: u.name,
+      email: u.email,
+      password: u.password,
+      role: u.role,
+      organizationId: org.id,
+      emailVerified: true,
     });
   }
 
@@ -123,7 +135,7 @@ async function main() {
       areaSqft: 1250,
       propertyType: "APARTMENT" as const,
       status: "ACTIVE" as const,
-      portals: { BAYUT: "LIVE", PROPERTY_FINDER: "LIVE", DUBIZZLE: "OFF", SKYLOOV: "PENDING" },
+      portals: { bayut: "LIVE", property_finder: "LIVE", dubizzle: "OFF", skyloov: "PENDING" },
     },
     {
       title: "Palm Frond Villa",
@@ -138,7 +150,7 @@ async function main() {
       areaSqft: 7200,
       propertyType: "VILLA" as const,
       status: "ACTIVE" as const,
-      portals: { BAYUT: "LIVE", PROPERTY_FINDER: "PENDING", DUBIZZLE: "OFF", SKYLOOV: "OFF" },
+      portals: { bayut: "LIVE", property_finder: "PENDING", dubizzle: "OFF", skyloov: "OFF" },
     },
     {
       title: "Downtown Skyline 1BR",
@@ -153,7 +165,7 @@ async function main() {
       areaSqft: 890,
       propertyType: "APARTMENT" as const,
       status: "ACTIVE" as const,
-      portals: { BAYUT: "LIVE", PROPERTY_FINDER: "LIVE", DUBIZZLE: "LIVE", SKYLOOV: "OFF" },
+      portals: { bayut: "LIVE", property_finder: "LIVE", dubizzle: "LIVE", skyloov: "OFF" },
     },
     {
       title: "JVC Family Townhouse",
@@ -168,7 +180,7 @@ async function main() {
       areaSqft: 2400,
       propertyType: "TOWNHOUSE" as const,
       status: "ACTIVE" as const,
-      portals: { BAYUT: "OFF", PROPERTY_FINDER: "LIVE", DUBIZZLE: "OFF", SKYLOOV: "LIVE" },
+      portals: { bayut: "OFF", property_finder: "LIVE", dubizzle: "OFF", skyloov: "LIVE" },
     },
     {
       title: "Business Bay Office",
@@ -183,7 +195,7 @@ async function main() {
       areaSqft: 1600,
       propertyType: "OFFICE" as const,
       status: "DRAFT" as const,
-      portals: { BAYUT: "OFF", PROPERTY_FINDER: "OFF", DUBIZZLE: "OFF", SKYLOOV: "OFF" },
+      portals: { bayut: "OFF", property_finder: "OFF", dubizzle: "OFF", skyloov: "OFF" },
     },
     {
       title: "Hills Estate 3BR",
@@ -198,7 +210,7 @@ async function main() {
       areaSqft: 2100,
       propertyType: "APARTMENT" as const,
       status: "ACTIVE" as const,
-      portals: { BAYUT: "LIVE", PROPERTY_FINDER: "LIVE", DUBIZZLE: "PENDING", SKYLOOV: "OFF" },
+      portals: { bayut: "LIVE", property_finder: "LIVE", dubizzle: "PENDING", skyloov: "OFF" },
     },
   ];
 
@@ -251,7 +263,7 @@ async function main() {
       name: "Khalid Al Mansoori",
       phone: "+971501112233",
       email: "khalid@example.com",
-      primarySource: "BAYUT",
+      primarySource: "bayut",
       stage: "QUALIFIED",
       listingId: marina.id,
       assignedToId: agent.id,
@@ -261,7 +273,7 @@ async function main() {
       dealValueAed: 2100000,
       sources: {
         create: {
-          source: "BAYUT",
+          source: "bayut",
           listingId: marina.id,
           message: "Is this still available?",
         },
@@ -286,7 +298,7 @@ async function main() {
       organizationId: org.id,
       name: "Priya Sharma",
       phone: "+971556667788",
-      primarySource: "PROPERTY_FINDER",
+      primarySource: "property_finder",
       stage: "NEW",
       listingId: hills.id,
       assignedToId: agent.id,
@@ -295,7 +307,7 @@ async function main() {
       communities: ["Dubai Hills Estate"],
       dealValueAed: 4950000,
       sources: {
-        create: { source: "PROPERTY_FINDER", listingId: hills.id, message: "Interested in Hills 3BR" },
+        create: { source: "property_finder", listingId: hills.id, message: "Interested in Hills 3BR" },
       },
       activities: {
         create: { type: "created", body: "Lead captured from PropertyFinder", actorId: agent.id },
@@ -308,7 +320,7 @@ async function main() {
       organizationId: org.id,
       name: "James Whitfield",
       phone: "+971524445566",
-      primarySource: "WHATSAPP",
+      primarySource: "whatsapp",
       stage: "VIEWING",
       listingId: listings[1].id,
       assignedToId: agent.id,
@@ -317,7 +329,7 @@ async function main() {
       communities: ["Palm Jumeirah"],
       dealValueAed: 14500000,
       sources: {
-        create: { source: "WHATSAPP", listingId: listings[1].id },
+        create: { source: "whatsapp", listingId: listings[1].id },
       },
       activities: {
         create: { type: "created", body: "Inbound WhatsApp", actorId: agent.id },
@@ -330,7 +342,7 @@ async function main() {
       organizationId: org.id,
       name: "Fatima Noor",
       phone: "+971501234000",
-      primarySource: "DUBIZZLE",
+      primarySource: "dubizzle",
       stage: "OFFER",
       listingId: listings[2].id,
       assignedToId: agent.id,
@@ -339,7 +351,7 @@ async function main() {
       communities: ["Downtown Dubai"],
       dealValueAed: 1750000,
       sources: {
-        create: { source: "DUBIZZLE", listingId: listings[2].id },
+        create: { source: "dubizzle", listingId: listings[2].id },
       },
       activities: {
         create: { type: "created", body: "Lead from Dubizzle", actorId: agent.id },
@@ -352,15 +364,15 @@ async function main() {
       organizationId: org.id,
       name: "Closed Deal Co.",
       phone: "+971509990001",
-      primarySource: "BAYUT",
+      primarySource: "bayut",
       stage: "WON",
       listingId: listings[3].id,
       assignedToId: agent.id,
       dealValueAed: 3200000,
       sources: {
         create: [
-          { source: "BAYUT", listingId: listings[3].id },
-          { source: "PROPERTY_FINDER", listingId: listings[3].id, message: "Fused later" },
+          { source: "bayut", listingId: listings[3].id },
+          { source: "property_finder", listingId: listings[3].id, message: "Fused later" },
         ],
       },
       activities: {
@@ -369,21 +381,37 @@ async function main() {
     },
   });
 
-  // Spread lead createdAt across the week so the dashboard chart looks alive
-  const leadRows = await prisma.lead.findMany({ where: { organizationId: org.id }, orderBy: { name: "asc" } });
-  for (let i = 0; i < leadRows.length; i++) {
-    const d = new Date();
-    d.setDate(d.getDate() - ((i * 2) % 7));
-    d.setHours(9 + i, 15, 0, 0);
-    await prisma.lead.update({ where: { id: leadRows[i].id }, data: { createdAt: d } });
-  }
-
+  // Explicit backdates so source events precede completed viewings (Money Map attribution)
   const now = new Date();
   function atDay(offset: number, hour: number, minute = 0) {
     const d = new Date(now);
     d.setDate(d.getDate() + offset);
     d.setHours(hour, minute, 0, 0);
     return d;
+  }
+
+  const leadBackdates: { name: string; daysAgo: number; hour: number; wonAtDaysAgo?: number }[] = [
+    { name: "Khalid Al Mansoori", daysAgo: 6, hour: 9 },
+    { name: "Priya Sharma", daysAgo: 5, hour: 10 },
+    { name: "James Whitfield", daysAgo: 4, hour: 11 },
+    { name: "Fatima Noor", daysAgo: 3, hour: 12 },
+    { name: "Closed Deal Co.", daysAgo: 8, hour: 14, wonAtDaysAgo: 2 },
+  ];
+  for (const row of leadBackdates) {
+    const lead = await prisma.lead.findFirst({ where: { organizationId: org.id, name: row.name } });
+    if (!lead) continue;
+    const createdAt = atDay(-row.daysAgo, row.hour);
+    await prisma.lead.update({
+      where: { id: lead.id },
+      data: {
+        createdAt,
+        ...(row.wonAtDaysAgo != null ? { wonAt: atDay(-row.wonAtDaysAgo, 16) } : {}),
+      },
+    });
+    await prisma.leadSourceEvent.updateMany({
+      where: { leadId: lead.id },
+      data: { createdAt },
+    });
   }
 
   const priya = await prisma.lead.findFirstOrThrow({ where: { name: "Priya Sharma" } });
@@ -474,7 +502,8 @@ async function main() {
   });
 
   console.log("Seed complete.");
-  console.log("Login: agent@atrium.demo / demo1234");
+  console.log("CRM:     agent@atrium.demo / demo1234");
+  console.log("Ops:     platform@atrium.demo / demo1234  (admin app :3001)");
   console.log(`Shortlist token: ${shortlist.token}`);
   console.log(`Public URL: http://localhost:3000/s/${shortlist.token}`);
 }

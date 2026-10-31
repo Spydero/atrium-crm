@@ -76,8 +76,14 @@ reportsRouter.get("/export.csv", async (req: AuthedRequest, res) => {
     for (const i of items) rows.push([section, i.label, i.value, d.range.from, d.range.to]);
   };
   add("Leads by stage", d.leadsByStage.map((r) => ({ label: labelize(r.stage), value: r.count })));
-  add("Leads by source", d.leadsBySource.map((r) => ({ label: labelize(r.source), value: r.count })));
-  add("Deals won by source", d.winsBySource.map((r) => ({ label: labelize(r.source), value: r.count })));
+  add(
+    "Leads by source",
+    d.leadsBySource.map((r) => ({ label: r.label || labelize(r.source), value: r.count })),
+  );
+  add(
+    "Deals won by source",
+    d.winsBySource.map((r) => ({ label: r.label || labelize(r.source), value: r.count })),
+  );
   add("Viewing outcomes", d.viewingOutcomes.map((r) => ({ label: labelize(r.outcome), value: r.count })));
 
   const t = vh.totals;
@@ -111,11 +117,15 @@ reportsRouter.get("/export.csv", async (req: AuthedRequest, res) => {
   if ("reasons" in vh) {
     add(
       "Cancel reasons",
-      vh.reasons.map((x) => ({ label: x.label, value: x.count })),
+      vh.reasons.length
+        ? vh.reasons.map((x) => ({ label: x.label, value: x.count }))
+        : [{ label: "None", value: 0 }],
     );
     add(
       "Cancel parties",
-      vh.parties.map((x) => ({ label: x.party, value: x.count })),
+      vh.parties.length
+        ? vh.parties.map((x) => ({ label: x.party, value: x.count }))
+        : [{ label: "None", value: 0 }],
     );
     add(
       "Cancel notice",

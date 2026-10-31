@@ -10,7 +10,7 @@ import {
   LeadMergeDialog,
   useDuplicateCount,
 } from "@/components/LeadDuplicates";
-import { api, formatAed, portalLabel, STAGES } from "@/lib/api";
+import { api, formatAed, portalLabel, STAGES, type OrgChannel, type OrgSettings } from "@/lib/api";
 
 type Lead = {
   id: string;
@@ -55,6 +55,7 @@ export default function LeadsPage() {
   const [msg, setMsg] = useState("");
   const [testingEnabled, setTestingEnabled] = useState(false);
   const [showDemoTools, setShowDemoTools] = useState(false);
+  const [channels, setChannels] = useState<OrgChannel[]>([]);
 
   // Bulk select + duplicates
   const [selectMode, setSelectMode] = useState(false);
@@ -82,7 +83,20 @@ export default function LeadsPage() {
     api<Agent[]>("/api/leads/agents")
       .then(setAgents)
       .catch(() => setAgents([]));
+    api<OrgSettings>("/api/settings")
+      .then((s) => setChannels((s.channels || []).filter((c) => c.enabled)))
+      .catch(() => setChannels([]));
   }, [load]);
+
+  const enquiryChannels = useMemo(() => {
+    const preferred = channels.filter((c) => c.kind === "PORTAL" || c.kind === "ADS");
+    const list = preferred.length >= 2 ? preferred : channels.filter((c) => c.key !== "guide");
+    return list.slice(0, 6);
+  }, [channels]);
+
+  function channelLabel(key: string) {
+    return channels.find((c) => c.key === key)?.label || portalLabel(key);
+  }
 
   // Status banner clears itself
   useEffect(() => {
@@ -226,9 +240,9 @@ export default function LeadsPage() {
     if (selected?.id === id) await openLead(id);
   }
 
-  async function simulate(source: "BAYUT" | "PROPERTY_FINDER") {
+  async function logEnquiry(source: string) {
     const listingId = listings[0]?.id;
-    const res = await api<{ fused: boolean; lead: Lead }>("/api/leads/simulate", {
+    const res = await api<{ fused: boolean; lead: Lead }>("/api/leads/enquiries", {
       method: "POST",
       body: JSON.stringify({
         name: "Khalid Al Mansoori",
@@ -241,8 +255,8 @@ export default function LeadsPage() {
     });
     setMsg(
       res.fused
-        ? `Fused ${portalLabel(source)} into existing lead.`
-        : `New ${portalLabel(source)} lead.`,
+        ? `Fused ${channelLabel(source)} into existing lead.`
+        : `New ${channelLabel(source)} lead.`,
     );
     await load();
     await openLead(res.lead.id);
@@ -356,28 +370,25 @@ export default function LeadsPage() {
             {showDemoTools && (
               <div className="absolute right-0 z-20 mt-1.5 w-64 space-y-1.5 rounded-[var(--radius)] border border-line bg-paper p-2 shadow-[0_12px_32px_rgba(16,20,24,0.12)]">
                 <p className="px-2 pb-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">
-                  Lead Fuse test
+                  Log enquiry (Lead Fuse)
                 </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    simulate("BAYUT");
-                    setShowDemoTools(false);
-                  }}
-                  className="btn-ghost w-full justify-start text-left text-sm"
-                >
-                  New Bayut enquiry
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    simulate("PROPERTY_FINDER");
-                    setShowDemoTools(false);
-                  }}
-                  className="btn-ghost w-full justify-start text-left text-sm"
-                >
-                  Same phone via PropertyFinder
-                </button>
+                {enquiryChannels.length === 0 ? (
+                  <p className="px-2 text-xs text-muted">Enable a channel in Settings first.</p>
+                ) : (
+                  enquiryChannels.map((ch, i) => (
+                    <button
+                      key={ch.key}
+                      type="button"
+                      onClick={() => {
+                        logEnquiry(ch.key);
+                        setShowDemoTools(false);
+                      }}
+                      className="btn-ghost w-full justify-start text-left text-sm"
+                    >
+                      {i === 0 ? `New ${ch.label} enquiry` : `Same phone via ${ch.label}`}
+                    </button>
+                  ))
+                )}
               </div>
             )}
           </div>

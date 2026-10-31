@@ -1,10 +1,8 @@
 import assert from "node:assert/strict";
 import { after, before, describe, test } from "node:test";
-import { LeadSource } from "@prisma/client";
 import { prisma } from "../src/lib/prisma.js";
 import { resolveDateRange } from "../src/lib/dateRange.js";
 import {
-  ALL_SOURCES,
   computeMoneyMap,
   cueFor,
   deltaOf,
@@ -12,6 +10,7 @@ import {
   monthStart,
   resolveSpendForRange,
 } from "../src/lib/moneyStats.js";
+import { SYSTEM_CHANNELS } from "../src/lib/channels.js";
 
 const API = process.env.API_URL || "http://localhost:4000";
 
@@ -32,10 +31,8 @@ async function login() {
 
 describe("money map helpers", () => {
   test("resolveSpendForRange carry-forward and proration", () => {
-    const entries = [
-      { source: LeadSource.META, month: monthStart("2026-08"), amount: 3100 },
-    ];
-    const r = resolveSpendForRange(entries, LeadSource.META, {
+    const entries = [{ source: "meta", month: monthStart("2026-08"), amount: 3100 }];
+    const r = resolveSpendForRange(entries, "meta", {
       from: new Date(2026, 9, 1),
       to: new Date(2026, 9, 15, 23, 59, 59, 999),
     });
@@ -45,7 +42,7 @@ describe("money map helpers", () => {
   });
 
   test("resolveSpendForRange none vs zero", () => {
-    const none = resolveSpendForRange([], LeadSource.GUIDE, {
+    const none = resolveSpendForRange([], "guide", {
       from: new Date(2026, 9, 1),
       to: new Date(2026, 9, 10),
     });
@@ -53,8 +50,8 @@ describe("money map helpers", () => {
     assert.equal(none.spend, null);
 
     const zero = resolveSpendForRange(
-      [{ source: LeadSource.REFERRAL, month: monthStart("2026-10"), amount: 0 }],
-      LeadSource.REFERRAL,
+      [{ source: "referral", month: monthStart("2026-10"), amount: 0 }],
+      "referral",
       { from: new Date(2026, 9, 1), to: new Date(2026, 9, 10) },
     );
     assert.equal(zero.status, "zero");
@@ -88,7 +85,6 @@ describe("money map helpers", () => {
         1000,
         5000,
         90,
-        null,
       ).kind,
       "ADD_SPEND",
     );
@@ -111,10 +107,14 @@ describe("money map helpers", () => {
         1000,
         5000,
         90,
-        0.2,
       ).kind,
       "ORGANIC",
     );
+  });
+
+  test("system channels include guide", () => {
+    assert.ok(SYSTEM_CHANNELS.some((c) => c.key === "guide"));
+    assert.ok(SYSTEM_CHANNELS.some((c) => c.key === "manual"));
   });
 });
 
@@ -132,11 +132,6 @@ describe("money map API + compute", () => {
     await prisma.$disconnect();
   });
 
-  test("ALL_SOURCES includes GUIDE", () => {
-    assert.ok(ALL_SOURCES.includes(LeadSource.GUIDE));
-    assert.ok(ALL_SOURCES.includes(LeadSource.META));
-  });
-
   test("computeMoneyMap: at risk is deduped and ignores WON/LOST", async () => {
     const range = resolveDateRange({ range: "90d" });
     const m = await computeMoneyMap(orgId, range);
@@ -149,14 +144,14 @@ describe("money map API + compute", () => {
     assert.equal(m.atRisk.value, sum);
   });
 
-  test("computeMoneyMap: GUIDE appears and missing spend is flagged", async () => {
+  test("computeMoneyMap: guide appears and missing spend is flagged", async () => {
     const range = resolveDateRange({ range: "90d" });
     const m = await computeMoneyMap(orgId, range);
-    const guide = m.rows.find((r) => r.source === "GUIDE");
+    const guide = m.rows.find((r) => r.source === "guide");
     assert.ok(guide);
     if (guide!.leads > 0) {
       assert.equal(guide!.spendStatus, "none");
-      assert.ok(m.callouts.missingSpend.includes("GUIDE"));
+      assert.ok(m.callouts.missingSpend.includes("guide"));
     }
   });
 
@@ -168,7 +163,8 @@ describe("money map API + compute", () => {
     assert.equal(body.attribution, "all_touch");
     assert.equal(body.range.days, 90);
     assert.ok(Array.isArray(body.rows));
-    assert.ok(body.rows.some((r: { source: string }) => r.source === "GUIDE"));
+    assert.ok(body.rows.some((r: { source: string }) => r.source === "guide"));
+    assert.ok(body.channels?.length > 0);
     assert.ok(body.totals);
     assert.ok(body.atRisk);
   });
@@ -187,12 +183,12 @@ describe("money map API + compute", () => {
       headers: { cookie, "content-type": "application/json" },
       body: JSON.stringify({
         month,
-        entries: [{ source: "WHATSAPP", amount: 1234 }],
+        entries: [{ source: "whatsapp", amount: 1234 }],
       }),
     });
     assert.equal(put.status, 200);
     const after = await put.json();
-    const row = after.rows.find((r: { source: string }) => r.source === "WHATSAPP");
+    const row = after.rows.find((r: { source: string }) => r.source === "whatsapp");
     assert.equal(row.amount, 1234);
     assert.equal(row.inherited, false);
 
@@ -201,17 +197,17 @@ describe("money map API + compute", () => {
       headers: { cookie, "content-type": "application/json" },
       body: JSON.stringify({
         month,
-        entries: [{ source: "WHATSAPP", amount: null }],
+        entries: [{ source: "whatsapp", amount: null }],
       }),
     });
     assert.equal(clear.status, 200);
-    const cleared = (await clear.json()).rows.find((r: { source: string }) => r.source === "WHATSAPP");
+    const cleared = (await clear.json()).rows.find((r: { source: string }) => r.source === "whatsapp");
     assert.equal(cleared.amount, null);
 
     const bad = await fetch(`${API}/api/money/spend`, {
       method: "PUT",
       headers: { cookie, "content-type": "application/json" },
-      body: JSON.stringify({ month, entries: [{ source: "META", amount: -1 }] }),
+      body: JSON.stringify({ month, entries: [{ source: "meta", amount: -1 }] }),
     });
     assert.equal(bad.status, 400);
   });
@@ -223,7 +219,7 @@ describe("money map API + compute", () => {
         name: "Money Map Win Probe",
         email: `money-win-${Date.now()}@example.com`,
         stage: "OFFER",
-        primarySource: "MANUAL",
+        primarySource: "manual",
       },
     });
     const patch = await fetch(`${API}/api/leads/${lead.id}`, {

@@ -125,8 +125,8 @@ try {
   log(leadsOk, "Leads page loads");
   const simulateGone = (await page.getByRole("button", { name: /simulate bayut/i }).count()) === 0;
   const demoTools = await page.getByRole("button", { name: /demo tools/i }).isVisible().catch(() => false);
-  log(simulateGone, "Simulate buttons not in main header");
-  log(demoTools, "Demo tools tucked behind menu");
+  log(simulateGone, "No Simulate Bayut buttons");
+  log(demoTools, "Demo tools (Log enquiry) tucked behind menu");
   await shot(page, "test-03-leads.png");
 
   // Calendar

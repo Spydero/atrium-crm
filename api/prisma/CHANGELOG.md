@@ -43,6 +43,28 @@ Folder names use UTC time (Prisma does this for new migrations). The three basel
 
 ## Migrations (newest first)
 
+### 20261031124641_platform_admin
+- Date applied: pending deploy
+- Purpose: Platform operators + invite-only brokerage provisioning (separate admin app)
+- Changes: `User.platformRole`, `User.disabledAt`; `Organization.status`/`suspendedAt`; tables `Invitation`, `AccessRequest`; default role `broker`; backfill `agent` -> `broker`
+- Data impact: backfilled role rename only
+- Risk: low
+- Reversal: drop new columns/tables; map broker -> agent if required
+- Code that depends on it: `src/routes/platform.ts`, `src/routes/invites.ts`, admin app, seed
+
+### 20261031115409_org_channels  (Org channel catalog)
+- Date applied: 2026-10-31 (see apply-log.md)
+- Purpose: stop baking Bayut/Meta into Prisma enums. Lead sources and listing portals become org-owned channel keys with labels.
+- Changes:
+  - New enum `ChannelKind` (SYSTEM, PORTAL, ADS, OTHER) and table `OrgChannel`.
+  - `Lead.primarySource`, `LeadSourceEvent.source`, `SourceSpend.source`, `ListingPortalStatus.portal`, `PortalBudget.portal` become text (lowercase keys).
+  - Dropped enums `LeadSource`, `PortalName`.
+  - Dropped `Organization.enabledPortals` (replaced by enabled PORTAL channels).
+- Data impact: enum values mapped to lowercase keys; OrgChannel backfilled (system + former enabled portals + any keys seen on leads/spend/portals).
+- Risk: medium. Wide type change; custom keys after this are first-class.
+- Reversal: restore enums (lossy for custom keys); re-add `enabledPortals` from PORTAL channels.
+- Code that depends on it: `src/lib/channels.ts`, settings, leads enquiry, Money Map, listings publish, seed.
+
 ### 20261031105716_calendar_outcomes_notes  (Calendar V1.5)
 - Date applied: 2026-10-31 (see apply-log.md)
 - Purpose: calendar depth - notes, cancel reasons, outcome timestamps, creator; every event type can be completed or cancelled; delete and full edit become possible.

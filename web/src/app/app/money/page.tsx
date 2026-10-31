@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   AlertTriangle,
   ArrowDownRight,
@@ -52,6 +53,7 @@ type Metrics = {
 
 type Row = Metrics & {
   source: string;
+  label?: string;
   atRisk: { value: number; leads: number; items: number };
   prev: Metrics;
   delta: Record<string, Delta>;
@@ -76,6 +78,7 @@ type MoneyMap = {
     reallocation: { from: string; to: string; amount: number; extraViewings: number } | null;
     missingSpend: string[];
   };
+  channels?: { key: string; label: string; kind: string; enabled: boolean }[];
   atRisk: {
     value: number;
     items: number;
@@ -215,8 +218,21 @@ function moneyQuery(range: DateRangeValue) {
   return `/api/money/map?${dateRangeQuery(range)}`;
 }
 
+function rangeFromSearch(sp: URLSearchParams | null): DateRangeValue {
+  const preset = sp?.get("range");
+  const allowed = ["7d", "14d", "30d", "90d", "180d", "365d"] as const;
+  if (preset && (allowed as readonly string[]).includes(preset)) {
+    return defaultDateRange(preset as (typeof allowed)[number]);
+  }
+  if (preset === "custom" && sp?.get("from") && sp?.get("to")) {
+    return { preset: "custom", from: sp.get("from")!, to: sp.get("to")! };
+  }
+  return defaultDateRange("90d");
+}
+
 export default function MoneyPage() {
-  const [dateRange, setDateRange] = useState<DateRangeValue>(() => defaultDateRange("90d"));
+  const search = useSearchParams();
+  const [dateRange, setDateRange] = useState<DateRangeValue>(() => rangeFromSearch(search));
   const [data, setData] = useState<MoneyMap | null>(null);
   const [error, setError] = useState("");
   const [sort, setSort] = useState<SortKey>("spend");
@@ -230,11 +246,24 @@ export default function MoneyPage() {
   const [tick, setTick] = useState(0);
 
   useEffect(() => {
+    setDateRange(rangeFromSearch(search));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search.get("range"), search.get("from"), search.get("to")]);
+
+  useEffect(() => {
     setError("");
     api<MoneyMap>(moneyQuery(dateRange))
       .then(setData)
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load"));
   }, [dateRange, tick]);
+
+  const channelLabelOf = (key: string) => {
+    if (!data) return portalLabel(key);
+    const fromRow = data.rows.find((r) => r.source === key)?.label;
+    if (fromRow) return fromRow;
+    const fromCat = data.channels?.find((c) => c.key === key)?.label;
+    return fromCat || portalLabel(key);
+  };
 
   const activeRows = useMemo(() => {
     if (!data) return [];
@@ -253,7 +282,7 @@ export default function MoneyPage() {
     const val = (r: Row): number | string | null => {
       switch (sort) {
         case "source":
-          return portalLabel(r.source);
+          return r.label || channelLabelOf(r.source);
         case "atRisk":
           return r.atRisk.value;
         case "spend":
@@ -281,7 +310,7 @@ export default function MoneyPage() {
       })
       .map((r) => ({
         source: r.source,
-        label: portalLabel(r.source),
+        label: r.label || channelLabelOf(r.source),
         value: chartMetric === "viewings" ? r.viewings : (r[chartMetric] as number),
         cue: r.cue.kind,
         noSpend: r.spendStatus === "none",
@@ -383,21 +412,21 @@ export default function MoneyPage() {
         <div className="flex flex-wrap gap-2" data-testid="callouts">
           {data.callouts.best && (
             <span className="rounded-full bg-[#dcfce7] px-3 py-1.5 text-xs font-bold text-[#166534]">
-              Best: {portalLabel(data.callouts.best.source)} · cost / viewing{" "}
+              Best: {channelLabelOf(data.callouts.best.source)} · cost / viewing{" "}
               {formatAed(data.callouts.best.value)}
             </span>
           )}
           {data.callouts.worst && (
             <span className="rounded-full bg-[#fee2e2] px-3 py-1.5 text-xs font-bold text-[#991b1b]">
-              Worst: {portalLabel(data.callouts.worst.source)} · cost / viewing{" "}
+              Worst: {channelLabelOf(data.callouts.worst.source)} · cost / viewing{" "}
               {formatAed(data.callouts.worst.value)}
             </span>
           )}
           {data.callouts.reallocation && (
             <span className="rounded-full bg-[#ffedd5] px-3 py-1.5 text-xs font-bold text-[#9a3412]">
               Rough estimate: move {formatAed(data.callouts.reallocation.amount)} / mo from{" "}
-              {portalLabel(data.callouts.reallocation.from)} to{" "}
-              {portalLabel(data.callouts.reallocation.to)} for ~{data.callouts.reallocation.extraViewings}{" "}
+              {channelLabelOf(data.callouts.reallocation.from)} to{" "}
+              {channelLabelOf(data.callouts.reallocation.to)} for ~{data.callouts.reallocation.extraViewings}{" "}
               more viewings
             </span>
           )}
@@ -552,7 +581,7 @@ export default function MoneyPage() {
               >
                 <td className="px-3 py-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-bold">{portalLabel(r.source)}</span>
+                    <span className="font-bold">{r.label || channelLabelOf(r.source)}</span>
                     <span
                       className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.06em] ${CUE_STYLE[r.cue.kind] || CUE_STYLE.HOLD}`}
                       title={r.cue.reason}
@@ -654,7 +683,7 @@ export default function MoneyPage() {
                 <div className="font-semibold">{l.leadName}</div>
                 <div className="mt-0.5 text-xs text-muted">
                   {l.overdueItems} overdue · {l.oldest.title} · {l.oldest.daysOverdue}d late ·{" "}
-                  {l.sources.map(portalLabel).join(", ")}
+                  {l.sources.map(channelLabelOf).join(", ")}
                 </div>
               </div>
               <div className="flex items-center gap-3">

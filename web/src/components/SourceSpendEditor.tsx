@@ -7,6 +7,7 @@ import { api, portalLabel } from "@/lib/api";
 
 type SpendRow = {
   source: string;
+  label?: string;
   amount: number | null;
   inherited: boolean;
   fromMonth: string | null;
@@ -72,7 +73,7 @@ export function SourceSpendEditor({
         const raw = draft[r.source]?.trim() ?? "";
         if (raw === "") return { source: r.source, amount: null };
         const n = Number(raw);
-        if (!Number.isInteger(n) || n < 0) throw new Error(`Invalid amount for ${portalLabel(r.source)}`);
+        if (!Number.isInteger(n) || n < 0) throw new Error(`Invalid amount for ${r.label || portalLabel(r.source)}`);
         return { source: r.source, amount: n };
       });
       await api("/api/money/spend", {
@@ -128,7 +129,7 @@ export function SourceSpendEditor({
                 }`}
               >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-semibold">{portalLabel(r.source)}</span>
+                  <span className="font-semibold">{r.label || portalLabel(r.source)}</span>
                   {r.inherited && r.fromMonth && (
                     <span className="text-[11px] text-muted">Using {r.amount?.toLocaleString()} from {r.fromMonth}</span>
                   )}
@@ -139,7 +140,7 @@ export function SourceSpendEditor({
                   placeholder="Not entered"
                   value={draft[r.source] ?? ""}
                   onChange={(e) => setDraft((d) => ({ ...d, [r.source]: e.target.value }))}
-                  aria-label={`Spend for ${portalLabel(r.source)}`}
+                  aria-label={`Spend for ${r.label || portalLabel(r.source)}`}
                 />
                 <p className="mt-1 text-[11px] text-muted">Leave blank for not entered. Enter 0 for free sources.</p>
               </li>
