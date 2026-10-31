@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { api, formatAed, portalLabel } from "@/lib/api";
 import { TrendChart } from "@/components/TrendChart";
+import { ViewingHealthCard } from "@/components/ViewingHealth";
 import {
   DateRangeFilter,
   dateRangeQuery,
@@ -182,7 +183,7 @@ export default function DashboardPage() {
       value: String(kpis.listingsActive),
       hint:
         kpis.viewingsWeek > 0
-          ? `${kpis.viewingsWeek} viewings in range`
+          ? `${kpis.viewingsWeek} viewings in range · excl. cancelled`
           : kpis.listingsDraft > 0
             ? `${kpis.listingsDraft} still draft`
             : "Inventory live",
@@ -269,6 +270,7 @@ export default function DashboardPage() {
       <TrendChart range={dateRange} onRangeChange={setDateRange} />
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <ViewingHealthCard range={dateRange} />
         <div className="surface p-5">
           <div className="mb-1 text-[11px] font-bold uppercase tracking-[0.1em] text-muted">
             Pipeline by stage
@@ -458,7 +460,7 @@ export default function DashboardPage() {
           <div>
             <div className="text-sm font-bold">Viewings on the calendar</div>
             <div className="text-xs text-muted">
-              {kpis.viewingsWeek} in the current window · keep feedback after each one
+              {kpis.viewingsWeek} in the current window (excl. cancelled) · log outcomes after each one
             </div>
           </div>
         </div>

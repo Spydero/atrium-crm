@@ -203,13 +203,19 @@ test("trend endpoint: viewings and won metrics", async () => {
   const pv = past(90);
   const range = { from: new Date(pv.from.setHours(0, 0, 0, 0)), to: new Date(pv.to.setHours(23, 59, 59, 999)) };
   const v = await get(`/api/dashboard/trend?${pv.qs}&metric=viewings&group=week`);
-  const realV = await prisma.calendarEvent.count({
+  const realRows = await prisma.calendarEvent.findMany({
     where: { organizationId: orgId, type: "VIEWING", startsAt: { gte: range.from, lte: range.to } },
+    select: { outcome: true, cancelReason: true },
   });
+  const realV = realRows.filter((r) => !(r.outcome === "CANCELLED" && r.cancelReason === "DUPLICATE")).length;
   assert.equal(v.json.metric, "viewings");
   assert.equal(v.json.totals.count, realV);
+  const allowed = new Set(["COMPLETED", "NO_SHOW", "CANCELLED", "UNLOGGED", "UPCOMING"]);
   for (const b of v.json.buckets) {
-    for (const x of b.breakdown) assert.ok(["SCHEDULED", "COMPLETED", "NO_SHOW", "CANCELLED"].includes(x.key));
+    for (const x of b.breakdown) {
+      assert.ok(allowed.has(x.key), `unexpected breakdown key ${x.key}`);
+      assert.notEqual(x.key, "SCHEDULED");
+    }
   }
   const pw = past(365);
   const wr = { from: new Date(pw.from.setHours(0, 0, 0, 0)), to: new Date(pw.to.setHours(23, 59, 59, 999)) };

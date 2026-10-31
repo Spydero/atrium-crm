@@ -15,6 +15,18 @@ import {
 } from "./pdfTheme.js";
 import { labelize } from "./csv.js";
 import type { ReportSummary } from "./reportData.js";
+import { outcomeLabel } from "./eventOutcome.js";
+
+function ratePct(r: number | null) {
+  if (r == null) return "-";
+  return `${Math.round(r * 100)}%`;
+}
+
+function ppNote(n: number | null) {
+  if (n == null) return "vs previous: n/a";
+  const s = n > 0 ? `+${n}` : String(n);
+  return `${s} pp vs previous`;
+}
 
 const GUTTER = 24;
 const HALF_W = (CONTENT_W - GUTTER) / 2;
@@ -300,14 +312,22 @@ export async function buildReportPdf(
   const lost = data.leadsByStage.find((s) => s.stage === "LOST")?.count ?? 0;
   const closed = won + lost;
   const winRate = closed ? Math.round((won / closed) * 100) : null;
-  const viewingsTotal = data.viewingOutcomes.reduce((s, v) => s + v.count, 0);
-  const viewingsDone = data.viewingOutcomes.find((v) => v.outcome === "COMPLETED")?.count ?? 0;
+  const vh = data.viewingHealth;
+  const vt = vh.totals;
+  const vr = vh.rates;
+  const viewingsBooked = vt.booked;
+  const viewingsDone = vt.completed;
   const listingsTotal = data.listingsByStatus.reduce((s, r) => s + r.count, 0);
   const listingsActive = data.listingsByStatus.find((r) => r.status === "ACTIVE")?.count ?? 0;
   const topSource = data.leadsBySource[0];
+  const hasViewingHealth = viewingsBooked > 0;
 
   const fromLong = longDateFromKey(data.range.from);
   const toLong = longDateFromKey(data.range.to);
+
+  const viewingSentence = viewingsBooked
+    ? `${plural(viewingsBooked, "viewing")} ${viewingsBooked === 1 ? "was" : "were"} booked: ${viewingsDone} held, ${vt.noShow} no-shows, ${vt.cancelled} cancelled, ${vt.unlogged} not yet logged. Held rate ${ratePct(vr.held)}.`
+    : "No viewings were booked in the period.";
 
   const summary = [
     `Between ${fromLong} and ${toLong}, ${org.name} recorded ${plural(totalLeads, "new lead")}` +
@@ -317,9 +337,7 @@ export async function buildReportPdf(
     closed
       ? `${plural(won, "deal")} ${won === 1 ? "was" : "were"} won and ${lost} lost, giving a win rate of ${winRate}% across closed opportunities.`
       : "No deals were closed in the period.",
-    viewingsTotal
-      ? `${plural(viewingsTotal, "viewing")} ${viewingsTotal === 1 ? "was" : "were"} scheduled, of which ${viewingsDone} ${viewingsDone === 1 ? "has" : "have"} been completed.`
-      : "No viewings were scheduled in the period.",
+    viewingSentence,
     `The current inventory comprises ${plural(listingsTotal, "listing")}, of which ${listingsActive} ${listingsActive === 1 ? "is" : "are"} active.`,
   ].join(" ");
 
@@ -335,10 +353,13 @@ export async function buildReportPdf(
     label: labelize(s.source),
     value: s.count,
   }));
-  const viewRows: Row[] = data.viewingOutcomes.map((v) => ({
-    label: labelize(v.outcome),
-    value: v.count,
-  }));
+  const viewRows: Row[] = [
+    { label: outcomeLabel("VIEWING", "COMPLETED"), value: vt.completed },
+    { label: outcomeLabel("VIEWING", "NO_SHOW"), value: vt.noShow },
+    { label: outcomeLabel("VIEWING", "CANCELLED"), value: vt.cancelled },
+    { label: "Unlogged", value: vt.unlogged },
+    { label: "Upcoming", value: vt.upcoming },
+  ].filter((r) => r.value > 0 || viewingsBooked === 0);
   const listingRows: Row[] = data.listingsByStatus.map((s) => ({
     label: labelize(s.status),
     value: s.count,
@@ -351,7 +372,7 @@ export async function buildReportPdf(
   const footerNote = "Confidential. Prepared for internal use.";
   const g = data.guides;
   const hasGuides = g.guides.length > 0;
-  const TOTAL_PAGES = hasGuides ? 3 : 2;
+  const TOTAL_PAGES = (hasViewingHealth ? 1 : 0) + (hasGuides ? 1 : 0) + 2;
 
   return docToBuffer(
     (doc) => {
@@ -418,9 +439,9 @@ export async function buildReportPdf(
         y,
         kw,
         kh,
-        String(viewingsTotal),
-        "Viewings",
-        `${viewingsDone} completed`,
+        String(viewingsBooked),
+        "Viewings booked",
+        `${viewingsDone} held · ${ratePct(vr.held)}`,
         true,
       );
       y += kh + 26;
@@ -472,7 +493,7 @@ export async function buildReportPdf(
       const notes = [
         "Leads are counted by the date they were created. A lead that enquired through several channels is counted once per channel in the source table.",
         "Win rate is deals won divided by deals won plus deals lost. Open opportunities are excluded.",
-        "Viewings are counted by their scheduled date within the reporting period.",
+        "Viewings are counted by their scheduled start within the reporting period. Duplicate cancellations are excluded from booked totals and rates.",
         "Inventory and portal tables show the position at the time of generation and are not limited to the reporting period.",
       ];
       notes.forEach((n, i) => {
@@ -488,7 +509,87 @@ export async function buildReportPdf(
 
       pageFooter(doc, org.name, 2, TOTAL_PAGES, footerNote);
 
-      // ===== Page 3: guides =====
+      let pageNo = 3;
+
+      // ===== Viewing health =====
+      if (hasViewingHealth) {
+        doc.addPage();
+        doc.rect(0, 0, PAGE_W, 841.89).fill(COLORS.white);
+        pageHeader(doc, org.name, "Performance Report");
+
+        y = 84;
+        sectionHeading(doc, "Viewing health", MARGIN, y, CONTENT_W);
+        y += 26;
+        doc.font("Times-Roman").fontSize(10.5);
+        const vhSum = viewingSentence;
+        const vhH = doc.heightOfString(vhSum, { width: CONTENT_W, lineGap: 3 });
+        doc.fillColor(COLORS.body).text(vhSum, MARGIN, y, { width: CONTENT_W, lineGap: 3, align: "justify" });
+        y += vhH + 18;
+
+        const kh3 = 74;
+        hairline(doc, MARGIN, y, PAGE_W - MARGIN, COLORS.navy, 1);
+        hairline(doc, MARGIN, y + kh3, PAGE_W - MARGIN, COLORS.line, 0.6);
+        const deltas = vh.deltasPp;
+        indicator(doc, MARGIN, y, kw, kh3, ratePct(vr.held), "Held rate", ppNote(deltas?.held ?? null), false);
+        indicator(doc, MARGIN + kw, y, kw, kh3, ratePct(vr.noShow), "No-show rate", ppNote(deltas?.noShow ?? null), true);
+        indicator(doc, MARGIN + kw * 2, y, kw, kh3, ratePct(vr.cancel), "Cancel rate", ppNote(deltas?.cancel ?? null), true);
+        indicator(doc, MARGIN + kw * 3, y, kw, kh3, ratePct(vr.lateCancel), "Late cancels", "< 24h notice", true);
+        y += kh3 + 22;
+
+        if ("reasons" in vh) {
+          const reasonRows: Row[] = vh.reasons.map((r) => ({ label: r.label, value: r.count }));
+          const agentHealth: Row[] = vh.breakdowns.agent.slice(0, 10).map((a) => ({
+            label: a.label,
+            value: a.booked,
+          }));
+          const hR = dataTable(doc, MARGIN, y, HALF_W, "Cancel reasons", reasonRows, {
+            emptyText: "No cancellations in this period",
+          });
+          const hA = dataTable(doc, MARGIN + HALF_W + GUTTER, y, HALF_W, "By agent (booked)", agentHealth, {
+            emptyText: "No viewings by agent",
+            countHeader: "Booked",
+          });
+          y += Math.max(hR, hA) + 20;
+
+          const noticeRows: Row[] = vh.notice.buckets.map((b) => ({ label: b.key, value: b.count }));
+          y += dataTable(doc, MARGIN, y, CONTENT_W, "Notice before cancelling", noticeRows, {
+            emptyText:
+              vh.notice.sampleSize < 5
+                ? "Not enough data yet (need outcomes logged since 31 Oct 2026)"
+                : "No cancellations with usable notice",
+          }) + 20;
+
+          const defs = [
+            "Held rate = completed / (completed + no-show + cancelled). Unlogged and upcoming viewings are excluded from rates.",
+            "Duplicate cancellations are removed from booked totals and every rate; they appear only as a footnote.",
+            "Cancel reason \"Not recorded\" covers legacy cancellations logged before reasons were required.",
+            `Cancel notice and logging lag use outcomeAt only when it is on or after ${vh.notice.since.slice(0, 10)}. Earlier timestamps are estimates and are ignored.`,
+            "If a viewing's start time is moved after it is closed, lag for that row can be skewed.",
+          ];
+          sectionHeading(doc, "Definitions", MARGIN, y, CONTENT_W);
+          y += 26;
+          defs.forEach((n, i) => {
+            line(doc, `${i + 1}.`, MARGIN, y, { size: 9.5, font: "Times-Bold", color: COLORS.navy });
+            doc.font("Times-Roman").fontSize(9.5);
+            const nh = doc.heightOfString(n, { width: CONTENT_W - 22, lineGap: 2 });
+            doc.fillColor(COLORS.body).text(n, MARGIN + 22, y, { width: CONTENT_W - 22, lineGap: 2 });
+            y += nh + 8;
+          });
+          if (vt.duplicates > 0) {
+            line(doc, `${vt.duplicates} duplicate cancellation${vt.duplicates === 1 ? "" : "s"} removed from rates.`, MARGIN, y, {
+              size: 9,
+              font: "Times-Italic",
+              color: COLORS.muted,
+              width: CONTENT_W,
+            });
+          }
+        }
+
+        pageFooter(doc, org.name, pageNo, TOTAL_PAGES, footerNote);
+        pageNo += 1;
+      }
+
+      // ===== Guides =====
       if (hasGuides) {
         doc.addPage();
         doc.rect(0, 0, PAGE_W, 841.89).fill(COLORS.white);
@@ -540,7 +641,7 @@ export async function buildReportPdf(
           y += nh + 8;
         });
 
-        pageFooter(doc, org.name, 3, TOTAL_PAGES, footerNote);
+        pageFooter(doc, org.name, pageNo, TOTAL_PAGES, footerNote);
       }
     },
     { Title: `Performance report ${data.range.from} to ${data.range.to}`, Author: org.name },

@@ -236,7 +236,8 @@ Shipped in phases. **V1.0** = first shippable demo of the core loop.
 
 **Docs + analytics**
 7. Listing brochure PDF download  
-8. Reports page: leads by stage/source, viewing outcomes, wins by source, listing/portal stats, agent load  
+8. Reports page: leads by stage/source, wins by source, listing/portal stats, agent load, plus **Viewing health** (held / cancel / no-show rates, cancel reasons, notice lag, breakdowns, cancel CSV)  
+ 
 
 **Explicitly deferred**
 - Messaging: Meta Cloud API only later - **no mock WhatsApp inbox**, no Slack, no Discord  
@@ -285,6 +286,16 @@ Lead Fuse still fuses exact same-phone enquiries on arrival; merge handles what 
 4. Compare to the previous period of the same length: change, percentage and a comparison line
 5. Hover for exact dates, share of the period, running total, change vs previous, and the source (or viewing outcome) mix; click a bar to pin the details
 6. Deals won are counted on the date the won lead was last updated (there is no separate closing date yet)
+
+---
+
+## V1.6 scope (Viewing health)
+
+1. Reports `#viewings` is the home for viewing outcomes: booked, held rate, no-show rate, cancel rate, unlogged count, stacked outcome trend, cancel reasons by party, notice-before-cancel buckets, logging speed, agent/listing/source breakdown, and recent cancellations
+2. Dashboard shows a Viewing health card (rates vs previous period) that links to Reports; the viewings trend stacks outcomes and can hide cancelled so it matches the KPI (excl. cancelled)
+3. Duplicate cancellations are excluded from booked totals and every rate; legacy null reasons show as Not recorded; lag metrics only use `outcomeAt` after calendar V1.5 shipped
+4. Exports: summary CSV sections for viewing health / cancel reasons / parties / notice / by agent; row-level `viewings.csv` and cancellations filter; PDF gains a Viewing health page and a corrected summary sentence
+5. Not included: top-level Cancellations nav, money on no-shows, call/follow-up outcome stats, heatmaps, predictions
 
 ---
 

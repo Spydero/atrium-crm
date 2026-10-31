@@ -43,7 +43,12 @@ export function labelize(value: string | null | undefined) {
     MANUAL: "Manual",
     REFERRAL: "Referral",
     WEBSITE: "Website",
-    NO_SHOW: "No show",
+    NO_SHOW: "No-show",
+    CANCELLED: "Cancelled",
+    COMPLETED: "Completed",
+    SCHEDULED: "Scheduled",
+    UNLOGGED: "Unlogged",
+    UPCOMING: "Upcoming",
   };
   if (map[value]) return map[value];
   const lower = value.replace(/_/g, " ").toLowerCase();

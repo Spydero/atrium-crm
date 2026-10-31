@@ -65,19 +65,32 @@ export type TrendConfig = {
   metrics: MetricMeta[];
   /** Metric whose bucket value is money (shown as AED) */
   moneyMetric?: Metric;
+  /** Metric that draws stacked outcome bars from bucket.breakdown */
+  stackMetric?: Metric;
   breakdown: (metric: Metric) => { title: string; label: (key: string) => string };
 };
 
 const OUTCOME_LABEL: Record<string, string> = {
   SCHEDULED: "Scheduled",
   COMPLETED: "Completed",
-  NO_SHOW: "No show",
+  NO_SHOW: "No-show",
   CANCELLED: "Cancelled",
+  UNLOGGED: "Unlogged",
+  UPCOMING: "Upcoming",
 };
+
+const VIEWING_STACK: { key: string; color: string }[] = [
+  { key: "COMPLETED", color: "#15803d" },
+  { key: "NO_SHOW", color: "#d97706" },
+  { key: "CANCELLED", color: "#c45c26" },
+  { key: "UNLOGGED", color: "#94a3b8" },
+  { key: "UPCOMING", color: "#cbd5e1" },
+];
 
 export const DASHBOARD_TREND: TrendConfig = {
   endpoint: "/api/dashboard/trend",
   moneyMetric: "won",
+  stackMetric: "viewings",
   metrics: [
     { id: "leads", label: "New leads", one: "new lead", many: "new leads", href: "/app/leads", cta: "Open leads" },
     { id: "viewings", label: "Viewings", one: "viewing", many: "viewings", href: "/app/calendar", cta: "Open calendar" },
@@ -218,16 +231,34 @@ function Details({
             <div key={b.key}>
               <div className="flex justify-between">
                 <span className="font-semibold text-ink">{bd.label(b.key)}</span>
-                <span className="text-muted">{b.count}</span>
+                <span className="text-muted">
+                  {b.count}
+                  {row.count > 0 ? ` · ${pctOf(b.count, row.count)}%` : ""}
+                </span>
               </div>
               <div className="mt-0.5 h-1 overflow-hidden rounded-full bg-[#eef1f4]">
                 <div
                   className="h-full rounded-full bg-accent"
-                  style={{ width: `${(b.count / maxBreak) * 100}%` }}
+                  style={{
+                    width: `${(b.count / maxBreak) * 100}%`,
+                    background:
+                      b.key === "COMPLETED"
+                        ? "#15803d"
+                        : b.key === "NO_SHOW"
+                          ? "#d97706"
+                          : b.key === "CANCELLED"
+                            ? "#c45c26"
+                            : undefined,
+                  }}
                 />
               </div>
             </div>
           ))}
+          {(row.breakdown.find((b) => b.key === "UNLOGGED")?.count || 0) > 0 && (
+            <div className="pt-0.5 text-muted">
+              {row.breakdown.find((b) => b.key === "UNLOGGED")!.count} unlogged
+            </div>
+          )}
         </div>
       )}
       {row.count === 0 && <div className="mt-2 text-muted">Nothing recorded in this {trend.group}.</div>}
@@ -289,9 +320,12 @@ export function TrendChart({
   // A grouping you pick only applies to the date range it was picked on; a new range goes back to auto.
   const [choice, setChoice] = useState<{ rk: string; g: Group } | null>(null);
   const [compare, setCompare] = useState(false);
+  /** Dashboard viewings only: hide cancelled band so totals match the KPI tile. */
+  const [hideCancelled, setHideCancelled] = useState(true);
   // A pinned bar belongs to one view of the data; changing range, metric or grouping unpins it.
   const [pin, setPin] = useState<{ q: string; key: string } | null>(null);
   const [result, setResult] = useState<{ key: string; trend?: Trend; error?: string } | null>(null);
+  const stackOn = cfg.stackMetric === metric;
 
   const rangeKey = dateRangeQuery(range);
   const group: Group | "auto" = choice && choice.rk === rangeKey ? choice.g : "auto";
@@ -323,14 +357,34 @@ export function TrendChart({
 
   const data = useMemo(() => {
     if (!trend) return [];
-    const rows = trend.buckets.map((b) => ({ ...b, avg: trend.totals.avgPerBucket }));
+    const rows = trend.buckets.map((b) => {
+      const parts: Record<string, number> = {};
+      for (const s of VIEWING_STACK) parts[s.key] = 0;
+      for (const x of b.breakdown) parts[x.key] = (parts[x.key] || 0) + x.count;
+      const cancelled = parts.CANCELLED || 0;
+      const displayCount =
+        stackOn && hideCancelled ? Math.max(0, b.count - cancelled) : b.count;
+      return {
+        ...b,
+        count: displayCount,
+        rawCount: b.count,
+        avg: trend.totals.avgPerBucket,
+        ...parts,
+        CANCELLED: stackOn && hideCancelled ? 0 : cancelled,
+      };
+    });
     if (sort === "date") return rows;
-    // Ranking view: ties stay in date order
-    return [...rows].sort((a, b) => (sort === "high" ? b.count - a.count : a.count - b.count) || a.key.localeCompare(b.key));
-  }, [trend, sort]);
+    return [...rows].sort(
+      (a, b) => (sort === "high" ? b.count - a.count : a.count - b.count) || a.key.localeCompare(b.key),
+    );
+  }, [trend, sort, stackOn, hideCancelled]);
 
   const selectedRow = trend?.buckets.find((b) => b.key === selected) ?? null;
   const t = trend?.totals;
+  const displayTotal =
+    stackOn && hideCancelled && t
+      ? data.reduce((s, b) => s + b.count, 0)
+      : t?.count ?? null;
   const delta = t?.deltaAbs ?? null;
 
   return (
@@ -371,6 +425,18 @@ export function TrendChart({
             />
             Compare to previous
           </label>
+          {stackOn && (
+            <label className="flex cursor-pointer items-center gap-1.5 rounded-[8px] border border-line bg-paper px-2.5 py-1.5 text-xs font-bold text-muted hover:text-ink">
+              <input
+                type="checkbox"
+                checked={hideCancelled}
+                onChange={(e) => setHideCancelled(e.target.checked)}
+                className="accent-[#1a5f7a]"
+                data-testid="hide-cancelled-trend"
+              />
+              Hide cancelled
+            </label>
+          )}
           <Link
             href={meta.href}
             className="inline-flex items-center gap-1 text-sm font-semibold text-accent hover:underline"
@@ -395,9 +461,15 @@ export function TrendChart({
           data-testid="trend-summary"
         >
           <div className="font-display text-3xl font-bold tracking-[-0.03em]">
-            {t.count}
+            {displayTotal ?? t.count}
             <span className="ml-1.5 text-sm font-semibold text-muted">
-              {t.count === 1 ? meta.one : meta.many}
+              {stackOn && hideCancelled
+                ? (displayTotal ?? 0) === 1
+                  ? "viewing held or due"
+                  : "viewings held or due"
+                : (displayTotal ?? t.count) === 1
+                  ? meta.one
+                  : meta.many}
             </span>
           </div>
           {cfg.moneyMetric === metric && (
@@ -464,34 +536,67 @@ export function TrendChart({
                 allowEscapeViewBox={{ x: false, y: true }}
                 wrapperStyle={{ zIndex: 20, outline: "none" }}
               />
-              <Bar
-                dataKey="count"
-                name={meta.label}
-                radius={[5, 5, 0, 0]}
-                maxBarSize={data.length > 40 ? 14 : 48}
-                animationDuration={400}
-                cursor="pointer"
-                onClick={(d: unknown) => {
-                  const k = (d as { key?: string; payload?: { key?: string } })?.payload?.key ?? (d as { key?: string })?.key;
-                  if (k) setPin((cur) => (cur && cur.q === query && cur.key === k ? null : { q: query, key: k }));
-                }}
-              >
-                {data.map((row) => (
-                  <Cell
-                    key={row.key}
-                    fill={row.isCurrent ? "#0d9488" : "#1a5f7a"}
-                    fillOpacity={row.count === 0 ? 0.18 : selectedRow && selectedRow.key !== row.key ? 0.4 : 1}
-                  />
-                ))}
-                {data.length <= 31 && (
-                  <LabelList
-                    dataKey="count"
-                    position="top"
-                    formatter={(v: unknown) => (Number(v) > 0 ? String(v) : "")}
-                    style={{ fill: "#101418", fontSize: 11, fontWeight: 700 }}
-                  />
-                )}
-              </Bar>
+              {stackOn ? (
+                VIEWING_STACK.filter((s) => !(hideCancelled && s.key === "CANCELLED")).map((s, i, arr) => (
+                  <Bar
+                    key={s.key}
+                    dataKey={s.key}
+                    name={OUTCOME_LABEL[s.key]}
+                    stackId="viewings"
+                    fill={s.color}
+                    radius={i === arr.length - 1 ? [5, 5, 0, 0] : [0, 0, 0, 0]}
+                    maxBarSize={data.length > 40 ? 14 : 48}
+                    animationDuration={400}
+                    cursor="pointer"
+                    onClick={(d: unknown) => {
+                      const k =
+                        (d as { key?: string; payload?: { key?: string } })?.payload?.key ??
+                        (d as { key?: string })?.key;
+                      if (k) setPin((cur) => (cur && cur.q === query && cur.key === k ? null : { q: query, key: k }));
+                    }}
+                  >
+                    {i === arr.length - 1 && data.length <= 31 && (
+                      <LabelList
+                        dataKey="count"
+                        position="top"
+                        formatter={(v: unknown) => (Number(v) > 0 ? String(v) : "")}
+                        style={{ fill: "#101418", fontSize: 11, fontWeight: 700 }}
+                      />
+                    )}
+                  </Bar>
+                ))
+              ) : (
+                <Bar
+                  dataKey="count"
+                  name={meta.label}
+                  radius={[5, 5, 0, 0]}
+                  maxBarSize={data.length > 40 ? 14 : 48}
+                  animationDuration={400}
+                  cursor="pointer"
+                  onClick={(d: unknown) => {
+                    const k =
+                      (d as { key?: string; payload?: { key?: string } })?.payload?.key ??
+                      (d as { key?: string })?.key;
+                    if (k) setPin((cur) => (cur && cur.q === query && cur.key === k ? null : { q: query, key: k }));
+                  }}
+                >
+                  {data.map((row) => (
+                    <Cell
+                      key={row.key}
+                      fill={row.isCurrent ? "#0d9488" : "#1a5f7a"}
+                      fillOpacity={row.count === 0 ? 0.18 : selectedRow && selectedRow.key !== row.key ? 0.4 : 1}
+                    />
+                  ))}
+                  {data.length <= 31 && (
+                    <LabelList
+                      dataKey="count"
+                      position="top"
+                      formatter={(v: unknown) => (Number(v) > 0 ? String(v) : "")}
+                      style={{ fill: "#101418", fontSize: 11, fontWeight: 700 }}
+                    />
+                  )}
+                </Bar>
+              )}
               {trend.compare && sort === "date" && (
                 <Line
                   type="linear"
@@ -520,12 +625,23 @@ export function TrendChart({
       </div>
 
       <div className="mt-2 flex flex-wrap items-center gap-4 text-[11px] font-semibold text-muted">
-        <span className="inline-flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-2.5 rounded-sm bg-accent" /> {meta.label} per {unit}
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: "#0d9488" }} /> Current {unit}
-        </span>
+        {stackOn ? (
+          VIEWING_STACK.filter((s) => !(hideCancelled && s.key === "CANCELLED")).map((s) => (
+            <span key={s.key} className="inline-flex items-center gap-1.5">
+              <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: s.color }} />
+              {OUTCOME_LABEL[s.key]}
+            </span>
+          ))
+        ) : (
+          <span className="inline-flex items-center gap-1.5">
+            <span className="inline-block h-2.5 w-2.5 rounded-sm bg-accent" /> {meta.label} per {unit}
+          </span>
+        )}
+        {!stackOn && (
+          <span className="inline-flex items-center gap-1.5">
+            <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: "#0d9488" }} /> Current {unit}
+          </span>
+        )}
         <span className="inline-flex items-center gap-1.5">
           <span className="inline-block h-0.5 w-4 border-t-2 border-dashed border-mark" /> Average per {unit}
         </span>

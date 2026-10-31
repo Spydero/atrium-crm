@@ -16,6 +16,7 @@ import {
   type TrendItem,
   type TrendMetric,
 } from "../lib/trendBuckets.js";
+import { viewingTrendItems } from "../lib/viewingStats.js";
 
 export const dashboardRouter = Router();
 dashboardRouter.use(requireAuth);
@@ -219,9 +220,9 @@ async function trendItems(
   if (metric === "viewings") {
     const rows = await prisma.calendarEvent.findMany({
       where: { organizationId, type: "VIEWING", startsAt: { gte: from, lte: to } },
-      select: { startsAt: true, outcome: true },
+      select: { startsAt: true, outcome: true, cancelReason: true },
     });
-    return rows.map((r) => ({ at: r.startsAt, key: r.outcome ?? "SCHEDULED" }));
+    return viewingTrendItems(rows, new Date());
   }
   if (metric === "won") {
     // The date a deal is counted is the last time the lead was updated while in WON.

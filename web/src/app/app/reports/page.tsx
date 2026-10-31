@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { api, pct, portalLabel } from "@/lib/api";
 import { ExportMenu } from "@/components/ExportMenu";
+import { ViewingHealthPanel } from "@/components/ViewingHealth";
 import {
   DateRangeFilter,
   dateRangeQuery,
@@ -31,6 +32,7 @@ type Summary = {
   leadsBySource: { source: string; count: number }[];
   winsBySource: { source: string; count: number }[];
   viewingOutcomes: { outcome: string; count: number }[];
+  viewingHealth?: { totals: { booked: number } };
   listingsByStatus: { status: string; count: number }[];
   portalsByStatus: { portal: string; status: string; count: number }[];
   agentLeaderboard: { agentId: string | null; name: string; leads: number }[];
@@ -161,6 +163,20 @@ export default function ReportsPage() {
                 fallbackName: "report.csv",
                 kind: "csv",
               },
+              {
+                label: "Viewings (CSV)",
+                hint: "One row per viewing in the range",
+                path: `/api/reports/viewings.csv?${dateRangeQuery(dateRange)}`,
+                fallbackName: "viewings.csv",
+                kind: "csv",
+              },
+              {
+                label: "Cancellations (CSV)",
+                hint: "Cancel report for the selected range",
+                path: `/api/reports/viewings.csv?${dateRangeQuery(dateRange)}&outcome=CANCELLED`,
+                fallbackName: "cancellations.csv",
+                kind: "csv",
+              },
             ]}
           />
           <button
@@ -216,23 +232,6 @@ export default function ReportsPage() {
 
         <div className="surface p-5">
           <div className="mb-3 text-[11px] font-bold uppercase tracking-[0.1em] text-muted">
-            Viewing outcomes
-          </div>
-          <div className="h-[220px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data.viewingOutcomes}>
-                <CartesianGrid stroke="#e8ecf0" vertical={false} strokeDasharray="3 6" />
-                <XAxis dataKey="outcome" tickLine={false} axisLine={false} fontSize={10} />
-                <YAxis allowDecimals={false} tickLine={false} axisLine={false} width={28} fontSize={11} />
-                <Tooltip content={<ChartTip />} cursor={{ fill: "rgba(196,92,38,0.08)" }} />
-                <Bar dataKey="count" fill="#c45c26" radius={[6, 6, 0, 0]} maxBarSize={36} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div className="surface p-5">
-          <div className="mb-3 text-[11px] font-bold uppercase tracking-[0.1em] text-muted">
             Wins by source
           </div>
           <div className="h-[220px]">
@@ -259,6 +258,8 @@ export default function ReportsPage() {
           </div>
         </div>
       </div>
+
+      <ViewingHealthPanel range={dateRange} />
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="surface p-5">
