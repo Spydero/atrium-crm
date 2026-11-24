@@ -325,7 +325,7 @@ function MoneyMapContent({ initialRange }: { initialRange: DateRangeValue }) {
       <div>
         <h1 className="font-display text-[1.75rem] font-bold tracking-[-0.04em]">Money Map</h1>
         <p className="mt-1 max-w-xl text-sm text-muted">
-          Which sources turn entered spend into viewings and wins. All-touch credit - one lead can count on more than one source.
+          Compare reported spend, completed viewings, and won deals by source.
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
@@ -371,7 +371,7 @@ function MoneyMapContent({ initialRange }: { initialRange: DateRangeValue }) {
           icon={Banknote}
           label="Entered spend"
           value={t.spend != null ? money(t.spend) : "-"}
-          note={data.range.label}
+          note={t.spendPartial ? "Incomplete spend for this range" : t.spend == null ? "Spend not entered" : data.range.label}
           delta={t.delta.spend}
         />
         <StatCard
@@ -392,14 +392,14 @@ function MoneyMapContent({ initialRange }: { initialRange: DateRangeValue }) {
           icon={ArrowDownRight}
           label="Cost / viewing"
           value={t.costPerViewing != null ? money(t.costPerViewing) : "-"}
-          note={median != null ? `median ${money(median)}` : "need 2+ sources"}
+          note={t.spendPartial ? "Incomplete spend" : median != null ? `Source median ${money(median)}` : "Entered spend / completed viewings"}
           delta={t.delta.costPerViewing}
         />
         <StatCard
           icon={ArrowDownRight}
           label="Cost / win"
           value={t.costPerWin != null ? money(t.costPerWin) : "-"}
-          note="entered spend / wins"
+          note={t.spendPartial ? "Incomplete spend" : "Entered spend / wins"}
           delta={t.delta.costPerWin}
         />
         <StatCard
@@ -446,7 +446,7 @@ function MoneyMapContent({ initialRange }: { initialRange: DateRangeValue }) {
                 setSpendOpen(true);
               }}
             >
-              {data.callouts.missingSpend.length} sources with leads have no spend entered - ROI is incomplete.
+              {data.callouts.missingSpend.length} sources have incomplete spend for this range.
               Enter spend
             </button>
           )}
@@ -539,7 +539,7 @@ function MoneyMapContent({ initialRange }: { initialRange: DateRangeValue }) {
           <div>
             <div className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">By source</div>
             <p className="text-xs text-muted">
-              Entered spend - typed by your team. Rows can add up to more than the total because one lead can credit several sources.
+              A viewing or win can credit multiple sources. The overall total counts each outcome once.
             </p>
           </div>
           <label className="flex items-center gap-2 text-sm">
@@ -713,7 +713,7 @@ function MoneyMapContent({ initialRange }: { initialRange: DateRangeValue }) {
       <details className="surface px-4 py-3 text-sm text-muted">
         <summary className="cursor-pointer font-semibold text-ink">How we count</summary>
         <ul className="mt-2 list-disc space-y-1 pl-5">
-          <li>Entered spend is typed in by your team. It is not pulled from Google or Meta yet.</li>
+          <li>Your team enters monthly spend. Money Map carries the latest saved amount forward to months without a new entry and prorates it for partial months.</li>
           <li>All-touch: a viewing or win credits every source the lead had before that outcome.</li>
           <li>Lead to viewing and viewing to win use the cohort of leads that arrived in this range.</li>
           <li>At risk is right now: overdue items on open leads, counted once per lead.</li>

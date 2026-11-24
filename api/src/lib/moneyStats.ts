@@ -50,7 +50,7 @@ export type MoneyMapResult = {
     days: number;
   };
   previous: { from: string; to: string; label: string };
-  currency: { code: "AED"; label: "AED" };
+  currency: { code: string; label: string };
   attribution: "all_touch";
   totals: SourceMetrics & {
     prev: SourceMetrics;
@@ -239,8 +239,8 @@ export function cueFor(
   _medianCpw: number | null,
   rangeDays: number,
 ): { kind: CueKind; reason: string } {
-  if (row.spendStatus === "none" && row.leads >= 1) {
-    return { kind: "ADD_SPEND", reason: `${row.leads} leads but no spend entered` };
+  if (hasIncompleteSpend(row)) {
+    return { kind: "ADD_SPEND", reason: "Enter spend for the full range" };
   }
   if (row.spendStatus === "zero" || row.spend === 0) {
     return { kind: "ORGANIC", reason: "Entered spend is 0 - volume only, no cost verdict" };
@@ -347,7 +347,7 @@ export function pickCallouts(
     best,
     worst,
     reallocation,
-    missingSpend: rows.filter((r) => r.leads >= 1 && r.spendStatus === "none").map((r) => r.source),
+    missingSpend: rows.filter(hasIncompleteSpend).map((r) => r.source),
   };
 }
 
@@ -439,7 +439,7 @@ function metricsFor(
   }
 
   const baseSpend = source == null ? null : spendRes.spend;
-  const c = costs(baseSpend, viewingIds.size, wins);
+  const c = costs(spendRes.partial ? null : baseSpend, viewingIds.size, wins);
 
   return {
     spend: baseSpend,
@@ -457,6 +457,19 @@ function metricsFor(
   };
 }
 
+function hasIncompleteSpend(row: SourceMetrics) {
+  return row.spendPartial ||
+    (row.spendStatus === "none" && (row.leads > 0 || row.viewings > 0 || row.wins > 0));
+}
+
+function applyTotalSpend(total: SourceMetrics, sources: SourceMetrics[]) {
+  const known = sources.filter((row) => row.spend != null);
+  total.spend = known.length ? known.reduce((sum, row) => sum + row.spend!, 0) : null;
+  total.spendStatus = total.spend == null ? "none" : total.spend === 0 ? "zero" : "entered";
+  total.spendPartial = sources.some(hasIncompleteSpend);
+  Object.assign(total, costs(total.spendPartial ? null : total.spend, total.viewings, total.wins));
+}
+
 export async function computeMoneyMap(
   organizationId: string,
   range: ResolvedRange,
@@ -464,7 +477,11 @@ export async function computeMoneyMap(
   const prev = previousRange(range);
   const now = new Date();
 
-  const [events, viewings, wins, spendRows, overdue, completedEver] = await Promise.all([
+  const [organization, events, viewings, wins, spendRows, overdue, completedEver] = await Promise.all([
+    prisma.organization.findUniqueOrThrow({
+      where: { id: organizationId },
+      select: { currencyCode: true, currencyLabel: true },
+    }),
     prisma.leadSourceEvent.findMany({
       where: { lead: { organizationId } },
       select: { leadId: true, source: true, createdAt: true },
@@ -655,26 +672,8 @@ export async function computeMoneyMap(
   // Totals: distinct across sources
   const totalCur = metricsFor(null, range, raw);
   const totalPrev = metricsFor(null, prev, raw);
-  let totalSpend = 0;
-  let totalSpendKnown = false;
-  let totalPrevSpend = 0;
-  let totalPrevKnown = false;
-  for (const r of rows) {
-    if (r.spend != null) {
-      totalSpend += r.spend;
-      totalSpendKnown = true;
-    }
-    if (r.prev.spend != null) {
-      totalPrevSpend += r.prev.spend;
-      totalPrevKnown = true;
-    }
-  }
-  totalCur.spend = totalSpend;
-  totalCur.spendStatus = totalSpendKnown ? (totalSpend > 0 ? "entered" : "zero") : "none";
-  Object.assign(totalCur, costs(totalCur.spend, totalCur.viewings, totalCur.wins));
-  totalPrev.spend = totalPrevSpend;
-  totalPrev.spendStatus = totalPrevKnown ? (totalPrevSpend > 0 ? "entered" : "zero") : "none";
-  Object.assign(totalPrev, costs(totalPrev.spend, totalPrev.viewings, totalPrev.wins));
+  applyTotalSpend(totalCur, rows);
+  applyTotalSpend(totalPrev, rows.map((row) => row.prev));
 
   const callouts = pickCallouts(rows, {
     medianCostPerViewing: medianCpv,
@@ -691,7 +690,7 @@ export async function computeMoneyMap(
       days: range.days,
     },
     previous: { from: prev.fromKey, to: prev.toKey, label: prev.label },
-    currency: { code: "AED", label: "AED" },
+    currency: { code: organization.currencyCode, label: organization.currencyLabel },
     attribution: "all_touch",
     channels: catalog.map((c) => ({
       key: c.key,

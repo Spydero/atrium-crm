@@ -132,6 +132,47 @@ describe("money map API + compute", () => {
     await prisma.$disconnect();
   });
 
+  test("uses workspace currency and waits for spend across shared sources", async () => {
+    const org = await prisma.organization.create({
+      data: { slug: `money-map-${crypto.randomUUID()}`, name: "Test brokerage", currencyCode: "INR", currencyLabel: "₹" },
+    });
+    const organizationId = org.id;
+    const range = resolveDateRange({ range: "custom", from: "2025-10-01", to: "2025-10-31" });
+    const date = new Date(2025, 9, 10, 12);
+    try {
+      const lead = await prisma.lead.create({
+        data: {
+          organizationId, name: "Test buyer", stage: "WON", wonAt: date,
+          sources: { create: [
+            { source: "manual", createdAt: date },
+            { source: "referral", createdAt: date },
+          ] },
+        },
+      });
+      await prisma.calendarEvent.create({ data: {
+        organizationId, leadId: lead.id, title: "Viewing", startsAt: date,
+        type: "VIEWING", outcome: "COMPLETED",
+      } });
+      const empty = await computeMoneyMap(organizationId, range);
+      assert.deepEqual(empty.currency, { code: "INR", label: "₹" });
+      assert.equal(empty.totals.spend, null);
+      await prisma.sourceSpend.create({ data: { organizationId, source: "manual", month: monthStart("2025-10"), amount: 500 } });
+      const partial = await computeMoneyMap(organizationId, range);
+      assert.equal(partial.totals.spendPartial, true);
+      assert.equal(partial.totals.costPerViewing, null);
+      assert.equal(partial.totals.costPerWin, null);
+      await prisma.sourceSpend.create({ data: { organizationId, source: "referral", month: monthStart("2025-10"), amount: 0 } });
+      const complete = await computeMoneyMap(organizationId, range);
+      assert.equal(complete.totals.spendPartial, false);
+      assert.equal(complete.totals.viewings, 1);
+      assert.equal(complete.totals.wins, 1);
+      assert.equal(complete.rows.filter(row => row.wins === 1 && row.sharedWins === 1).length, 2);
+      assert.equal(complete.totals.costPerWin, 500);
+    } finally {
+      await prisma.organization.delete({ where: { id: organizationId } });
+    }
+  });
+
   test("computeMoneyMap: at risk is deduped and ignores WON/LOST", async () => {
     const range = resolveDateRange({ range: "90d" });
     const m = await computeMoneyMap(orgId, range);
