@@ -2,13 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
-import { formatAed } from "@/lib/api";
+import { API_BASE, formatMoney } from "@/lib/api";
 import { ListingMap } from "@/components/ListingMap";
 
 type PublicShortlist = {
   title: string;
   clientName: string | null;
-  organization: { name: string };
+  organization: { name: string; currencyLabel?: string };
   items: {
     listing: {
       id: string;
@@ -28,19 +28,27 @@ type PublicShortlist = {
   }[];
 };
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-
 export default function PublicShortlistPage() {
   const { token } = useParams<{ token: string }>();
-  const [data, setData] = useState<PublicShortlist | null>(null);
+  const [result, setResult] = useState<{ token: string; data?: PublicShortlist; error?: string } | null>(null);
+  const data = result?.token === token ? result.data : undefined;
+  const error = result?.token === token ? result.error : undefined;
   const [minBeds, setMinBeds] = useState(0);
   const [maxPrice, setMaxPrice] = useState(0);
 
   useEffect(() => {
-    fetch(`${API}/api/shortlists/public/${token}`)
-      .then((r) => r.json())
-      .then(setData)
-      .catch(console.error);
+    const controller = new AbortController();
+    fetch(`${API_BASE}/api/shortlists/public/${encodeURIComponent(token)}`, { signal: controller.signal, cache: "no-store" })
+      .then(async response => {
+        if (response.status === 404) return { token, error: "This shortlist link is unavailable." };
+        if (!response.ok) throw new Error("Could not load the shortlist.");
+        return { token, data: await response.json() as PublicShortlist };
+      })
+      .then(value => { if (!controller.signal.aborted) setResult(value); })
+      .catch(() => {
+        if (!controller.signal.aborted) setResult({ token, error: "Could not load the shortlist. Refresh the page to try again." });
+      });
+    return () => controller.abort();
   }, [token]);
 
   const filtered = useMemo(() => {
@@ -55,7 +63,7 @@ export default function PublicShortlistPage() {
   if (!data) {
     return (
       <div className="flex min-h-screen items-center justify-center text-muted">
-        Loading…
+        <p role="status">{error || "Loading shortlist…"}</p>
       </div>
     );
   }
@@ -98,6 +106,11 @@ export default function PublicShortlistPage() {
           </select>
         </div>
 
+        {filtered.length === 0 && (
+          <p className="surface p-4 text-sm text-muted">
+            {data.items.length ? "No properties match those filters." : "There are no properties on this shortlist."}
+          </p>
+        )}
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map(({ listing }) => (
             <article key={listing.id} className="surface overflow-hidden">
@@ -114,7 +127,7 @@ export default function PublicShortlistPage() {
                   {listing.beds} bed · {listing.areaSqft} sqft
                 </p>
                 <p className="font-display mt-2 text-xl font-bold tracking-[-0.02em]">
-                  {formatAed(listing.priceAed)}
+                  {formatMoney(listing.priceAed, data.organization.currencyLabel)}
                 </p>
                 {listing.lat != null && listing.lng != null && (
                   <div className="mt-3">

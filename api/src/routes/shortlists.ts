@@ -14,13 +14,14 @@ shortlistsRouter.get("/public/:token", async (req, res) => {
   const shortlist = await prisma.shortlist.findUnique({
     where: { token: req.params.token },
     include: {
-      organization: { select: { name: true, status: true } },
+      organization: { select: { name: true, status: true, currencyLabel: true } },
       items: {
         orderBy: { sortOrder: "asc" },
         include: {
           listing: {
             select: {
               id: true,
+              organizationId: true,
               title: true,
               priceAed: true,
               beds: true,
@@ -46,8 +47,15 @@ shortlistsRouter.get("/public/:token", async (req, res) => {
     data: { openCount: { increment: 1 } },
   });
 
-  const { status: _status, ...organization } = shortlist.organization;
-  res.json({ ...shortlist, organization });
+  const items = shortlist.items
+    .filter(item => item.listing.organizationId === shortlist.organizationId)
+    .map(({ listing: { organizationId: _organizationId, ...listing } }) => ({ listing }));
+  res.json({
+    title: shortlist.title,
+    clientName: shortlist.clientName,
+    organization: { name: shortlist.organization.name, currencyLabel: shortlist.organization.currencyLabel },
+    items,
+  });
 });
 
 shortlistsRouter.use(requireAuth);
@@ -68,12 +76,12 @@ shortlistsRouter.post("/", async (req: AuthedRequest, res) => {
   if (!organizationId) return res.status(400).json({ error: "No organization" });
 
   const schema = z.object({
-    title: z.string().min(1),
-    clientName: z.string().optional().nullable(),
-    listingIds: z.array(z.string()).min(1),
+    title: z.string().trim().min(1).max(120),
+    clientName: z.string().trim().max(120).optional().nullable(),
+    listingIds: z.array(z.string().min(1)).min(1),
   });
   const parsed = schema.safeParse(req.body);
-  if (!parsed.success) return res.status(400).json(parsed.error.flatten());
+  if (!parsed.success) return res.status(400).json({ error: "Enter a title and select at least one property." });
 
   const listingIds = [...new Set(parsed.data.listingIds)];
   const ownedCount = await prisma.listing.count({ where: { id: { in: listingIds }, organizationId } });
@@ -85,7 +93,7 @@ shortlistsRouter.post("/", async (req: AuthedRequest, res) => {
     data: {
       organizationId,
       title: parsed.data.title,
-      clientName: parsed.data.clientName ?? null,
+      clientName: parsed.data.clientName || null,
       items: {
         create: listingIds.map((listingId, i) => ({
           listingId,
@@ -93,7 +101,7 @@ shortlistsRouter.post("/", async (req: AuthedRequest, res) => {
         })),
       },
     },
-    include: { items: true },
+    include: { items: true, _count: { select: { items: true } } },
   });
 
   res.status(201).json(shortlist);
