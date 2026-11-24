@@ -10,6 +10,10 @@ Internal CRM for real-estate brokerages: **listings**, **leads** (with Lead Fuse
 
 Accounts are **invite-only**. Public self-signup is disabled. Platform operators provision brokerages in Ops.
 
+## Screenshots
+
+See the [screenshot gallery](design/screenshots/README.md) for the CRM, client links, Ops, and mobile views.
+
 ## Quick start
 
 Use a working Node.js runtime (the local setup was verified with Node 24).
