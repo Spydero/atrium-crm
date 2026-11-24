@@ -296,6 +296,42 @@ Lead Fuse still fuses exact same-phone enquiries on arrival; merge handles what 
 3. Inbound leads use **Log enquiry** on an enabled channel (Lead Fuse unchanged). No "simulate Bayut API" copy.
 4. Live portal / Meta / WhatsApp Cloud APIs remain later adapters.
 
+## Campaigns & Demand Signals (planned)
+
+Help brokerages decide **what to promote** and see **which campaigns produce real enquiries, held viewings, and deals**. Add **Campaigns** under Marketing for owners and managers. Money Map remains the cross-channel summary and links to the underlying campaigns. Brokers can use the demand view to find relevant inventory. Clients continue to see brokerage listings, guides, and shortlists through the existing share flows.
+
+Example: a Mumbai manager compares search interest in “2 BHK in Andheri” and “2 BHK in Bandra” alongside the brokerage’s active listings and recent enquiries for each area. If interest and enquiries rise where the brokerage has inventory, the manager can select suitable properties or a guide to promote, create a tagged link, and see whether it generates held viewings.
+
+**Validate Keyword Planner first.** In Google Ads, compare local property terms using the same location and language. Check whether the results offer enough detail to change what a broker promotes. Then test Atrium with a small sample of those results. Use a Google Ads test account to check integration behavior, and confirm useful real keyword data with an authorized production account once the Cloud project has Basic or Standard access that supports keyword planning. Explorer access excludes Keyword Planning. The Google Ads API itself is free to use within its access limits, and the pilot can use read-only keyword lookups without launching campaigns. [Keyword Planner help](https://support.google.com/google-ads/answer/7337243) · [API testing](https://developers.google.com/google-ads/api/docs/best-practices/testing) · [Access levels](https://developers.google.com/google-ads/api/docs/api-policy/access-levels) · [API pricing](https://developers.google.com/google-ads/api/docs/productionize/access-levels#pricing)
+
+The keyword research view should work without Guides. Keep Guides as an optional destination for a genuinely useful resource. Before promoting a guide in a paid campaign, give readers a way to view relevant listings or explicitly request a callback. Track guide downloads separately from these higher-intent actions.
+
+### Data sources
+
+| Source | What Atrium can use it for |
+|--------|----------------------------|
+| Google Trends | Relative search interest for terms in a supported geography and period. Start with the official chart CSV export and display its source, area, period, and import date. The official API requires alpha access. A Trends index is relative interest, not a search count, and separately normalized exports should not be compared as if they share the same scale. [CSV export](https://support.google.com/trends/answer/4365538?hl=en) · [Data FAQ](https://support.google.com/trends/answer/4365533?hl=en) · [API alpha](https://developers.google.com/search/apis/trends) |
+| Google Ads Keyword Planner | Approximate monthly searches, keyword ideas, and advertiser competition for supported locations and languages. Add after confirming production access for keyword research and useful coverage for pilot markets. Bid ranges estimate ad pricing, not property demand or achievable returns. [Keyword planning](https://developers.google.com/google-ads/api/docs/keyword-planning/overview) · [API access](https://developers.google.com/google-ads/api/docs/api-policy/access-levels) |
+| Google Ads and Meta Ads Insights | Performance from the brokerage’s authorized accounts, including impressions, clicks and spend. Start with a campaign report import. Add official, read-only API connections after validating the workflow with real data. Google requires production access for the Cloud project and account authorization. Meta requires an app with the appropriate reporting permission. [Google Ads reports](https://support.google.com/google-ads/answer/2404036) · [Google Ads API access](https://developers.google.com/google-ads/api/docs/api-policy/access-levels) · [Meta Ads Insights](https://developers.facebook.com/docs/marketing-api/insights/v9.0) |
+| Google AdSense and public ad libraries | AdSense is for earning money by displaying ads and is outside this feature. Google’s Ads Transparency Center and Meta’s Ad Library can be useful research links for creative examples. They do not supply the brokerage’s campaign performance or a reliable “winning competitor ads” feed. [AdSense](https://adsense.google.com/start/) · [Google Ads Transparency Center](https://adstransparency.google.com/) · [Meta Ad Library](https://about.fb.com/news/2018/06/transparency-for-ads-and-pages/) |
+
+### First release
+
+1. **Campaigns.** Create a campaign linked to an existing Ads channel. Filter campaigns by date, channel, campaign and status. Store a stable campaign ID and generate a tagged link for an existing public guide. Preserve its campaign ID when someone submits an enquiry, even if Lead Fuse matches them to an existing lead. A visit alone does not create a lead. Store attribution on the enquiry or guide request, and keep unknown tags unattributed. Use a public guide for the pilot because it already captures enquiries. Add public listing enquiry pages only after a separate decision about what inventory can be advertised. [Google campaign tagging](https://support.google.com/analytics/answer/11242870?hl=en)
+2. **Results.** Import a daily Google Ads campaign report with campaign ID, date, impressions, clicks, spend and account currency. Preview the import and map IDs before accepting it. Re-importing the same campaign and date updates the original record. Show platform metrics separately from unique leads, held viewings and won deals recorded in Atrium. Count each lead once per campaign and deduplicate cross-campaign totals. Date filters define the enquiry cohort, and outcomes are reported for that cohort with an explicit as-of date. Display cost per held viewing or win only when linked spend, currency and outcome data support it. Keep existing manual Money Map spend separate to prevent counting the same spend twice.
+3. **Demand Signals.** Compare the latest 30 days with the previous 30 days for a brokerage’s areas and property types using distinct enquiries, held viewings and currently active inventory. Filter by market, area and type. Show Google Trends CSV data as a separate, optional signal for compatible terms and geography. Label sparse data and new activity instead of presenting dramatic percentage changes from tiny samples. Offer an **Open matching inventory** action. Search interest and CRM activity should stay distinct, and neither tells clients what a property is worth.
+
+### Live API pilot after the first release
+
+Start with one authorized Google Ads account, sync daily performance, and show the last successful sync and any stale data. Scope connections to the brokerage and allow an owner or admin to disconnect them. Validate location and language coverage before adding Keyword Planner. Add Meta after the same report can be reconciled for a real brokerage. Keep CSV import available when there is no connection.
+
+### Pilot acceptance
+
+- Two campaign links bring in enquiries from the same contact. Atrium keeps one lead and two campaign touchpoints. Each campaign shows its own attributed lead and the combined total counts the person once.
+- A held viewing and a win can be traced back to the underlying lead and attributed campaign. Campaign spend matches the imported report and does not change when that report is re-imported.
+- A manager sees the date range, geography and source behind each signal. Missing or stale data remains visible as such. A different brokerage cannot access campaign data, imports or provider connections.
+- The pilot is read-only toward ad platforms. Campaign publishing, bid changes, automatic spending, competitor scraping, and ad placements inside Atrium are outside its scope.
+
 ## Viewing health
 
 1. Reports `#viewings` is the home for viewing outcomes: booked, held rate, no-show rate, cancel rate, unlogged count, stacked outcome trend, cancel reasons by party, notice-before-cancel buckets, logging speed, agent/listing/source breakdown, and recent cancellations
