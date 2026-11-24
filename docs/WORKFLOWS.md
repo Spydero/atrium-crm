@@ -37,7 +37,7 @@ The diagram shows the proposed end-to-end journey. The table describes which han
 | Viewing → Outcome | A broker can mark a viewing held, cancelled, or a no-show, with feedback or a cancellation reason where applicable. | Use the existing outcome controls. Show the confirmed viewing and its outcome on the lead. |
 | Outcome → Money Map | Money Map uses completed viewings, won deals, and entered spend. An outcome can receive credit under each previously recorded source for the lead. Combined totals deduplicate outcomes. | Keep requests and appointments out of the completed-viewing count until the broker records a held outcome. |
 
-Supporting workflows feed the same records. Listings are maintained under Inventory. Guides can generate an enquiry linked to a new or existing lead. Ops provisions access before the team works in the CRM. Campaigns and Demand Signals are on the [product roadmap](PRODUCT.md#campaigns--demand-signals-planned).
+Supporting workflows feed the same records. Listings are maintained under Inventory. Guides can generate an enquiry linked to a new or existing lead. Ops provisions access before the team works in the CRM. Campaign attribution is on the [product roadmap](PRODUCT.md#campaigns-planned).
 
 ## First build
 
