@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { api } from "@/lib/api";
+import { useState } from "react";
+import { useApiQuery } from "@/lib/use-api-query";
 
 type StockPhoto = {
   id: string;
@@ -25,45 +25,26 @@ type Props = {
 };
 
 export function StockPhotoPicker({ selectedUrl, onSelect, initialQuery }: Props) {
-  const bootQuery = useRef(initialQuery || "apartment living").current;
-  const [q, setQ] = useState(bootQuery);
-  const [places, setPlaces] = useState<PlaceOption[]>([]);
-  const [photos, setPhotos] = useState<StockPhoto[]>([]);
+  const [q, setQ] = useState(initialQuery || "apartment living");
+  const [query, setQuery] = useState(q);
   const [broken, setBroken] = useState<Record<string, boolean>>({});
-  const [provider, setProvider] = useState("");
-  const [note, setNote] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const { data: placeCatalog } = useApiQuery<{ places: PlaceOption[] }>("/api/testing/places");
+  const { data, error, loading, refresh } = useApiQuery<{
+    photos: StockPhoto[];
+    provider: string;
+    note?: string;
+  }>(`/api/testing/photos?q=${encodeURIComponent(query)}`);
 
-  async function load(query = q) {
-    setLoading(true);
-    setError("");
+  function load(value = q) {
     setBroken({});
-    try {
-      const data = await api<{
-        photos: StockPhoto[];
-        provider: string;
-        note?: string;
-      }>(`/api/testing/photos?q=${encodeURIComponent(query)}`);
-      setPhotos(data.photos);
-      setProvider(data.provider);
-      setNote(data.note || "");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load photos");
-    } finally {
-      setLoading(false);
-    }
+    if (value === query) refresh();
+    else setQuery(value);
   }
 
-  useEffect(() => {
-    api<{ places: PlaceOption[] }>("/api/testing/places")
-      .then((d) => setPlaces(d.places || []))
-      .catch(() => setPlaces([]));
-    load(bootQuery).catch(() => null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const visible = photos.filter((p) => !broken[p.id]);
+  const places = placeCatalog?.places ?? [];
+  const provider = data?.provider;
+  const note = data?.note;
+  const visible = (data?.photos ?? []).filter((p) => !broken[p.id]);
 
   return (
     <div className="space-y-3 rounded-[var(--radius)] border border-dashed border-line bg-[#fafbfc] p-3">
@@ -121,6 +102,8 @@ export function StockPhotoPicker({ selectedUrl, onSelect, initialQuery }: Props)
               key={p.id}
               type="button"
               title={p.attribution || p.photographer}
+              aria-label={p.attribution || p.photographer || "Select stock photo"}
+              aria-pressed={on}
               onClick={() => onSelect(p.url)}
               className={`overflow-hidden rounded-[6px] border-2 ${
                 on ? "border-accent" : "border-transparent hover:border-line"
@@ -139,7 +122,7 @@ export function StockPhotoPicker({ selectedUrl, onSelect, initialQuery }: Props)
         })}
       </div>
       {note && <p className="text-[11px] leading-snug text-muted">{note}</p>}
-      {!loading && !visible.length && (
+      {!error && !loading && !visible.length && (
         <p className="text-xs text-muted">No photos for that search. Try a place chip.</p>
       )}
     </div>

@@ -90,21 +90,21 @@ export function AppShell({
   }
 
   return (
-    <div className="flex min-h-screen">
-      <aside className="sticky top-0 flex h-screen w-[212px] shrink-0 flex-col bg-[var(--sidebar)] px-3 py-5 text-white">
-        <div className="font-display mb-6 px-3 text-[1.35rem] font-bold tracking-[-0.04em]">
+    <div className="flex min-h-screen flex-col md:flex-row">
+      <aside className="flex shrink-0 flex-col bg-[var(--sidebar)] px-3 py-3 text-white md:sticky md:top-0 md:h-dvh md:w-[212px] md:py-5">
+        <div className="font-display mb-2 px-3 md:mb-6 text-[1.35rem] font-bold tracking-[-0.04em]">
           Atrium
           <span className="mt-1 block text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--sidebar-muted)]">
             Brokerage
           </span>
         </div>
-        <nav className="flex flex-1 flex-col gap-4 overflow-y-auto">
+        <nav aria-label="Workspace" className="flex flex-1 gap-2 overflow-x-auto md:flex-col md:gap-4 md:overflow-y-auto">
           {groups.map((group) => (
-            <div key={group.label}>
-              <div className="mb-1.5 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--sidebar-muted)]">
+            <div key={group.label} className="shrink-0">
+              <div className="hidden md:block mb-1.5 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--sidebar-muted)]">
                 {group.label}
               </div>
-              <div className="flex flex-col gap-0.5">
+              <div className="flex gap-0.5 md:flex-col">
                 {group.items.map(({ href, label, icon: Icon }) => {
                   const active =
                     href === "/app"
@@ -114,7 +114,8 @@ export function AppShell({
                     <Link
                       key={href}
                       href={href}
-                      className={`flex items-center gap-2.5 rounded-[var(--radius)] px-3 py-2.5 text-[13px] font-semibold transition ${
+                      aria-current={active ? "page" : undefined}
+                      className={`flex items-center gap-2.5 rounded-[var(--radius)] px-3 py-2.5 text-[13px] whitespace-nowrap font-semibold transition ${
                         active
                           ? "bg-[var(--accent)] text-white"
                           : "text-[var(--sidebar-muted)] hover:bg-white/[0.06] hover:text-white"
@@ -134,20 +135,20 @@ export function AppShell({
             </div>
           ))}
         </nav>
-        <div className="mt-auto border-t border-[var(--sidebar-line)] px-2 pt-4">
-          <div className="mb-2 truncate px-1 text-[13px] font-semibold text-white/90">
+        <div className="mt-2 flex items-center justify-between border-t md:mt-auto md:block border-[var(--sidebar-line)] px-2 pt-4">
+          <div className="truncate md:mb-2 px-1 text-[13px] font-semibold text-white/90">
             {userName || "Agent"}
           </div>
           <button
             type="button"
             onClick={signOut}
-            className="flex w-full items-center gap-2 rounded-[var(--radius)] px-2 py-2 text-[13px] text-[var(--sidebar-muted)] hover:bg-white/[0.06] hover:text-white"
+            className="flex shrink-0 items-center md:w-full gap-2 rounded-[var(--radius)] px-2 py-2 text-[13px] text-[var(--sidebar-muted)] hover:bg-white/[0.06] hover:text-white"
           >
             <LogOut size={15} /> Sign out
           </button>
         </div>
       </aside>
-      <main className="min-w-0 flex-1 p-5 lg:p-7">{children}</main>
+      <main className="min-w-0 flex-1 p-4 sm:p-5 lg:p-7">{children}</main>
     </div>
   );
 }

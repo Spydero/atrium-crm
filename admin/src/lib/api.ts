@@ -61,7 +61,8 @@ export const INVITE_ROLES: MemberRole[] = ["owner", "admin"];
 export type PlatformOverview = {
   organizations: number;
   pendingInvites: number;
-  members?: number;
+  users: number;
+  accessRequests: number;
 };
 
 export type PlatformOrg = {
@@ -165,7 +166,8 @@ export async function getOverview(): Promise<PlatformOverview> {
   return {
     organizations: countOf(counts, "organizations", "orgs", "organizationCount", "orgCount"),
     pendingInvites: countOf(counts, "pendingInvites", "invites", "pendingInviteCount"),
-    members: counts.members !== undefined ? num(counts.members) : counts.memberCount !== undefined ? num(counts.memberCount) : undefined,
+    users: countOf(counts, "users"),
+    accessRequests: countOf(counts, "accessRequests"),
   };
 }
 

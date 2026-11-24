@@ -61,7 +61,7 @@ export function ExportMenu({ items, label = "Export" }: { items: ExportItem[]; l
       {open && (
         <div
           role="menu"
-          className="absolute right-0 z-30 mt-1.5 w-64 rounded-[10px] border border-line bg-paper p-1.5 shadow-[0_12px_32px_rgba(16,20,24,0.14)]"
+          className="absolute left-0 z-30 mt-1.5 w-64 max-w-[calc(100vw-2rem)] sm:right-0 sm:left-auto rounded-[10px] border border-line bg-paper p-1.5 shadow-[0_12px_32px_rgba(16,20,24,0.14)]"
         >
           {items.map((item) => (
             <button

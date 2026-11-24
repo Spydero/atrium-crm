@@ -1,9 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { CheckCircle2, Loader2, Merge, X } from "lucide-react";
-import { api, formatAed, portalLabel } from "@/lib/api";
+import { api, portalLabel } from "@/lib/api";
+import { useWorkspaceMoney } from "@/lib/workspace";
+import { useApiQuery } from "@/lib/use-api-query";
 
 export type LeadSummary = {
   id: string;
@@ -118,6 +120,7 @@ export function LeadMergeDialog({
   onClose: () => void;
   onMerged: (result: { primaryId: string; merged: number }) => void;
 }) {
+  const money = useWorkspaceMoney();
   const [leads, setLeads] = useState<LeadSummary[] | null>(null);
   const [suggested, setSuggested] = useState("");
   const [primaryId, setPrimaryId] = useState("");
@@ -240,8 +243,8 @@ export function LeadMergeDialog({
                   </Row>
                   <Row label="Listing">{l.listing?.title || "None"}</Row>
                   <Row label="Assigned to">{l.assignedTo?.name || "Unassigned"}</Row>
-                  <Row label="Budget">{l.budgetMax ? `up to ${formatAed(l.budgetMax)}` : "Not set"}</Row>
-                  <Row label="Deal value">{l.dealValueAed ? formatAed(l.dealValueAed) : "Not set"}</Row>
+                  <Row label="Budget">{l.budgetMax ? `up to ${money(l.budgetMax)}` : "Not set"}</Row>
+                  <Row label="Deal value">{l.dealValueAed ? money(l.dealValueAed) : "Not set"}</Row>
                   <Row label="History">
                     {l.notesCount} {l.notesCount === 1 ? "note" : "notes"}, {l.eventsCount}{" "}
                     {l.eventsCount === 1 ? "event" : "events"}
@@ -295,19 +298,8 @@ export function LeadMergeDialog({
 /* ---------------------------------------------------------------------- */
 
 export function useDuplicateCount() {
-  const [count, setCount] = useState<number | null>(null);
-  const refresh = useCallback(async () => {
-    try {
-      const r = await api<DuplicatesResponse>("/api/leads/duplicates");
-      setCount(r.count);
-    } catch {
-      setCount(null);
-    }
-  }, []);
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
-  return { count, refresh };
+  const { data, refresh } = useApiQuery<DuplicatesResponse>("/api/leads/duplicates");
+  return { count: data?.count ?? null, refresh };
 }
 
 export function DuplicatesDialog({
@@ -317,21 +309,8 @@ export function DuplicatesDialog({
   onClose: () => void;
   onMerged: (result: { primaryId: string; merged: number }) => void;
 }) {
-  const [data, setData] = useState<DuplicatesResponse | null>(null);
-  const [error, setError] = useState("");
+  const { data, error, refresh } = useApiQuery<DuplicatesResponse>("/api/leads/duplicates");
   const [mergeIds, setMergeIds] = useState<string[] | null>(null);
-
-  const load = useCallback(async () => {
-    try {
-      setData(await api<DuplicatesResponse>("/api/leads/duplicates"));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not load duplicates");
-    }
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
 
   return (
     <>
@@ -418,7 +397,7 @@ export function DuplicatesDialog({
           onMerged={(r) => {
             setMergeIds(null);
             onMerged(r);
-            load();
+            refresh();
           }}
         />
       )}

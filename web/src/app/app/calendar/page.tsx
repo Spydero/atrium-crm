@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -12,11 +12,14 @@ import {
   isSameDay,
   isSameMonth,
   isToday,
+  isValid,
+  parseISO,
   startOfMonth,
   startOfWeek,
 } from "date-fns";
 import { CalendarPlus, ChevronLeft, ChevronRight, Pencil, Trash2 } from "lucide-react";
 import { api } from "@/lib/api";
+import { useApiQuery } from "@/lib/use-api-query";
 import {
   allowsNoShow,
   CANCEL_REASON_OPTIONS,
@@ -102,14 +105,20 @@ function fromEvent(ev: CalEvent): FormState {
 }
 
 export default function CalendarPage() {
+  return <Suspense fallback={<p className="text-muted">Loading calendar…</p>}><CalendarContent /></Suspense>;
+}
+
+const EMPTY_EVENTS: CalEvent[] = [];
+
+function CalendarContent() {
   const search = useSearchParams();
   const router = useRouter();
-  const [cursor, setCursor] = useState(() => new Date());
   const [selectedDay, setSelectedDay] = useState(() => {
-    const d = search.get("date");
-    return d ? new Date(`${d}T12:00:00`) : new Date();
+    const raw = search.get("date") ?? "";
+    const date = parseISO(raw);
+    return isValid(date) && format(date, "yyyy-MM-dd") === raw ? date : new Date();
   });
-  const [events, setEvents] = useState<CalEvent[]>([]);
+  const [cursor, setCursor] = useState(selectedDay);
   const [selected, setSelected] = useState<CalEvent | null>(null);
   const [mode, setMode] = useState<"view" | "create" | "edit">("view");
   const [form, setForm] = useState<FormState>(() => emptyForm(new Date()));
@@ -131,18 +140,14 @@ export default function CalendarPage() {
   );
   const [hideCancelled, setHideCancelled] = useState(search.get("hideCxl") === "1");
 
-  const load = useCallback(async () => {
-    const from = startOfWeek(startOfMonth(cursor));
-    const to = endOfWeek(endOfMonth(cursor));
-    const data = await api<CalEvent[]>(
-      `/api/calendar?from=${from.toISOString()}&to=${to.toISOString()}`,
-    );
-    setEvents(data);
-  }, [cursor]);
-
-  useEffect(() => {
-    load().catch(() => null);
-  }, [load]);
+  const [calendarFrom, calendarTo] = [
+    startOfWeek(startOfMonth(cursor)),
+    endOfWeek(endOfMonth(cursor)),
+  ];
+  const { data, error: loadError, loading, refresh } = useApiQuery<CalEvent[]>(
+    `/api/calendar?from=${calendarFrom.toISOString()}&to=${calendarTo.toISOString()}`,
+  );
+  const events = data ?? EMPTY_EVENTS;
 
   useEffect(() => {
     Promise.all([api<LeadOpt[]>("/api/leads"), api<ListingOpt[]>("/api/listings")])
@@ -163,7 +168,11 @@ export default function CalendarPage() {
     router.replace(q ? `/app/calendar?${q}` : "/app/calendar", { scroll: false });
   }, [statusFilter, typeFilter, hideCancelled, selectedDay, router]);
 
-  const now = useMemo(() => new Date(), [events]);
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const filtered = useMemo(() => {
     return events.filter((ev) => {
@@ -278,8 +287,9 @@ export default function CalendarPage() {
         setMode("view");
         setNotesDraft(created.notes || "");
         setSelectedDay(startsAt);
+        setCursor(startsAt);
       }
-      await load();
+      refresh();
     } catch (err) {
       setMsg(err instanceof Error ? err.message : "Could not save");
     } finally {
@@ -297,7 +307,7 @@ export default function CalendarPage() {
       });
       setSelected(updated);
       setMsg("Notes saved.");
-      await load();
+      refresh();
     } catch (err) {
       setMsg(err instanceof Error ? err.message : "Could not save notes");
     } finally {
@@ -331,7 +341,7 @@ export default function CalendarPage() {
       setSelected(updated);
       setCancelStep(false);
       setMsg(`Marked ${outcomeLabel(updated.type, outcome).toLowerCase()}.`);
-      await load();
+      refresh();
     } catch (err) {
       setMsg(err instanceof Error ? err.message : "Could not update outcome");
     } finally {
@@ -352,7 +362,7 @@ export default function CalendarPage() {
       setSelected(null);
       setMode("view");
       setDeleteStep(false);
-      await load();
+      refresh();
     } catch (err) {
       setMsg(err instanceof Error ? err.message : "Could not delete");
     } finally {
@@ -370,7 +380,7 @@ export default function CalendarPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <button type="button" className="btn-ghost" onClick={() => setCursor(new Date())}>
+          <button type="button" className="btn-ghost" onClick={() => { const today = new Date(); setCursor(today); setSelectedDay(today); }}>
             Today
           </button>
           <button type="button" className="btn-ghost p-2" onClick={() => setCursor(addMonths(cursor, -1))} aria-label="Previous month">
@@ -386,6 +396,12 @@ export default function CalendarPage() {
         </div>
       </div>
 
+      {loading && <p role="status" className="text-sm text-muted">Loading events…</p>}
+      {loadError && (
+        <p role="alert" className="text-sm text-[var(--danger)]">
+          {loadError} <button type="button" className="underline" onClick={refresh}>Retry</button>
+        </p>
+      )}
       {msg && (
         <div className="rounded-[8px] border border-accent/20 bg-accent-soft px-3 py-2 text-sm font-semibold text-accent" data-testid="calendar-msg">
           {msg}

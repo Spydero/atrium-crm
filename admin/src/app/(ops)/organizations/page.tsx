@@ -29,7 +29,7 @@ export default function OrganizationsPage() {
         }
       />
       <ErrorNote message={error} />
-      <div className="surface overflow-hidden">
+      <div className="surface overflow-x-auto">
         {orgs === null && !error ? (
           <Empty>Loading…</Empty>
         ) : orgs && orgs.length === 0 ? (

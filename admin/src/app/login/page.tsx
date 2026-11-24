@@ -17,14 +17,19 @@ function LoginForm() {
     e.preventDefault();
     setBusy(true);
     setError(null);
-    const { error } = await authClient.signIn.email({ email, password });
-    if (error) {
-      setError(error.message || "Sign-in failed");
+    try {
+      const { error: issue } = await authClient.signIn.email({ email, password });
+      if (issue) {
+        setError(issue.message || "Sign-in failed");
+        return;
+      }
+      const next = params.get("next");
+      router.replace(next && next.startsWith("/") && !next.startsWith("//") && !next.includes("\\") ? next : "/");
+    } catch {
+      setError("Could not connect to Atrium Ops. Try again.");
+    } finally {
       setBusy(false);
-      return;
     }
-    const next = params.get("next");
-    router.replace(next && next.startsWith("/") && !next.startsWith("//") ? next : "/");
   }
 
   return (
@@ -68,12 +73,12 @@ function LoginForm() {
 export default function LoginPage() {
   return (
     <div className="grid min-h-screen lg:grid-cols-[1.1fr_1fr]">
-      <section className="relative flex flex-col justify-between bg-[var(--sidebar)] px-10 py-10 text-white lg:px-16 lg:py-14">
+      <section className="relative flex flex-col justify-between bg-[var(--sidebar)] px-6 py-6 text-white sm:px-10 lg:px-16 lg:py-14">
         <span className="text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-[var(--sidebar-muted)]">
           Atrium · Platform
         </span>
-        <div className="py-16">
-          <h1 className="font-display text-6xl font-bold leading-[0.95] tracking-tight lg:text-7xl">
+        <div className="py-6 lg:py-16">
+          <h1 className="font-display text-4xl font-bold sm:text-6xl leading-[0.95] tracking-tight lg:text-7xl">
             Atrium
             <br />
             <span className="text-[#5fb3c6]">Ops</span>

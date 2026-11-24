@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { Copy, Link2, MessageSquare, Users } from "lucide-react";
 import { api, apiResponse } from "@/lib/api";
 import { ChatThread, type ChatMessage } from "@/components/ChatThread";
@@ -21,7 +22,18 @@ type ShareLink = { id: string; url: string; expiresAt: string | null; pin: strin
 type Teammate = { id: string; name: string };
 
 export default function MessagesPage() {
-  const [tab, setTab] = useState<Kind>("team");
+  return <Suspense fallback={<p className="text-muted">Loading messages…</p>}><MessagesFromUrl /></Suspense>;
+}
+
+function MessagesFromUrl() {
+  const params = useSearchParams();
+  const leadId = params.get("lead");
+  const tab = params.get("tab") === "client" || leadId ? "client" : "team";
+  return <MessagesContent key={`${tab}:${leadId ?? ""}`} initialTab={tab} leadId={leadId} />;
+}
+
+function MessagesContent({ initialTab, leadId }: { initialTab: Kind; leadId: string | null }) {
+  const [tab, setTab] = useState(initialTab);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [teammates, setTeammates] = useState<Teammate[]>([]);
   const [selected, setSelected] = useState("");
@@ -43,13 +55,13 @@ export default function MessagesPage() {
   }, []);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const id = params.get("lead");
-    if (params.get("tab") === "client" || id) setTab("client");
-    if (id) {
-      api<{ id: string; name: string }>(`/api/messages/lead/${encodeURIComponent(id)}`)
+    const controller = new AbortController();
+    if (leadId) {
+      api<{ id: string; name: string }>(`/api/messages/lead/${encodeURIComponent(leadId)}`, { signal: controller.signal })
         .then(setLead)
-        .catch(e => setError(e.message));
+        .catch((error) => {
+          if (!controller.signal.aborted) setError(error.message);
+        });
     }
 
     let running = false;
@@ -64,10 +76,11 @@ export default function MessagesPage() {
     const timer = window.setInterval(poll, 5000);
     document.addEventListener("visibilitychange", poll);
     return () => {
+      controller.abort();
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", poll);
     };
-  }, [refresh]);
+  }, [leadId, refresh]);
 
   const active = conversations.find(row => row.id === selected && row.kind === tab)
     ?? (!selected && tab === "client" ? conversations.find(row => row.leadId === lead?.id) : undefined);

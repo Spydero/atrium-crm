@@ -1,10 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { BedDouble, Bath, Maximize2, MapPin, FileDown, X } from "lucide-react";
-import { api, downloadFile, formatMoney, portalLabel, type OrgSettings } from "@/lib/api";
+import { api, API_BASE, downloadFile, formatMoney, portalLabel } from "@/lib/api";
+import { useWorkspace } from "@/lib/workspace";
+import { useApiQuery } from "@/lib/use-api-query";
 import { ExportMenu } from "@/components/ExportMenu";
 import { StockPhotoPicker } from "@/components/StockPhotoPicker";
 import { PlaceInput, type PlaceValue } from "@/components/PlaceInput";
@@ -30,7 +32,16 @@ type Listing = {
   portals: Portal[];
 };
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const EMPTY_LISTINGS: Listing[] = [];
+
+const PROPERTY_TYPES = [
+  { value: "APARTMENT", label: "Apartment" },
+  { value: "VILLA", label: "Villa" },
+  { value: "TOWNHOUSE", label: "Townhouse" },
+  { value: "PENTHOUSE", label: "Penthouse" },
+  { value: "OFFICE", label: "Office" },
+  { value: "LAND", label: "Land" },
+];
 
 function livePortalCount(portals: Portal[]) {
   return portals.filter((p) => p.status === "LIVE").length;
@@ -44,7 +55,10 @@ function statusClass(status: string) {
 }
 
 export default function ListingsPage() {
-  const [listings, setListings] = useState<Listing[]>([]);
+  const workspace = useWorkspace();
+  const [actionError, setActionError] = useState("");
+  const [publishing, setPublishing] = useState(false);
+  const publishTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selected, setSelected] = useState<Listing | null>(null);
   const [q, setQ] = useState("");
   const [beds, setBeds] = useState("");
@@ -53,15 +67,14 @@ export default function ListingsPage() {
   const [community, setCommunity] = useState("");
   const [status, setStatus] = useState("");
   const [propertyType, setPropertyType] = useState("");
-  const [communities, setCommunities] = useState<string[]>([]);
   const [showCreate, setShowCreate] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState("");
-  const [loadError, setLoadError] = useState("");
   const [testingEnabled, setTestingEnabled] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [defaultCity, setDefaultCity] = useState("");
-  const [currencyLabel, setCurrencyLabel] = useState("AED");
-  const [enabledPortals, setEnabledPortals] = useState<string[]>([]);
+  const defaultCity = workspace?.defaultCity ?? "";
+  const currencyLabel = workspace?.currencyLabel || workspace?.currencyCode;
+  const enabledPortals = workspace?.enabledPortals ?? [];
   const [editPlace, setEditPlace] = useState<PlaceValue | null>(null);
   const [savingPlace, setSavingPlace] = useState(false);
   const [placeError, setPlaceError] = useState("");
@@ -73,6 +86,7 @@ export default function ListingsPage() {
     lat: null as number | null,
     lng: null as number | null,
     placeId: null as string | null,
+    propertyType: "APARTMENT",
     priceAed: 0,
     beds: 2,
     baths: 2,
@@ -80,50 +94,32 @@ export default function ListingsPage() {
     coverUrl: "" as string,
   });
 
-  const load = useCallback(async () => {
-    const params = new URLSearchParams();
-    if (q) params.set("q", q);
-    if (beds) params.set("beds", beds);
-    if (minPrice) params.set("minPrice", minPrice);
-    if (maxPrice) params.set("maxPrice", maxPrice);
-    if (community) params.set("community", community);
-    if (status) params.set("status", status);
-    if (propertyType) params.set("propertyType", propertyType);
-    try {
-      const data = await api<Listing[]>(`/api/listings?${params}`);
-      setListings(data);
-      setLoadError("");
-    } catch (e) {
-      if (e instanceof Error && /session expired|unauthorized/i.test(e.message)) return;
-      setListings([]);
-      setSelected(null);
-      setLoadError(e instanceof Error ? e.message : "Failed to load listings");
-    }
-  }, [q, beds, minPrice, maxPrice, community, status, propertyType]);
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries({ q, beds, minPrice, maxPrice, community, status, propertyType })) {
+    if (value.trim()) params.set(key, value.trim());
+  }
+  const inventory = useApiQuery<Listing[]>(params.size ? `/api/listings?${params}` : "/api/listings");
+  const communityInventory = useApiQuery<Listing[]>(params.size ? "/api/listings" : null);
+  const listings = inventory.data ?? EMPTY_LISTINGS;
+  const communities = [...new Set((params.size ? communityInventory.data ?? [] : listings)
+    .map((listing) => listing.community).filter(Boolean))].sort();
+  const loadError = inventory.error;
+
+  function refresh() {
+    inventory.refresh();
+    communityInventory.refresh();
+  }
 
   useEffect(() => {
-    load().catch(() => {});
-    api<{ testingEnabled: boolean }>("/api/testing/status")
+    const controller = new AbortController();
+    api<{ testingEnabled: boolean }>("/api/testing/status", { signal: controller.signal })
       .then((s) => setTestingEnabled(s.testingEnabled))
-      .catch(() => setTestingEnabled(false));
-    api<OrgSettings>("/api/settings")
-      .then((s) => {
-        setDefaultCity(s.defaultCity || "");
-        setCurrencyLabel(s.currencyLabel || s.currencyCode || "AED");
-        if (s.enabledPortals?.length) setEnabledPortals(s.enabledPortals);
-      })
       .catch(() => {});
-  }, [load]);
-
-  useEffect(() => {
-    // Inventory-derived communities only (not a hardcoded place list)
-    api<Listing[]>("/api/listings")
-      .then((all) => {
-        const places = [...new Set(all.map((l) => l.community).filter(Boolean))].sort();
-        setCommunities(places);
-      })
-      .catch(() => {});
-  }, [listings.length]);
+    return () => {
+      controller.abort();
+      if (publishTimer.current) clearTimeout(publishTimer.current);
+    };
+  }, []);
 
   function clearFilters() {
     setQ("");
@@ -139,13 +135,15 @@ export default function ListingsPage() {
 
   async function createListing(e: React.FormEvent) {
     e.preventDefault();
+    if (creating) return;
+    setCreating(true);
     setCreateError("");
     try {
       const created = await api<Listing>("/api/listings", {
         method: "POST",
         body: JSON.stringify({
-          title: form.title,
-          community: form.community,
+          title: form.title.trim(),
+          community: form.community.trim(),
           city: form.city || defaultCity || undefined,
           address: form.address || null,
           lat: form.lat,
@@ -158,7 +156,7 @@ export default function ListingsPage() {
           coverUrl: form.coverUrl || null,
           photoUrls: form.coverUrl ? [form.coverUrl] : [],
           status: "ACTIVE",
-          propertyType: "APARTMENT",
+          propertyType: form.propertyType,
         }),
       });
       setShowCreate(false);
@@ -170,13 +168,14 @@ export default function ListingsPage() {
         lat: null,
         lng: null,
         placeId: null,
+        propertyType: "APARTMENT",
         priceAed: 0,
         beds: 2,
         baths: 2,
         areaSqft: 1000,
         coverUrl: "",
       });
-      await load();
+      refresh();
       setSelected(created);
       setEditPlace({
         community: created.community,
@@ -189,6 +188,8 @@ export default function ListingsPage() {
     } catch (err) {
       if (err instanceof Error && /session expired|unauthorized/i.test(err.message)) return;
       setCreateError(err instanceof Error ? err.message : "Could not create listing");
+    } finally {
+      setCreating(false);
     }
   }
 
@@ -197,7 +198,7 @@ export default function ListingsPage() {
       ...f,
       community: next.community,
       city: next.city,
-      address: next.address || f.address,
+      address: next.address,
       lat: next.lat,
       lng: next.lng,
       placeId: next.placeId,
@@ -206,44 +207,70 @@ export default function ListingsPage() {
 
   async function downloadBrochure(id: string, title: string) {
     const safe = title.replace(/[^a-zA-Z0-9._-]+/g, "_") || "listing";
-    await downloadFile(`/api/listings/${id}/brochure.pdf`, `${safe}-brochure.pdf`);
+    setActionError("");
+    try {
+      await downloadFile(`/api/listings/${id}/brochure.pdf`, `${safe}-brochure.pdf`);
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "Could not download brochure");
+    }
   }
 
   async function uploadPhoto(listingId: string, file: File) {
     setUploading(true);
+    setActionError("");
     try {
       const body = new FormData();
       body.append("photo", file);
-      const res = await fetch(`${API}/api/listings/${listingId}/photos`, {
+      const res = await fetch(`${API_BASE}/api/listings/${listingId}/photos`, {
         method: "POST",
         credentials: "include",
         body,
       });
       if (!res.ok) throw new Error("Upload failed");
       const updated = (await res.json()) as Listing;
-      setSelected(updated);
-      await load();
+      setSelected((current) => current?.id === listingId ? updated : current);
+      refresh();
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "Upload failed");
     } finally {
       setUploading(false);
     }
   }
 
   async function publish(listingId: string, portal: string, status: string) {
-    const updated = await api<Listing>(`/api/listings/${listingId}/publish`, {
-      method: "POST",
-      body: JSON.stringify({ portal, status }),
-    });
-    setSelected(updated);
-    setTimeout(() => {
-      load().then(() => {
-        api<Listing>(`/api/listings/${listingId}`).then(setSelected);
+    setPublishing(true);
+    setActionError("");
+    if (publishTimer.current) clearTimeout(publishTimer.current);
+    try {
+      const updated = await api<Listing>(`/api/listings/${listingId}/publish`, {
+        method: "POST",
+        body: JSON.stringify({ portal, status }),
       });
-    }, 1400);
-    await load();
+      setSelected((current) => current?.id === listingId ? updated : current);
+      refresh();
+      if (status === "LIVE") {
+        publishTimer.current = setTimeout(async () => {
+          try {
+            const latest = await api<Listing>(`/api/listings/${listingId}`);
+            setSelected((current) => current?.id === listingId ? latest : current);
+            refresh();
+          } catch (error) {
+            setActionError(error instanceof Error ? error.message : "Could not refresh portal status");
+          } finally {
+            setPublishing(false);
+          }
+        }, 1400);
+        return;
+      }
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "Could not update portal status");
+    }
+    setPublishing(false);
   }
 
   return (
     <div className="animate-rise space-y-4">
+      {actionError && <p role="alert" className="text-sm text-[var(--danger)]">{actionError}</p>}
       {loadError && (
         <div className="rounded-[var(--radius)] border border-[var(--danger)]/30 bg-[var(--danger)]/5 px-4 py-3 text-sm text-[var(--danger)]">
           {loadError === "No organization" ? (
@@ -254,7 +281,7 @@ export default function ListingsPage() {
           ) : (
             loadError
           )}{" "}
-          <button type="button" className="font-semibold underline" onClick={() => load()}>
+          <button type="button" className="font-semibold underline" onClick={refresh}>
             Retry
           </button>
         </div>
@@ -265,7 +292,7 @@ export default function ListingsPage() {
             Listings
           </h1>
           <p className="mt-0.5 text-sm text-muted">
-            {listings.length} {listings.length === 1 ? "property" : "properties"}
+            {inventory.loading ? "Loading properties…" : `${listings.length} ${listings.length === 1 ? "property" : "properties"}`}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -299,26 +326,34 @@ export default function ListingsPage() {
             className="field min-w-0 flex-1"
             style={{ minWidth: 200 }}
             placeholder="Location, building, or title"
+            aria-label="Search listings"
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
           <input
             className="field shrink-0"
             style={{ width: 118 }}
+            type="number"
+            min={0}
             placeholder="Min price"
+            aria-label="Minimum price"
             value={minPrice}
             onChange={(e) => setMinPrice(e.target.value)}
           />
           <input
             className="field shrink-0"
             style={{ width: 118 }}
+            type="number"
+            min={0}
             placeholder="Max price"
+            aria-label="Maximum price"
             value={maxPrice}
             onChange={(e) => setMaxPrice(e.target.value)}
           />
           <select
             className="field shrink-0"
             style={{ width: 168 }}
+            aria-label="Community"
             value={community}
             onChange={(e) => setCommunity(e.target.value)}
           >
@@ -342,6 +377,8 @@ export default function ListingsPage() {
             { value: "ACTIVE", label: "Active" },
             { value: "DRAFT", label: "Draft" },
             { value: "RESERVED", label: "Reserved" },
+            { value: "SOLD", label: "Sold" },
+            { value: "WITHDRAWN", label: "Withdrawn" },
           ].map((opt) => (
             <button
               key={opt.label}
@@ -354,13 +391,7 @@ export default function ListingsPage() {
             </button>
           ))}
           <span className="mx-1 h-4 w-px bg-line" />
-          {[
-            { value: "", label: "Any type" },
-            { value: "APARTMENT", label: "Apartment" },
-            { value: "VILLA", label: "Villa" },
-            { value: "TOWNHOUSE", label: "Townhouse" },
-            { value: "OFFICE", label: "Office" },
-          ].map((opt) => (
+          {[{ value: "", label: "Any type" }, ...PROPERTY_TYPES].map((opt) => (
             <button
               key={opt.label}
               type="button"
@@ -550,7 +581,7 @@ export default function ListingsPage() {
                   type="button"
                   className="btn-ghost inline-flex items-center gap-1.5 text-sm"
                   onClick={() =>
-                    downloadBrochure(selected.id, selected.title).catch(() => {})
+                    downloadBrochure(selected.id, selected.title)
                   }
                 >
                   <FileDown size={14} /> Download brochure
@@ -619,7 +650,7 @@ export default function ListingsPage() {
                             placeId: editPlace.placeId,
                           }),
                         });
-                        setSelected(updated);
+                        setSelected((current) => current?.id === updated.id ? updated : current);
                         setEditPlace({
                           community: updated.community,
                           city: updated.city || "",
@@ -628,7 +659,7 @@ export default function ListingsPage() {
                           lng: updated.lng ?? null,
                           placeId: updated.placeId ?? null,
                         });
-                        await load();
+                        refresh();
                       } catch (e) {
                         if (e instanceof Error && /session expired|unauthorized/i.test(e.message)) {
                           return;
@@ -665,6 +696,7 @@ export default function ListingsPage() {
                           <button
                             type="button"
                             className="btn-primary px-2 py-1 text-[11px]"
+                            disabled={publishing}
                             onClick={() => publish(selected.id, portal, "LIVE")}
                           >
                             Live
@@ -672,6 +704,7 @@ export default function ListingsPage() {
                           <button
                             type="button"
                             className="btn-ghost px-2 py-1 text-[11px]"
+                            disabled={publishing}
                             onClick={() => publish(selected.id, portal, "OFF")}
                           >
                             Off
@@ -751,12 +784,23 @@ export default function ListingsPage() {
                   onChange={setPlace}
                 />
                 <label className="block space-y-1">
+                  <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">Property type</span>
+                  <select
+                    className="field w-full"
+                    value={form.propertyType}
+                    onChange={(e) => setForm((current) => ({ ...current, propertyType: e.target.value }))}
+                  >
+                    {PROPERTY_TYPES.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
+                  </select>
+                </label>
+                <label className="block space-y-1">
                   <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
                     Price ({currencyLabel})
                   </span>
                   <input
                     type="number"
                     className="field w-full"
+                    min={1}
                     placeholder={`Amount in ${currencyLabel}`}
                     value={form.priceAed || ""}
                     onChange={(e) => setForm({ ...form, priceAed: Number(e.target.value) })}
@@ -817,7 +861,7 @@ export default function ListingsPage() {
                   />
                 ) : (
                   <p className="text-xs text-muted">
-                    Upload a photo after create, or enable TESTING_ENABLED for stock picks.
+                    You can upload a photo after creating the listing.
                   </p>
                 )}
               </div>
@@ -830,8 +874,8 @@ export default function ListingsPage() {
                   <button type="button" onClick={() => setShowCreate(false)} className="btn-ghost">
                     Cancel
                   </button>
-                  <button type="submit" className="btn-primary">
-                    Create
+                  <button type="submit" className="btn-primary" disabled={creating}>
+                    {creating ? "Creating…" : "Create"}
                   </button>
                 </div>
               </div>

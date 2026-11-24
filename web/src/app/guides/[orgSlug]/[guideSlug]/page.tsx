@@ -181,7 +181,7 @@ export default function PublicGuidePage() {
 
       <button type="submit" className="btn-primary flex w-full items-center justify-center gap-2 py-3" disabled={submitting}>
         <Download size={16} />
-        {submitting ? "Preparing your guide…" : g.gated ? "Get my free guide" : "Send me a personal copy"}
+        {submitting ? "Preparing your guide…" : g.gated ? "Get my free guide" : "Continue to download"}
       </button>
       <p className="flex items-start gap-1.5 text-[11px] leading-snug text-muted">
         <ShieldCheck size={13} className="mt-px shrink-0" />
@@ -256,7 +256,7 @@ export default function PublicGuidePage() {
             {g.gated ? (
               <>
                 <h2 className="text-lg font-bold">Get your free copy</h2>
-                <p className="mb-4 mt-1 text-sm text-muted">Takes ten seconds. The download starts on the next page.</p>
+                <p className="mb-4 mt-1 text-sm text-muted">Enter your details to open the download page.</p>
                 {formEl}
               </>
             ) : (
@@ -276,7 +276,7 @@ export default function PublicGuidePage() {
                       onClick={() => setShowForm(true)}
                       className="text-sm font-semibold text-accent"
                     >
-                      Want a personal copy and updates? Add your details
+                      Want updates from the brokerage? Add your details
                     </button>
                   ) : (
                     formEl

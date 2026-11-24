@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { MapPin } from "lucide-react";
-import { api, formatMoney, type OrgSettings } from "@/lib/api";
+import { useApiQuery } from "@/lib/use-api-query";
+import { useWorkspaceMoney } from "@/lib/workspace";
 import { InventoryMap, type MapPin as Pin } from "@/components/ListingMap";
 
 type Listing = {
@@ -19,38 +20,13 @@ type Listing = {
   coverUrl?: string | null;
 };
 
-export default function MapPage() {
-  const [listings, setListings] = useState<Listing[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [currencyLabel, setCurrencyLabel] = useState("AED");
+const EMPTY_LISTINGS: Listing[] = [];
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    Promise.all([
-      api<Listing[]>("/api/listings"),
-      api<OrgSettings>("/api/settings").catch(() => null),
-    ])
-      .then(([rows, settings]) => {
-        if (cancelled) return;
-        setListings(rows);
-        if (settings?.currencyLabel) setCurrencyLabel(settings.currencyLabel);
-        setError("");
-      })
-      .catch((e) => {
-        if (cancelled) return;
-        if (e instanceof Error && /session expired|unauthorized/i.test(e.message)) return;
-        setError(e instanceof Error ? e.message : "Failed to load");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+export default function MapPage() {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const money = useWorkspaceMoney();
+  const { data, error, loading, refresh } = useApiQuery<Listing[]>("/api/listings");
+  const listings = data ?? EMPTY_LISTINGS;
 
   const pinned = useMemo(
     () => listings.filter((l) => l.lat != null && l.lng != null),
@@ -99,7 +75,7 @@ export default function MapPage() {
             </>
           ) : (
             error
-          )}
+          )}{" "}<button type="button" className="underline" onClick={refresh}>Retry</button>
         </div>
       )}
 
@@ -158,7 +134,7 @@ export default function MapPage() {
                         {[l.community, l.city].filter(Boolean).join(", ")}
                       </div>
                       <div className="mt-1 text-sm font-semibold text-ink">
-                        {formatMoney(l.priceAed, currencyLabel)} · {l.beds} bed
+                        {money(l.priceAed)} · {l.beds} bed
                       </div>
                     </button>
                   ) : (

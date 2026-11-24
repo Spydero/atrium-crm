@@ -8,7 +8,6 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const WEB = process.env.WEB_URL || "http://localhost:3000";
-const API = process.env.API_URL || "http://localhost:4000";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUT = path.resolve(__dirname, "../../design/screenshots");
 

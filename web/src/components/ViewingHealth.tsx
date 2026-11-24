@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Bar,
@@ -13,7 +13,8 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { api, downloadFile, portalLabel } from "@/lib/api";
+import { useApiQuery } from "@/lib/use-api-query";
+import { downloadFile, portalLabel } from "@/lib/api";
 import { dateRangeQuery, type DateRangeValue } from "@/components/DateRangeFilter";
 
 const OUTCOME_COLORS = {
@@ -165,37 +166,17 @@ export function ViewingHealthPanel({
   embedded,
 }: {
   range: DateRangeValue;
-  /** When true, use summary.viewingHealth if passed via data prop path - we always fetch fresh. */
+  /** Reuse the summary for the default grouping when available. */
   embedded?: ViewingHealthData | null;
 }) {
-  const [data, setData] = useState<ViewingHealthData | null>(embedded ?? null);
-  const [error, setError] = useState("");
   const [mode, setMode] = useState<"counts" | "rates">("counts");
   const [breakKind, setBreakKind] = useState<"agent" | "listing" | "source">("agent");
   const [group, setGroup] = useState<"auto" | "day" | "week" | "month">("auto");
-
-  useEffect(() => {
-    if (embedded) {
-      setData(embedded);
-      return;
-    }
-    let live = true;
-    const q = new URLSearchParams(dateRangeQuery(range));
-    if (group !== "auto") q.set("group", group);
-    api<ViewingHealthData>(`/api/reports/viewings?${q}`)
-      .then((d) => {
-        if (live) {
-          setData(d);
-          setError("");
-        }
-      })
-      .catch((e) => {
-        if (live) setError(e instanceof Error ? e.message : "Failed to load viewing health");
-      });
-    return () => {
-      live = false;
-    };
-  }, [range.preset, range.from, range.to, group, embedded]);
+  const useEmbedded = Boolean(embedded) && group === "auto";
+  const q = new URLSearchParams(dateRangeQuery(range));
+  if (group !== "auto") q.set("group", group);
+  const result = useApiQuery<ViewingHealthData>(useEmbedded ? null : `/api/reports/viewings?${q}`);
+  const data = useEmbedded ? embedded : result.data;
 
   const series = useMemo(() => {
     if (!data) return [];
@@ -211,7 +192,7 @@ export function ViewingHealthPanel({
     });
   }, [data]);
 
-  if (error) return <p className="text-[var(--danger)]">{error}</p>;
+  if (result.error) return <p role="alert" className="text-[var(--danger)]">{result.error} <button type="button" className="underline" onClick={result.refresh}>Retry</button></p>;
   if (!data) {
     return <div className="surface h-64 animate-pulse" data-testid="viewing-health-loading" />;
   }
@@ -704,25 +685,9 @@ export function ViewingHealthPanel({
 
 /** Compact dashboard card linking to Reports viewing health. */
 export function ViewingHealthCard({ range }: { range: DateRangeValue }) {
-  const [data, setData] = useState<{
-    totals: Totals;
-    rates: Rates;
-    deltasPp: ViewingHealthData["deltasPp"];
-  } | null>(null);
-
-  useEffect(() => {
-    let live = true;
-    api<ViewingHealthData>(`/api/reports/viewings?${dateRangeQuery(range)}&detail=headline`)
-      .then((d) => {
-        if (live) setData({ totals: d.totals, rates: d.rates, deltasPp: d.deltasPp });
-      })
-      .catch(() => {
-        if (live) setData(null);
-      });
-    return () => {
-      live = false;
-    };
-  }, [range.preset, range.from, range.to]);
+  const { data, loading, error } = useApiQuery<Pick<ViewingHealthData, "totals" | "rates" | "deltasPp">>(
+    `/api/reports/viewings?${dateRangeQuery(range)}&detail=headline`,
+  );
 
   if (!data || data.totals.booked === 0) {
     return (
@@ -732,7 +697,7 @@ export function ViewingHealthCard({ range }: { range: DateRangeValue }) {
         data-testid="viewing-health-card"
       >
         <div className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted">Viewing health</div>
-        <p className="mt-3 text-sm text-muted">No viewings in this range. Open Reports for the full view.</p>
+        <p className="mt-3 text-sm text-muted">{loading ? "Loading viewing health…" : error ? "Viewing health is unavailable. Open Reports to retry." : "No viewings in this range. Open Reports for the full view."}</p>
       </Link>
     );
   }

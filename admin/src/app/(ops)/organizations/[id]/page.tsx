@@ -40,6 +40,10 @@ export default function OrganizationDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  return <OrganizationDetail key={id} id={id} />;
+}
+
+function OrganizationDetail({ id }: { id: string }) {
   const [org, setOrg] = useState<PlatformOrgDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -48,7 +52,7 @@ export default function OrganizationDetailPage({
 
   const load = useCallback(() => {
     getOrganization(id)
-      .then(setOrg)
+      .then((data) => { setOrg(data); setError(null); })
       .catch((e: Error) => setError(e.message));
   }, [id]);
 
@@ -63,7 +67,7 @@ export default function OrganizationDetailPage({
     try {
       const inv = await createInvite(id, {
         email: String(f.get("email")).trim(),
-        name: String(f.get("name") ?? "").trim() || undefined,
+        name: String(f.get("name") ?? "").trim(),
         role: f.get("role") as MemberRole,
       });
       setCreated(inv);
@@ -99,13 +103,13 @@ export default function OrganizationDetailPage({
       <ErrorNote message={error} />
 
       {org && (
-        <div className="grid gap-8 lg:grid-cols-[1fr_20rem]">
-          <div className="space-y-8">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_20rem]">
+          <div className="min-w-0 space-y-8">
             <section>
               <h2 className="font-display mb-3 text-sm font-bold">
                 Members <span className="text-muted">({org.members.length})</span>
               </h2>
-              <div className="surface overflow-hidden">
+              <div className="surface overflow-x-auto">
                 {org.members.length === 0 ? (
                   <Empty>No members yet. Invite an owner to get started.</Empty>
                 ) : (
@@ -139,7 +143,7 @@ export default function OrganizationDetailPage({
               <h2 className="font-display mb-3 text-sm font-bold">
                 Pending invites <span className="text-muted">({pending.length})</span>
               </h2>
-              <div className="surface overflow-hidden">
+              <div className="surface overflow-x-auto">
                 {pending.length === 0 ? (
                   <Empty>No pending invites.</Empty>
                 ) : (
@@ -181,16 +185,16 @@ export default function OrganizationDetailPage({
             <form onSubmit={onInvite} className="surface space-y-4 p-5">
               <ErrorNote message={formError} />
               <div>
-                <label className="label">Email</label>
-                <input name="email" type="email" required className="field" />
+                <label className="label" htmlFor="invite-email">Email</label>
+                <input id="invite-email" name="email" type="email" required className="field" />
               </div>
               <div>
-                <label className="label">Name</label>
-                <input name="name" className="field" />
+                <label className="label" htmlFor="invite-name">Name</label>
+                <input id="invite-name" name="name" required maxLength={120} className="field" />
               </div>
               <div>
-                <label className="label">Role</label>
-                <select name="role" className="field" defaultValue="owner">
+                <label className="label" htmlFor="invite-role">Role</label>
+                <select id="invite-role" name="role" className="field" defaultValue="owner">
                   {INVITE_ROLES.map((r) => (
                     <option key={r} value={r}>
                       {r}
@@ -199,7 +203,7 @@ export default function OrganizationDetailPage({
                 </select>
               </div>
               <button type="submit" className="btn-primary w-full" disabled={busy}>
-                {busy ? "Sending…" : "Create invite"}
+                {busy ? "Creating…" : "Create invite"}
               </button>
             </form>
 

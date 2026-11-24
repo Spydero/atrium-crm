@@ -5,7 +5,9 @@ import { useEffect, useRef } from "react";
 // Stable empty deps helper for optional callbacks
 function useStableCallback<T extends (...args: never[]) => void>(fn?: T) {
   const ref = useRef(fn);
-  ref.current = fn;
+  useEffect(() => {
+    ref.current = fn;
+  }, [fn]);
   return ref;
 }
 
@@ -58,7 +60,11 @@ export function ListingMap({
       }).addTo(map);
 
       const marker = L.marker([lat, lng]).addTo(map);
-      if (label) marker.bindPopup(label);
+      if (label) {
+        const popup = document.createElement("span");
+        popup.textContent = label;
+        marker.bindPopup(popup);
+      }
 
       // Container often lays out after paint - fix grey/blank tiles
       setTimeout(() => map?.invalidateSize(), 80);
@@ -106,7 +112,6 @@ export function InventoryMap({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const onSelectRef = useStableCallback(onSelect);
-  const pinKey = pins.map((p) => `${p.id}:${p.lat}:${p.lng}`).join("|");
 
   useEffect(() => {
     let map: import("leaflet").Map | null = null;
@@ -152,12 +157,17 @@ export function InventoryMap({
       } else {
         for (const pin of pins) {
           const marker = L.marker([pin.lat, pin.lng]).addTo(map!);
-          const html = `<strong>${escapeHtml(pin.title)}</strong>${
-            pin.subtitle
-              ? `<br/><span style="color:#66707a">${escapeHtml(pin.subtitle)}</span>`
-              : ""
-          }`;
-          marker.bindPopup(html);
+          const popup = document.createElement("div");
+          const title = document.createElement("strong");
+          title.textContent = pin.title;
+          popup.append(title);
+          if (pin.subtitle) {
+            const subtitle = document.createElement("span");
+            subtitle.className = "text-muted";
+            subtitle.textContent = pin.subtitle;
+            popup.append(document.createElement("br"), subtitle);
+          }
+          marker.bindPopup(popup);
           marker.on("click", () => onSelectRef.current?.(pin.id));
         }
         map.fitBounds(bounds!.pad(0.2), { maxZoom: 13 });
@@ -191,9 +201,7 @@ export function InventoryMap({
         map = null;
       }
     };
-    // pinKey captures pin identity; height for container
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pinKey, height]);
+  }, [pins, height, onSelectRef]);
 
   return (
     <div
@@ -202,14 +210,6 @@ export function InventoryMap({
       style={{ height, minHeight: height }}
     />
   );
-}
-
-function escapeHtml(s: string) {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
 }
 
 export function ListingMapEmpty({ className = "" }: { className?: string }) {

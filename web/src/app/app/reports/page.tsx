@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useApiQuery } from "@/lib/use-api-query";
 import {
   Bar,
   BarChart,
@@ -10,7 +11,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { api, pct, portalLabel } from "@/lib/api";
+import { pct, portalLabel } from "@/lib/api";
 import { ExportMenu } from "@/components/ExportMenu";
 import { ViewingHealthPanel } from "@/components/ViewingHealth";
 import {
@@ -83,36 +84,82 @@ function ChartTip({
 }
 
 export default function ReportsPage() {
-  const [data, setData] = useState<Summary | null>(null);
-  const [error, setError] = useState("");
-  const [refreshing, setRefreshing] = useState(false);
   const [dateRange, setDateRange] = useState<DateRangeValue>(() => defaultDateRange("30d"));
+  const { data: data, error, loading: refreshing, refresh } = useApiQuery<Summary>(
+    `/api/reports/summary?${dateRangeQuery(dateRange)}`,
+  );
 
-  async function load(range: DateRangeValue = dateRange) {
-    setRefreshing(true);
-    try {
-      const summary = await api<Summary>(
-        `/api/reports/summary?${dateRangeQuery(range)}`,
-      );
-      setData(summary);
-      setError("");
-    } catch (e) {
-      if (e instanceof Error && /session expired|unauthorized/i.test(e.message)) return;
-      setError(e instanceof Error ? e.message : "Failed to load reports");
-    } finally {
-      setRefreshing(false);
-    }
-  }
+  const header = (
+    <div className="flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted">
+          Insights
+        </div>
+        <h1 className="font-display mt-1 text-3xl font-bold tracking-[-0.03em]">
+          Reports
+        </h1>
+        <p className="mt-1 text-sm text-muted">
+          Activity in {data?.range?.label || "selected range"}. Inventory lists stay as a
+          live snapshot.
+        </p>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <DateRangeFilter value={dateRange} onChange={setDateRange} />
+        <ExportMenu
+          items={[
+            {
+              label: "Report (PDF)",
+              hint: "Designed summary for the selected range",
+              path: `/api/reports/export.pdf?${dateRangeQuery(dateRange)}`,
+              fallbackName: "report.pdf",
+              kind: "pdf",
+            },
+            {
+              label: "Report data (CSV)",
+              hint: "Every figure in a spreadsheet",
+              path: `/api/reports/export.csv?${dateRangeQuery(dateRange)}`,
+              fallbackName: "report.csv",
+              kind: "csv",
+            },
+            {
+              label: "Viewings (CSV)",
+              hint: "One row per viewing in the range",
+              path: `/api/reports/viewings.csv?${dateRangeQuery(dateRange)}`,
+              fallbackName: "viewings.csv",
+              kind: "csv",
+            },
+            {
+              label: "Cancellations (CSV)",
+              hint: "Cancel report for the selected range",
+              path: `/api/reports/viewings.csv?${dateRangeQuery(dateRange)}&outcome=CANCELLED`,
+              fallbackName: "cancellations.csv",
+              kind: "csv",
+            },
+          ]}
+        />
+        <button
+          type="button"
+          className="btn-ghost text-sm"
+          onClick={refresh}
+          disabled={refreshing}
+        >
+          {refreshing ? "Refreshing…" : "Refresh"}
+        </button>
+      </div>
+    </div>
+  );
 
-  useEffect(() => {
-    load(dateRange);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateRange.preset, dateRange.from, dateRange.to]);
-
-  if (error) return <p className="text-[var(--danger)]">{error}</p>;
+  if (error) return (
+      <div className="animate-rise space-y-5">
+        {header}
+        <p role="alert" className="text-[var(--danger)]">{error}</p>
+        <button type="button" className="btn-ghost" onClick={refresh}>Try again</button>
+      </div>
+    );
   if (!data) {
     return (
-      <div className="animate-rise space-y-4">
+      <div className="animate-rise space-y-5">
+        {header}
         <div className="h-8 w-40 animate-pulse rounded bg-line/60" />
         <div className="grid gap-3 lg:grid-cols-2">
           {[1, 2, 3, 4].map((i) => (
@@ -132,63 +179,7 @@ export default function ReportsPage() {
 
   return (
     <div className="animate-rise space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <div className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted">
-            Insights
-          </div>
-          <h1 className="font-display mt-1 text-3xl font-bold tracking-[-0.03em]">
-            Reports
-          </h1>
-          <p className="mt-1 text-sm text-muted">
-            Activity in {data.range?.label || "selected range"}. Inventory lists stay as a
-            live snapshot.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <DateRangeFilter value={dateRange} onChange={setDateRange} />
-          <ExportMenu
-            items={[
-              {
-                label: "Report (PDF)",
-                hint: "Designed summary for the selected range",
-                path: `/api/reports/export.pdf?${dateRangeQuery(dateRange)}`,
-                fallbackName: "report.pdf",
-                kind: "pdf",
-              },
-              {
-                label: "Report data (CSV)",
-                hint: "Every figure in a spreadsheet",
-                path: `/api/reports/export.csv?${dateRangeQuery(dateRange)}`,
-                fallbackName: "report.csv",
-                kind: "csv",
-              },
-              {
-                label: "Viewings (CSV)",
-                hint: "One row per viewing in the range",
-                path: `/api/reports/viewings.csv?${dateRangeQuery(dateRange)}`,
-                fallbackName: "viewings.csv",
-                kind: "csv",
-              },
-              {
-                label: "Cancellations (CSV)",
-                hint: "Cancel report for the selected range",
-                path: `/api/reports/viewings.csv?${dateRangeQuery(dateRange)}&outcome=CANCELLED`,
-                fallbackName: "cancellations.csv",
-                kind: "csv",
-              },
-            ]}
-          />
-          <button
-            type="button"
-            className="btn-ghost text-sm"
-            onClick={() => load(dateRange)}
-            disabled={refreshing}
-          >
-            {refreshing ? "Refreshing…" : "Refresh"}
-          </button>
-        </div>
-      </div>
+      {header}
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="surface p-5">

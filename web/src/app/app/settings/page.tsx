@@ -1,19 +1,32 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useApiQuery } from "@/lib/use-api-query";
 import { api, type OrgChannel, type OrgSettings } from "@/lib/api";
 
+function settingsForm(settings: OrgSettings) {
+  return {
+    name: settings.name,
+    currencyCode: settings.currencyCode,
+    currencyLabel: settings.currencyLabel,
+    defaultCity: settings.defaultCity || "",
+    privacyUrl: settings.privacyUrl || "",
+    licenseLabel: settings.licenseLabel || "Licence no.",
+    licenseNumber: settings.licenseNumber || "",
+  };
+}
+
 export default function SettingsPage() {
-  const [form, setForm] = useState({
-    name: "",
-    currencyCode: "AED",
-    currencyLabel: "AED",
-    defaultCity: "",
-    privacyUrl: "",
-    licenseLabel: "Licence no.",
-    licenseNumber: "",
-  });
-  const [channels, setChannels] = useState<OrgChannel[]>([]);
+  const { data, error, refresh } = useApiQuery<OrgSettings>("/api/settings");
+  if (error) {
+    return <p role="alert" className="text-sm text-[var(--danger)]">{error} <button type="button" className="underline" onClick={refresh}>Retry</button></p>;
+  }
+  return data ? <SettingsForm key={data.id} initial={data} /> : <p className="text-muted">Loading settings…</p>;
+}
+
+function SettingsForm({ initial }: { initial: OrgSettings }) {
+  const [form, setForm] = useState(() => settingsForm(initial));
+  const [channels, setChannels] = useState(initial.channels || []);
   const [newLabel, setNewLabel] = useState("");
   const [newKind, setNewKind] = useState<"PORTAL" | "ADS" | "OTHER">("OTHER");
   const [saving, setSaving] = useState(false);
@@ -22,24 +35,9 @@ export default function SettingsPage() {
 
   async function load() {
     const s = await api<OrgSettings>("/api/settings");
-    setForm({
-      name: s.name,
-      currencyCode: s.currencyCode,
-      currencyLabel: s.currencyLabel,
-      defaultCity: s.defaultCity || "",
-      privacyUrl: s.privacyUrl || "",
-      licenseLabel: s.licenseLabel || "Licence no.",
-      licenseNumber: s.licenseNumber || "",
-    });
+    setForm(settingsForm(s));
     setChannels(s.channels || []);
   }
-
-  useEffect(() => {
-    load().catch((e) => {
-      if (e instanceof Error && /session expired|unauthorized/i.test(e.message)) return;
-      setError(e instanceof Error ? e.message : "Failed to load settings");
-    });
-  }, []);
 
   async function save(e: React.FormEvent) {
     e.preventDefault();

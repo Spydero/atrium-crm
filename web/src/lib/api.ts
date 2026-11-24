@@ -81,11 +81,6 @@ export function formatMoney(n: number, currencyLabel = "AED") {
   return `${currencyLabel} ${n.toLocaleString()}`;
 }
 
-/** @deprecated Prefer formatMoney with org currencyLabel */
-export function formatAed(n: number) {
-  return formatMoney(n, "AED");
-}
-
 export type OrgChannel = {
   id: string;
   key: string;

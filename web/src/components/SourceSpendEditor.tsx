@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
+import { useApiQuery } from "@/lib/use-api-query";
 import { api, portalLabel } from "@/lib/api";
 
 type SpendRow = {
@@ -20,57 +21,39 @@ function currentMonth() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
-export function SourceSpendEditor({
-  open,
-  onClose,
-  focusSource,
-  onSaved,
-}: {
-  open: boolean;
+type EditorProps = {
   onClose: () => void;
   focusSource?: string | null;
   onSaved: () => void;
-}) {
+};
+
+export function SourceSpendEditor({ open, ...props }: EditorProps & { open: boolean }) {
+  return open ? <SpendEditor {...props} /> : null;
+}
+
+function SpendEditor({ onClose, focusSource, onSaved }: EditorProps) {
   const [month, setMonth] = useState(currentMonth);
-  const [rows, setRows] = useState<SpendRow[]>([]);
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [loaded, setLoaded] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const { data, error, loading, refresh } = useApiQuery<{ month: string; rows: SpendRow[] }>(
+    month ? `/api/money/spend?month=${encodeURIComponent(month)}` : null,
+  );
+  const rows = data?.rows ?? [];
+  const amount = (row: SpendRow) => draft[row.source] ?? (row.amount == null ? "" : String(row.amount));
 
   useEffect(() => {
-    if (!open) return;
-    setError("");
-    setBusy(false);
-    setLoaded(false);
-    api<{ month: string; rows: SpendRow[] }>(`/api/money/spend?month=${month}`)
-      .then((r) => {
-        setRows(r.rows);
-        const d: Record<string, string> = {};
-        for (const row of r.rows) {
-          d[row.source] = row.amount == null ? "" : String(row.amount);
-        }
-        setDraft(d);
-        setLoaded(true);
-      })
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load spend"));
-  }, [open, month]);
-
-  useEffect(() => {
-    if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
-
-  if (!open) return null;
+  }, [onClose]);
 
   async function save() {
     setBusy(true);
-    setError("");
+    setSaveError("");
     try {
       const entries = rows.map((r) => {
-        const raw = draft[r.source]?.trim() ?? "";
+        const raw = amount(r).trim();
         if (raw === "") return { source: r.source, amount: null };
         const n = Number(raw);
         if (!Number.isInteger(n) || n < 0) throw new Error(`Invalid amount for ${r.label || portalLabel(r.source)}`);
@@ -83,7 +66,7 @@ export function SourceSpendEditor({
       onSaved();
       onClose();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not save");
+      setSaveError(e instanceof Error ? e.message : "Could not save");
       setBusy(false);
     }
   }
@@ -108,18 +91,25 @@ export function SourceSpendEditor({
         </div>
 
         <div className="border-b border-line px-5 py-3">
-          <label className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">Month</label>
+          <label htmlFor="spend-month" className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">Month</label>
           <input
+            id="spend-month"
             type="month"
+            disabled={busy}
             className="field mt-1 w-full"
             value={month}
-            onChange={(e) => setMonth(e.target.value)}
+            onChange={(e) => {
+              setMonth(e.target.value);
+              setDraft({});
+              setSaveError("");
+            }}
           />
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-3">
-          {!loaded && !error && <p className="text-sm text-muted">Loading…</p>}
-          {error && <p className="mb-3 text-sm font-semibold text-[var(--mark)]">{error}</p>}
+          {loading && <p className="text-sm text-muted">Loading…</p>}
+          {error && <p role="alert" className="mb-3 text-sm text-[var(--danger)]">{error} <button type="button" className="underline" onClick={refresh}>Retry</button></p>}
+          {saveError && <p role="alert" className="mb-3 text-sm text-[var(--danger)]">{saveError}</p>}
           <ul className="space-y-3">
             {rows.map((r) => (
               <li
@@ -138,7 +128,8 @@ export function SourceSpendEditor({
                   className="field mt-2 w-full"
                   inputMode="numeric"
                   placeholder="Not entered"
-                  value={draft[r.source] ?? ""}
+                  value={amount(r)}
+                  disabled={busy}
                   onChange={(e) => setDraft((d) => ({ ...d, [r.source]: e.target.value }))}
                   aria-label={`Spend for ${r.label || portalLabel(r.source)}`}
                 />
@@ -152,7 +143,7 @@ export function SourceSpendEditor({
           <button type="button" className="btn-ghost" onClick={onClose}>
             Cancel
           </button>
-          <button type="button" className="btn-primary" disabled={busy || !loaded} onClick={save}>
+          <button type="button" className="btn-primary" disabled={busy || loading || !data || Boolean(error)} onClick={save}>
             {busy ? "Saving…" : "Save spend"}
           </button>
         </div>

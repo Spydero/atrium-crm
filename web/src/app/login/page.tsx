@@ -16,14 +16,19 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
-    const { error: err } = await authClient.signIn.email({ email, password });
-    setLoading(false);
-    if (err) {
-      setError(err.message || "Login failed");
-      return;
+    try {
+      const { error: issue } = await authClient.signIn.email({ email, password });
+      if (issue) {
+        setError(issue.message || "Sign-in failed");
+        return;
+      }
+      const next = new URLSearchParams(window.location.search).get("next");
+      router.replace(next && /^\/app(?:[/?#]|$)/.test(next) && !next.includes("\\") ? next : "/app");
+    } catch {
+      setError("Could not connect to Atrium. Try again.");
+    } finally {
+      setLoading(false);
     }
-    const next = new URLSearchParams(window.location.search).get("next");
-    router.push(next && next.startsWith("/app") ? next : "/app");
   }
 
   return (
@@ -55,27 +60,31 @@ export default function LoginPage() {
           </div>
           <h1 className="font-display text-2xl font-bold tracking-[-0.03em]">Sign in</h1>
           <form onSubmit={onSubmit} className="mt-6 flex flex-col gap-3">
-            <label className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted">
+            <label className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted" htmlFor="email">
               Email
             </label>
             <input
               className="field w-full"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              id="email"
+              autoComplete="username"
               type="email"
               required
             />
-            <label className="mt-1 text-[11px] font-bold uppercase tracking-[0.12em] text-muted">
+            <label className="mt-1 text-[11px] font-bold uppercase tracking-[0.12em] text-muted" htmlFor="password">
               Password
             </label>
             <input
               className="field w-full"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              id="password"
+              autoComplete="current-password"
               type="password"
               required
             />
-            {error && <p className="text-sm text-[var(--danger)]">{error}</p>}
+            {error && <p role="alert" className="text-sm text-[var(--danger)]">{error}</p>}
             <button type="submit" disabled={loading} className="btn-primary mt-2 w-full">
               {loading ? "Signing in…" : "Sign in"}
             </button>

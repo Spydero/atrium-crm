@@ -30,15 +30,28 @@ function Splash({ children }: { children: React.ReactNode }) {
 export function AuthGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { data, isPending } = authClient.useSession();
+  const { data, isPending, error, refetch } = authClient.useSession();
   const user = (data?.user ?? null) as OpsUser | null;
 
   useEffect(() => {
-    if (!isPending && !user) {
+    if (!isPending && !error && !user) {
       const next = pathname && pathname !== "/" ? `?next=${encodeURIComponent(pathname)}` : "";
       router.replace(`/login${next}`);
     }
-  }, [isPending, user, pathname, router]);
+  }, [isPending, error, user, pathname, router]);
+
+  if (error) {
+    return (
+      <Splash>
+        <div className="space-y-3">
+          <h1 className="font-display text-2xl font-bold">Could not verify your session</h1>
+          <button type="button" className="btn-primary" onClick={() => void refetch()}>
+            Try again
+          </button>
+        </div>
+      </Splash>
+    );
+  }
 
   if (isPending || !user) {
     return (
@@ -48,7 +61,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!user.platformRole) {
+  if (user.platformRole !== "operator" && user.platformRole !== "super") {
     return (
       <Splash>
         <div className="max-w-sm">

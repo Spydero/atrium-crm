@@ -29,7 +29,7 @@ export default function InvitesPage() {
         subtitle="Outstanding invitations across all organizations."
       />
       <ErrorNote message={error} />
-      <div className="surface overflow-hidden">
+      <div className="surface overflow-x-auto">
         {invites === null && !error ? (
           <Empty>Loading…</Empty>
         ) : invites && invites.length === 0 ? (

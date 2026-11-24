@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { useApiQuery } from "@/lib/use-api-query";
 import {
   AlertTriangle,
   ArrowDownRight,
@@ -25,7 +26,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { api, formatAed, pct, portalLabel } from "@/lib/api";
+import { formatMoney, pct, portalLabel } from "@/lib/api";
 import {
   DateRangeFilter,
   dateRangeQuery,
@@ -218,7 +219,7 @@ function moneyQuery(range: DateRangeValue) {
   return `/api/money/map?${dateRangeQuery(range)}`;
 }
 
-function rangeFromSearch(sp: URLSearchParams | null): DateRangeValue {
+function rangeFromSearch(sp: Pick<URLSearchParams, "get">): DateRangeValue {
   const preset = sp?.get("range");
   const allowed = ["7d", "14d", "30d", "90d", "180d", "365d"] as const;
   if (preset && (allowed as readonly string[]).includes(preset)) {
@@ -231,10 +232,17 @@ function rangeFromSearch(sp: URLSearchParams | null): DateRangeValue {
 }
 
 export default function MoneyPage() {
-  const search = useSearchParams();
-  const [dateRange, setDateRange] = useState<DateRangeValue>(() => rangeFromSearch(search));
-  const [data, setData] = useState<MoneyMap | null>(null);
-  const [error, setError] = useState("");
+  return <Suspense fallback={<p className="text-muted">Loading…</p>}><MoneyFromUrl /></Suspense>;
+}
+
+function MoneyFromUrl() {
+  const range = rangeFromSearch(useSearchParams());
+  return <MoneyMapContent key={dateRangeQuery(range)} initialRange={range} />;
+}
+
+function MoneyMapContent({ initialRange }: { initialRange: DateRangeValue }) {
+  const [dateRange, setDateRange] = useState(initialRange);
+  const { data, error, refresh } = useApiQuery<MoneyMap>(moneyQuery(dateRange));
   const [sort, setSort] = useState<SortKey>("spend");
   const [dir, setDir] = useState<"asc" | "desc">("desc");
   const [showAll, setShowAll] = useState(false);
@@ -243,27 +251,11 @@ export default function MoneyPage() {
   const [spendOpen, setSpendOpen] = useState(false);
   const [spendFocus, setSpendFocus] = useState<string | null>(null);
   const [showAllRisk, setShowAllRisk] = useState(false);
-  const [tick, setTick] = useState(0);
-
-  useEffect(() => {
-    setDateRange(rangeFromSearch(search));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search.get("range"), search.get("from"), search.get("to")]);
-
-  useEffect(() => {
-    setError("");
-    api<MoneyMap>(moneyQuery(dateRange))
-      .then(setData)
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load"));
-  }, [dateRange, tick]);
-
-  const channelLabelOf = (key: string) => {
-    if (!data) return portalLabel(key);
-    const fromRow = data.rows.find((r) => r.source === key)?.label;
-    if (fromRow) return fromRow;
-    const fromCat = data.channels?.find((c) => c.key === key)?.label;
-    return fromCat || portalLabel(key);
-  };
+  const channelLabelOf = useCallback((key: string) => {
+    const fromRow = data?.rows.find((r) => r.source === key)?.label;
+    const fromCatalog = data?.channels?.find((c) => c.key === key)?.label;
+    return fromRow || fromCatalog || portalLabel(key);
+  }, [data]);
 
   const activeRows = useMemo(() => {
     if (!data) return [];
@@ -300,7 +292,7 @@ export default function MoneyPage() {
       if (typeof av === "string" && typeof bv === "string") return mul * av.localeCompare(bv);
       return mul * ((av as number) - (bv as number));
     });
-  }, [data, showAll, sort, dir]);
+  }, [data, showAll, sort, dir, channelLabelOf]);
 
   const chartRows = useMemo(() => {
     return activeRows
@@ -318,7 +310,7 @@ export default function MoneyPage() {
       .sort((a, b) =>
         chartMetric === "viewings" ? b.value - a.value : a.value - b.value,
       );
-  }, [activeRows, chartMetric]);
+  }, [activeRows, chartMetric, channelLabelOf]);
 
   function toggleSort(key: SortKey) {
     if (sort === key) setDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -328,42 +320,57 @@ export default function MoneyPage() {
     }
   }
 
-  if (error) return <p className="text-[var(--mark)]">{error}</p>;
-  if (!data) return <p className="text-muted">Loading…</p>;
+  const header = (
+    <div className="flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <h1 className="font-display text-[1.75rem] font-bold tracking-[-0.04em]">Money Map</h1>
+        <p className="mt-1 max-w-xl text-sm text-muted">
+          Which sources turn entered spend into viewings and wins. All-touch credit - one lead can count on more than one source.
+        </p>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <DateRangeFilter value={dateRange} onChange={setDateRange} />
+        <button
+          type="button"
+          className="btn-primary inline-flex items-center gap-1.5"
+          disabled={!data}
+          onClick={() => {
+            setSpendFocus(null);
+            setSpendOpen(true);
+          }}
+        >
+          <Pencil size={14} /> Edit spend
+        </button>
+      </div>
+    </div>
+  );
 
+  if (!data || error) return (
+    <div className="animate-rise space-y-4" data-testid="money-map">
+      {header}
+      {error ? (
+        <>
+          <p role="alert" className="text-[var(--danger)]">{error}</p>
+          <button type="button" className="btn-ghost" onClick={refresh}>Try again</button>
+        </>
+      ) : <p className="text-muted">Loading…</p>}
+    </div>
+  );
+
+  const money = (value: number) => formatMoney(value, data.currency.label || data.currency.code);
   const t = data.totals;
   const riskList = showAllRisk ? data.atRisk.list : data.atRisk.list.slice(0, 10);
   const median = data.benchmarks.medianCostPerViewing;
 
   return (
     <div className="animate-rise space-y-4" data-testid="money-map">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="font-display text-[1.75rem] font-bold tracking-[-0.04em]">Money Map</h1>
-          <p className="mt-1 max-w-xl text-sm text-muted">
-            Which sources turn entered spend into viewings and wins. All-touch credit - one lead can count on more than one source.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <DateRangeFilter value={dateRange} onChange={setDateRange} />
-          <button
-            type="button"
-            className="btn-primary inline-flex items-center gap-1.5"
-            onClick={() => {
-              setSpendFocus(null);
-              setSpendOpen(true);
-            }}
-          >
-            <Pencil size={14} /> Edit spend
-          </button>
-        </div>
-      </div>
+      {header}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         <StatCard
           icon={Banknote}
           label="Entered spend"
-          value={t.spend != null ? formatAed(t.spend) : "-"}
+          value={t.spend != null ? money(t.spend) : "-"}
           note={data.range.label}
           delta={t.delta.spend}
         />
@@ -378,27 +385,27 @@ export default function MoneyPage() {
           icon={Trophy}
           label="Wins"
           value={String(t.wins)}
-          note={formatAed(t.wonValue) + " won value"}
+          note={money(t.wonValue) + " won value"}
           delta={t.delta.wins}
         />
         <StatCard
           icon={ArrowDownRight}
           label="Cost / viewing"
-          value={t.costPerViewing != null ? formatAed(t.costPerViewing) : "-"}
-          note={median != null ? `median ${formatAed(median)}` : "need 2+ sources"}
+          value={t.costPerViewing != null ? money(t.costPerViewing) : "-"}
+          note={median != null ? `median ${money(median)}` : "need 2+ sources"}
           delta={t.delta.costPerViewing}
         />
         <StatCard
           icon={ArrowDownRight}
           label="Cost / win"
-          value={t.costPerWin != null ? formatAed(t.costPerWin) : "-"}
+          value={t.costPerWin != null ? money(t.costPerWin) : "-"}
           note="entered spend / wins"
           delta={t.delta.costPerWin}
         />
         <StatCard
           icon={AlertTriangle}
           label="At risk"
-          value={formatAed(data.atRisk.value)}
+          value={money(data.atRisk.value)}
           note={`${data.atRisk.leads} leads · right now`}
           danger
           onClick={() => document.getElementById("at-risk")?.scrollIntoView({ behavior: "smooth" })}
@@ -413,18 +420,18 @@ export default function MoneyPage() {
           {data.callouts.best && (
             <span className="rounded-full bg-[#dcfce7] px-3 py-1.5 text-xs font-bold text-[#166534]">
               Best: {channelLabelOf(data.callouts.best.source)} · cost / viewing{" "}
-              {formatAed(data.callouts.best.value)}
+              {money(data.callouts.best.value)}
             </span>
           )}
           {data.callouts.worst && (
             <span className="rounded-full bg-[#fee2e2] px-3 py-1.5 text-xs font-bold text-[#991b1b]">
               Worst: {channelLabelOf(data.callouts.worst.source)} · cost / viewing{" "}
-              {formatAed(data.callouts.worst.value)}
+              {money(data.callouts.worst.value)}
             </span>
           )}
           {data.callouts.reallocation && (
             <span className="rounded-full bg-[#ffedd5] px-3 py-1.5 text-xs font-bold text-[#9a3412]">
-              Rough estimate: move {formatAed(data.callouts.reallocation.amount)} / mo from{" "}
+              Rough estimate: move {money(data.callouts.reallocation.amount)} / mo from{" "}
               {channelLabelOf(data.callouts.reallocation.from)} to{" "}
               {channelLabelOf(data.callouts.reallocation.to)} for ~{data.callouts.reallocation.extraViewings}{" "}
               more viewings
@@ -493,7 +500,7 @@ export default function MoneyPage() {
                 />
                 <Tooltip
                   formatter={(v) =>
-                    chartMetric === "viewings" ? String(v) : formatAed(Number(v))
+                    chartMetric === "viewings" ? String(v) : money(Number(v))
                   }
                   contentStyle={{ borderRadius: 10, borderColor: "#e5e7eb", fontSize: 12 }}
                 />
@@ -602,7 +609,7 @@ export default function MoneyPage() {
                     {r.spend == null ? (
                       <span className="text-muted">Not entered</span>
                     ) : (
-                      formatAed(r.spend)
+                      money(r.spend)
                     )}
                     <Pencil size={12} className="text-muted" />
                   </button>
@@ -629,18 +636,18 @@ export default function MoneyPage() {
                   )}
                 </td>
                 <td className="px-3 py-3">{r.viewingToWinPct != null ? pct(r.viewingToWinPct) : "-"}</td>
-                <td className="px-3 py-3">{formatAed(r.wonValue)}</td>
+                <td className="px-3 py-3">{money(r.wonValue)}</td>
                 <td className="px-3 py-3">
-                  <div>{r.costPerViewing != null ? formatAed(r.costPerViewing) : "-"}</div>
+                  <div>{r.costPerViewing != null ? money(r.costPerViewing) : "-"}</div>
                   <DeltaPill d={r.delta.costPerViewing} />
                 </td>
                 <td className="px-3 py-3">
-                  <div>{r.costPerWin != null ? formatAed(r.costPerWin) : "-"}</div>
+                  <div>{r.costPerWin != null ? money(r.costPerWin) : "-"}</div>
                   <DeltaPill d={r.delta.costPerWin} />
                 </td>
                 <td className="px-3 py-3">
                   {r.atRisk.leads > 0 ? (
-                    <span className="font-semibold text-[var(--mark)]">{formatAed(r.atRisk.value)}</span>
+                    <span className="font-semibold text-[var(--mark)]">{money(r.atRisk.value)}</span>
                   ) : (
                     "-"
                   )}
@@ -663,7 +670,7 @@ export default function MoneyPage() {
           <div>
             <div className="text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--mark)]">At risk now</div>
             <p className="text-sm text-muted">
-              {formatAed(data.atRisk.value)} across {data.atRisk.leads} leads with overdue follow-ups or viewings
+              {money(data.atRisk.value)} across {data.atRisk.leads} leads with overdue follow-ups or viewings
               {data.atRisk.unvaluedLeads > 0
                 ? ` · +${data.atRisk.unvaluedLeads} with no deal value`
                 : ""}
@@ -687,7 +694,7 @@ export default function MoneyPage() {
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <span className="font-bold text-[var(--mark)]">{formatAed(l.dealValue || 0)}</span>
+                <span className="font-bold text-[var(--mark)]">{money(l.dealValue || 0)}</span>
                 <Link className="text-sm font-semibold text-accent hover:underline" href={`/app/leads?lead=${l.leadId}`}>
                   Open lead
                 </Link>
@@ -718,7 +725,7 @@ export default function MoneyPage() {
         open={spendOpen}
         onClose={() => setSpendOpen(false)}
         focusSource={spendFocus}
-        onSaved={() => setTick((n) => n + 1)}
+        onSaved={refresh}
       />
     </div>
   );

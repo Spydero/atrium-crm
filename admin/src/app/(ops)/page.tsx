@@ -13,22 +13,25 @@ function Stat({
 }: {
   label: string;
   value: number | undefined;
-  href: string;
+  href?: string;
 }) {
-  return (
-    <Link
-      href={href}
-      className="group flex flex-col gap-2 px-6 py-5 first:pl-0 hover:bg-[#f6f9fa]"
-    >
+  const classes = "flex flex-col gap-2 px-6 py-5";
+  const content = (
+    <>
       <span className="label !mb-0">{label}</span>
       <span className="font-display text-5xl font-bold tracking-tight tabular-nums">
         {value ?? "—"}
       </span>
-      <span className="flex items-center gap-1 text-xs font-semibold text-accent opacity-0 transition-opacity group-hover:opacity-100">
-        View <ArrowRight size={12} />
-      </span>
-    </Link>
+      {href && (
+        <span className="flex items-center gap-1 text-xs font-semibold text-accent">
+          View <ArrowRight size={12} />
+        </span>
+      )}
+    </>
   );
+  return href ? (
+    <Link href={href} className={`${classes} hover:bg-[#f6f9fa]`}>{content}</Link>
+  ) : <div className={classes}>{content}</div>;
 }
 
 export default function DashboardPage() {
@@ -53,12 +56,11 @@ export default function DashboardPage() {
         }
       />
       <ErrorNote message={error} />
-      <div className="surface grid divide-y divide-line sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-3">
+      <div className="surface grid divide-y divide-line sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-4">
         <Stat label="Organizations" value={data?.organizations} href="/organizations" />
         <Stat label="Pending invites" value={data?.pendingInvites} href="/invites" />
-        {data?.members !== undefined && (
-          <Stat label="Members" value={data.members} href="/organizations" />
-        )}
+        <Stat label="Users" value={data?.users} />
+        <Stat label="Access requests" value={data?.accessRequests} />
       </div>
     </>
   );

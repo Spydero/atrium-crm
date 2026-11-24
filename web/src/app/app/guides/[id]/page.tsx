@@ -148,6 +148,15 @@ export default function GuideDetailPage() {
     setTimeout(() => setMsg(""), 4000);
   }
 
+  async function exportGuide(path: string, name: string) {
+    setError("");
+    try {
+      await downloadFile(path, name);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Could not download file");
+    }
+  }
+
   async function save(e: React.FormEvent) {
     e.preventDefault();
     setBusy("save");
@@ -269,7 +278,7 @@ export default function GuideDetailPage() {
             <button
               type="button"
               className="btn-ghost inline-flex items-center gap-1.5"
-              onClick={() => downloadFile(`/api/guides/${id}/file`, `${g.slug}.pdf`)}
+              onClick={() => exportGuide(`/api/guides/${id}/file`, `${g.slug}.pdf`)}
             >
               <Download size={14} /> Preview PDF
             </button>
@@ -542,7 +551,7 @@ export default function GuideDetailPage() {
           <button
             type="button"
             className="btn-ghost inline-flex items-center gap-1.5"
-            onClick={() => downloadFile(`/api/guides/${id}/requests.csv`, `${g.slug}-requests.csv`)}
+            onClick={() => exportGuide(`/api/guides/${id}/requests.csv`, `${g.slug}-requests.csv`)}
           >
             <Download size={14} /> Export CSV
           </button>

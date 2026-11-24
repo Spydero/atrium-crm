@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useApiQuery } from "@/lib/use-api-query";
 import Link from "next/link";
 import {
   Users,
@@ -14,7 +15,8 @@ import {
   Eye,
   ChevronRight,
 } from "lucide-react";
-import { api, formatAed, portalLabel } from "@/lib/api";
+import { portalLabel } from "@/lib/api";
+import { useWorkspaceMoney } from "@/lib/workspace";
 import { TrendChart } from "@/components/TrendChart";
 import { ViewingHealthCard } from "@/components/ViewingHealth";
 import {
@@ -99,31 +101,13 @@ function formatWhen(iso: string) {
 }
 
 export default function DashboardPage() {
-  const [kpis, setKpis] = useState<Kpis | null>(null);
+  const money = useWorkspaceMoney();
   const [activeStage, setActiveStage] = useState<string | null>(null);
   const [hoverSource, setHoverSource] = useState<string | null>(null);
-  const [error, setError] = useState("");
-  const [refreshing, setRefreshing] = useState(false);
   const [dateRange, setDateRange] = useState<DateRangeValue>(() => defaultDateRange("7d"));
-
-  async function loadKpis(range: DateRangeValue = dateRange) {
-    setRefreshing(true);
-    try {
-      const data = await api<Kpis>(`/api/dashboard/kpis?${dateRangeQuery(range)}`);
-      setKpis(data);
-      setError("");
-    } catch (e) {
-      if (e instanceof Error && /session expired|unauthorized/i.test(e.message)) return;
-      setError(e instanceof Error ? e.message : "Failed to load");
-    } finally {
-      setRefreshing(false);
-    }
-  }
-
-  useEffect(() => {
-    loadKpis(dateRange);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dateRange.preset, dateRange.from, dateRange.to]);
+  const { data: kpis, error, loading: refreshing, refresh } = useApiQuery<Kpis>(
+    `/api/dashboard/kpis?${dateRangeQuery(dateRange)}`,
+  );
 
   const maxSource = useMemo(
     () => Math.max(1, ...(kpis?.sourceMix.map((s) => s.count) || [1])),
@@ -135,13 +119,57 @@ export default function DashboardPage() {
     [kpis],
   );
 
+  const header = (
+    <div className="flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <p className="text-sm font-medium text-muted">{greeting()}</p>
+        <h1 className="font-display text-[1.75rem] font-bold tracking-[-0.04em]">
+          Desk overview
+        </h1>
+        <p className="mt-0.5 text-sm text-muted">
+          Pipeline health, viewings, and what needs a reply today.
+        </p>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <DateRangeFilter value={dateRange} onChange={setDateRange} />
+        <button
+          type="button"
+          className="btn-ghost text-sm"
+          onClick={refresh}
+          disabled={refreshing}
+        >
+          {refreshing ? "Refreshing…" : "Refresh"}
+        </button>
+        <Link href="/app/leads" className="btn-ghost text-sm">
+          Open leads
+        </Link>
+        {kpis && (kpis.openLeads === 0 ? (
+          <Link href="/app/leads?add=1" className="btn-primary text-sm">
+            Add lead
+          </Link>
+        ) : (
+          <Link href="/app/listings" className="btn-primary text-sm">
+            Add listing
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+
   if (error) {
-    return <p className="text-[var(--danger)]">{error}</p>;
+    return (
+      <div className="animate-rise space-y-5">
+        {header}
+        <p role="alert" className="text-[var(--danger)]">{error}</p>
+        <button type="button" className="btn-ghost" onClick={refresh}>Try again</button>
+      </div>
+    );
   }
 
   if (!kpis) {
     return (
-      <div className="animate-rise space-y-4">
+      <div className="animate-rise space-y-5">
+        {header}
         <div className="h-8 w-48 animate-pulse rounded bg-line/60" />
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {[1, 2, 3, 4].map((i) => (
@@ -163,7 +191,7 @@ export default function DashboardPage() {
     },
     {
       label: "Pipeline",
-      value: formatAed(kpis.pipelineAed),
+      value: money(kpis.pipelineAed),
       hint: `${kpis.won} won · ${kpis.lost} lost`,
       href: "/app/leads",
       icon: Wallet,
@@ -194,40 +222,7 @@ export default function DashboardPage() {
 
   return (
     <div className="animate-rise space-y-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-sm font-medium text-muted">{greeting()}</p>
-          <h1 className="font-display text-[1.75rem] font-bold tracking-[-0.04em]">
-            Desk overview
-          </h1>
-          <p className="mt-0.5 text-sm text-muted">
-            Pipeline health, viewings, and what needs a reply today.
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <DateRangeFilter value={dateRange} onChange={setDateRange} />
-          <button
-            type="button"
-            className="btn-ghost text-sm"
-            onClick={() => loadKpis(dateRange)}
-            disabled={refreshing}
-          >
-            {refreshing ? "Refreshing…" : "Refresh"}
-          </button>
-          <Link href="/app/leads" className="btn-ghost text-sm">
-            Open leads
-          </Link>
-          {kpis.openLeads === 0 ? (
-            <Link href="/app/leads?add=1" className="btn-primary text-sm">
-              Add lead
-            </Link>
-          ) : (
-            <Link href="/app/listings" className="btn-primary text-sm">
-              Add listing
-            </Link>
-          )}
-        </div>
-      </div>
+      {header}
 
       {kpis.openLeads === 0 && kpis.listingsActive > 0 && (
         <div className="surface flex flex-wrap items-center justify-between gap-3 px-4 py-3">
@@ -311,7 +306,7 @@ export default function DashboardPage() {
                   <div className="mb-1.5 flex items-center justify-between gap-2">
                     <span className="text-xs font-bold tracking-wide">{row.stage}</span>
                     <span className="text-xs text-muted">
-                      {row.count} · {formatAed(row.valueAed)}
+                      {row.count} · {money(row.valueAed)}
                     </span>
                   </div>
                   <div className="h-1.5 overflow-hidden rounded-full bg-white">
@@ -446,7 +441,7 @@ export default function DashboardPage() {
               At-risk value
             </div>
             <div className="font-display mt-1 text-2xl font-bold tracking-[-0.03em] text-mark">
-              {formatAed(kpis.attention.atRiskAed)}
+              {money(kpis.attention.atRiskAed)}
             </div>
             <div className="mt-1 text-xs text-mark/80">
               {kpis.attention.overdueViewings} overdue · {kpis.attention.draftListings} drafts
@@ -464,7 +459,7 @@ export default function DashboardPage() {
                   <div className="text-xs text-muted">{item.detail}</div>
                 </div>
                 <div className="text-right text-xs font-bold text-mark">
-                  {formatAed(item.valueAed)}
+                  {money(item.valueAed)}
                 </div>
               </Link>
             ))}

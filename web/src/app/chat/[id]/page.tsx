@@ -1,16 +1,21 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { MessageSquare } from "lucide-react";
 import { API_BASE, ApiError } from "@/lib/api";
 import { ChatThread, type ChatPage } from "@/components/ChatThread";
 
 export default function ClientChatPage() {
   const { id } = useParams<{ id: string }>();
+  return <ClientChat key={id} id={id} />;
+}
+
+function ClientChat({ id }: { id: string }) {
   const key = `atrium-chat:${id}`;
   const endpoint = `${API_BASE}/api/client-chat/${encodeURIComponent(id)}`;
   const [session, setSession] = useState("");
+  const activeSession = useRef("");
   const [pinRequired, setPinRequired] = useState(false);
   const [pin, setPin] = useState("");
   const [invite, setInvite] = useState("");
@@ -18,6 +23,17 @@ export default function ClientChatPage() {
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  const updateSession = useCallback((token: string) => {
+    activeSession.current = token;
+    setSession(token);
+    try {
+      if (token) sessionStorage.setItem(key, token);
+      else sessionStorage.removeItem(key);
+    } catch {
+      // The current tab can still use the session when storage is disabled.
+    }
+  }, [key]);
 
   useEffect(() => {
     function captureInvite() {
@@ -29,11 +45,24 @@ export default function ClientChatPage() {
       setError("");
       window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search);
     }
-    captureInvite();
-    setSession(sessionStorage.getItem(key) ?? "");
-    setReady(true);
+    let active = true;
+    queueMicrotask(() => {
+      if (!active) return;
+      captureInvite();
+      try {
+        const saved = sessionStorage.getItem(key) ?? "";
+        activeSession.current = saved;
+        setSession(saved);
+      } catch {
+        // Storage can be disabled. The active tab can still hold its session in memory.
+      }
+      setReady(true);
+    });
     window.addEventListener("hashchange", captureInvite);
-    return () => window.removeEventListener("hashchange", captureInvite);
+    return () => {
+      active = false;
+      window.removeEventListener("hashchange", captureInvite);
+    };
   }, [key]);
 
   const requestResponse = useCallback(async (suffix: string, init?: RequestInit): Promise<Response> => {
@@ -41,9 +70,8 @@ export default function ClientChatPage() {
     if (init?.body && !(init.body instanceof FormData)) headers.set("Content-Type", "application/json");
     if (session) headers.set("Authorization", `Bearer ${session}`);
     const response = await fetch(`${endpoint}${suffix}`, { ...init, headers, cache: "no-store" });
-    if (response.status === 401 && session && suffix !== "/session") {
-      sessionStorage.removeItem(key);
-      setSession("");
+    if (response.status === 401 && session && session === activeSession.current && suffix !== "/session") {
+      updateSession("");
       setError("Your session has ended. Ask your broker for a new chat link.");
     }
     if (!response.ok) {
@@ -51,10 +79,13 @@ export default function ClientChatPage() {
       if (suffix === "/session" && response.status === 403 && data.code === "PIN_REQUIRED") {
         setPinRequired(true);
       }
-      throw new ApiError(data.error || "The request couldn’t be completed. Please try again.", response.status);
+      const message = suffix === "/session" && response.status === 429
+        ? "Too many sign-in attempts. Wait a few minutes and try this link again."
+        : data.error || "The request couldn’t be completed. Please try again.";
+      throw new ApiError(message, response.status);
     }
     return response;
-  }, [endpoint, key, session]);
+  }, [endpoint, session, updateSession]);
 
   const request = useCallback(async <T,>(suffix: string, init?: RequestInit): Promise<T> => {
     const response = await requestResponse(suffix, init);
@@ -73,8 +104,7 @@ export default function ClientChatPage() {
     setError("");
     try {
       const data = await request<{ token: string }>("/session", { method: "POST", body: JSON.stringify({ token: invite, ...(pinRequired ? { pin } : {}) }) });
-      sessionStorage.setItem(key, data.token);
-      setSession(data.token);
+      updateSession(data.token);
       setInvite("");
       setPin("");
       setPinRequired(false);
@@ -100,7 +130,9 @@ export default function ClientChatPage() {
           </div>
           {session && <button className="btn-ghost" onClick={() => {
             void request("/session", { method: "DELETE" }).catch(() => {});
-            sessionStorage.removeItem(key); setSession(""); setOrganization(""); setError("");
+            updateSession("");
+            setOrganization("");
+            setError("");
           }}>Sign out</button>}
         </header>
         {ready && (session && !invite ? (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronRight, TrendingDown, TrendingUp, Minus } from "lucide-react";
 import {
@@ -15,7 +15,9 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { api, formatAed, portalLabel, type OrgSettings } from "@/lib/api";
+import { portalLabel } from "@/lib/api";
+import { useWorkspace, useWorkspaceMoney } from "@/lib/workspace";
+import { useApiQuery } from "@/lib/use-api-query";
 import { dateRangeQuery, defaultDateRange, type DateRangeValue } from "@/components/DateRangeFilter";
 
 type Group = "day" | "week" | "month";
@@ -63,7 +65,7 @@ export type MetricMeta = { id: Metric; label: string; one: string; many: string;
 export type TrendConfig = {
   endpoint: string;
   metrics: MetricMeta[];
-  /** Metric whose bucket value is money (shown as AED) */
+  /** Metric whose bucket value is money (uses workspace currency) */
   moneyMetric?: Metric;
   /** Metric that draws stacked outcome bars from bucket.breakdown (legacy single; prefer stackBands) */
   stackMetric?: Metric;
@@ -232,6 +234,7 @@ function Details({
   noun: { one: string; many: string };
   cfg: TrendConfig;
 }) {
+  const money = useWorkspaceMoney();
   const bd = cfg.breakdown(trend.metric);
   const total = trend.totals.count;
   const topBreak = row.breakdown.slice(0, 4);
@@ -250,7 +253,7 @@ function Details({
         <span className="text-base font-bold text-accent">{row.count}</span>{" "}
         {row.count === 1 ? noun.one : noun.many}
         {cfg.moneyMetric === trend.metric && row.value > 0 && (
-          <span className="ml-1.5 font-semibold text-ink">worth {formatAed(row.value)}</span>
+          <span className="ml-1.5 font-semibold text-ink">worth {money(row.value)}</span>
         )}
       </div>
       <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-muted">
@@ -361,7 +364,9 @@ export function TrendChart({
   /** Extra query string (filters) sent with every request, e.g. "status=PUBLISHED" */
   extraQuery?: string;
 }) {
-  const [channelLabels, setChannelLabels] = useState<Map<string, string>>(() => new Map());
+  const money = useWorkspaceMoney();
+  const channels = useWorkspace()?.channels;
+  const channelLabels = useMemo(() => new Map(channels?.map((c) => [c.key, c.label])), [channels]);
   const cfg = useMemo(
     () => withChannelLabels(config, channelLabels),
     [config, channelLabels],
@@ -377,20 +382,9 @@ export function TrendChart({
   const [hideCancelled, setHideCancelled] = useState(true);
   // A pinned bar belongs to one view of the data; changing range, metric or grouping unpins it.
   const [pin, setPin] = useState<{ q: string; key: string } | null>(null);
-  const [result, setResult] = useState<{ key: string; trend?: Trend; error?: string } | null>(null);
   const bands = stackBands(metric);
   const stackOn = !!bands;
   const outcomesOn = metric === "outcomes";
-
-  useEffect(() => {
-    api<OrgSettings>("/api/settings")
-      .then((s) => {
-        const m = new Map<string, string>();
-        for (const c of s.channels || []) m.set(c.key, c.label);
-        setChannelLabels(m);
-      })
-      .catch(() => {});
-  }, []);
 
   const rangeKey = dateRangeQuery(range);
   const group: Group | "auto" = choice && choice.rk === rangeKey ? choice.g : "auto";
@@ -404,19 +398,8 @@ export function TrendChart({
     return p.toString();
   }, [rangeKey, metric, group, compare, extraQuery]);
 
-  useEffect(() => {
-    let live = true;
-    api<Trend>(`${cfg.endpoint}?${query}`)
-      .then((trend) => live && setResult({ key: query, trend }))
-      .catch((e) => live && setResult({ key: query, error: e instanceof Error ? e.message : "Failed to load" }));
-    return () => {
-      live = false;
-    };
-  }, [query]);
-
+  const { data: trend, loading, error } = useApiQuery<Trend>(`${cfg.endpoint}?${query}`);
   const selected = pin && pin.q === query ? pin.key : null;
-  const trend = result?.trend;
-  const loading = !result || result.key !== query;
   const meta = cfg.metrics.find((m) => m.id === metric) ?? cfg.metrics[0];
   const unit = trend?.group ?? (group === "auto" ? "day" : group);
 
@@ -568,7 +551,7 @@ export function TrendChart({
         </div>
       </div>
 
-      {result?.error && <p className="text-sm text-[var(--danger)]">{result.error}</p>}
+      {error && <p className="text-sm text-[var(--danger)]">{error}</p>}
 
       {t && (
         <div
@@ -616,7 +599,7 @@ export function TrendChart({
             </span>
           )}
           {cfg.moneyMetric === metric && (
-            <div className="text-sm font-bold text-ink">{formatAed(t.value)}</div>
+            <div className="text-sm font-bold text-ink">{money(t.value)}</div>
           )}
           {delta !== null && (
             <span
@@ -649,7 +632,7 @@ export function TrendChart({
       )}
 
       <div className={`h-[260px] transition-opacity ${loading ? "opacity-50" : ""}`} data-testid="trend-plot">
-        {!trend && !result?.error && <div className="h-full animate-pulse rounded bg-line/40" />}
+        {!trend && !error && <div className="h-full animate-pulse rounded bg-line/40" />}
         {trend && (
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={data} margin={{ top: 16, right: 8, left: 0, bottom: 0 }}>

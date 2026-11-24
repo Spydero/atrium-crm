@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -11,7 +11,8 @@ import {
   LeadMergeDialog,
   useDuplicateCount,
 } from "@/components/LeadDuplicates";
-import { api, formatAed, portalLabel, STAGES, type OrgChannel, type OrgSettings } from "@/lib/api";
+import { useWorkspace, useWorkspaceMoney } from "@/lib/workspace";
+import { api, portalLabel, STAGES, type OrgChannel } from "@/lib/api";
 
 type Lead = {
   id: string;
@@ -46,7 +47,20 @@ type LeadDetail = Lead & {
 
 type Listing = { id: string; title: string };
 
+function fetchLeads(signal?: AbortSignal) {
+  return Promise.all([
+    api<Lead[]>("/api/leads", { signal }),
+    api<Listing[]>("/api/listings", { signal }),
+  ]);
+}
+
 export default function LeadsPage() {
+  return <Suspense fallback={<p className="text-muted">Loading leads…</p>}><LeadsContent /></Suspense>;
+}
+
+function LeadsContent() {
+  const workspace = useWorkspace();
+  const money = useWorkspaceMoney();
   const search = useSearchParams();
   const router = useRouter();
   const filterSource = search.get("source");
@@ -63,7 +77,10 @@ export default function LeadsPage() {
   const [listings, setListings] = useState<Listing[]>([]);
   const [selected, setSelected] = useState<LeadDetail | null>(null);
   const [matches, setMatches] = useState<{ score: number; listing: { id: string; title: string; priceAed: number; community: string } }[]>([]);
-  const [note, setNote] = useState("");
+  const [draft, setDraft] = useState<{ leadId: string; text: string } | null>(null);
+  const note = draft?.leadId === selected?.id ? draft?.text ?? "" : "";
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionError, setActionError] = useState("");
   const [msg, setMsg] = useState("");
   const [demoMode, setDemoMode] = useState(false);
   const [demoBusy, setDemoBusy] = useState(false);
@@ -71,7 +88,8 @@ export default function LeadsPage() {
   const [enquiryError, setEnquiryError] = useState("");
   const [undoEnquiry, setUndoEnquiry] = useState<{ leadId: string; sourceId: string } | null>(null);
   const [showDemoTools, setShowDemoTools] = useState(false);
-  const [showAddLead, setShowAddLead] = useState(false);
+  const [addingFromToolbar, setAddingFromToolbar] = useState(false);
+  const showAddLead = addingFromToolbar || search.get("add") === "1";
   const [addError, setAddError] = useState("");
   const [adding, setAdding] = useState(false);
   const [addForm, setAddForm] = useState({
@@ -83,7 +101,9 @@ export default function LeadsPage() {
     budgetMax: "",
     bedsWanted: "",
   });
-  const [channels, setChannels] = useState<OrgChannel[]>([]);
+  const channels = useMemo(() => (workspace?.channels ?? []).filter((c) => c.enabled), [workspace]);
+  const defaultSource = channels.find((c) => c.key === "manual")?.key || channels[0]?.key || "manual";
+  const primarySource = channels.some((c) => c.key === addForm.primarySource) ? addForm.primarySource : defaultSource;
 
   // Bulk select + duplicates
   const [selectMode, setSelectMode] = useState(false);
@@ -95,27 +115,36 @@ export default function LeadsPage() {
   const [showLost, setShowLost] = useState(false);
   const dupes = useDuplicateCount();
 
-  const load = useCallback(async () => {
-    const [l, li] = await Promise.all([
-      api<Lead[]>("/api/leads"),
-      api<Listing[]>("/api/listings"),
-    ]);
-    setLeads(l);
-    setListings(li);
-  }, []);
+  const [loadError, setLoadError] = useState("");
+
+  async function load() {
+    try {
+      const [rows, inventory] = await fetchLeads();
+      setLeads(rows);
+      setListings(inventory);
+      setLoadError("");
+    } catch (error) {
+      setLoadError(error instanceof Error ? error.message : "Could not load leads");
+    }
+  }
 
   useEffect(() => {
-    load().catch(console.error);
+    const controller = new AbortController();
+    fetchLeads(controller.signal).then(([rows, inventory]) => {
+      if (controller.signal.aborted) return;
+      setLeads(rows);
+      setListings(inventory);
+    }).catch((error) => {
+      if (!controller.signal.aborted) setLoadError(error.message);
+    });
     api<{ demoMode: boolean }>("/api/testing/status")
       .then((s) => setDemoMode(s.demoMode))
       .catch(() => setDemoMode(false));
     api<Agent[]>("/api/leads/agents")
       .then(setAgents)
       .catch(() => setAgents([]));
-    api<OrgSettings>("/api/settings")
-      .then((s) => setChannels((s.channels || []).filter((c) => c.enabled)))
-      .catch(() => setChannels([]));
-  }, [load]);
+    return () => controller.abort();
+  }, []);
 
   const enquiryChannels = useMemo(() => {
     const preferred = channels.filter((c) => c.kind === "PORTAL" || c.kind === "ADS");
@@ -180,7 +209,7 @@ export default function LeadsPage() {
       setMsg(done(res.updated, res.unchanged));
       setSelectedIds(new Set());
       await load();
-      if (selected) await openLead(selected.id).catch(() => setSelected(null));
+      if (selected) await openLead(selected.id);
     } catch (e) {
       setMsg(e instanceof Error ? `Bulk action failed: ${e.message}` : "Bulk action failed");
     } finally {
@@ -311,31 +340,52 @@ export default function LeadsPage() {
     });
   }
 
-  async function openLead(id: string) {
-    const detail = await api<LeadDetail>(`/api/leads/${id}`);
-    setSelected(detail);
-    const m = await api<typeof matches>(`/api/leads/${id}/match`);
-    setMatches(m);
+  const detailRequest = useRef<AbortController | null>(null);
+  const detailTarget = useRef<string | null>(null);
+  const openLead = useCallback(async (id: string) => {
+    detailRequest.current?.abort();
+    detailTarget.current = id;
+    const controller = new AbortController();
+    detailRequest.current = controller;
+    const { signal } = controller;
+    setMatches([]);
+    setEnquiryError("");
+    setActionError("");
+    try {
+      const [detail, related] = await Promise.allSettled([
+        api<LeadDetail>(`/api/leads/${id}`, { signal }),
+        api<typeof matches>(`/api/leads/${id}/match`, { signal }),
+      ]);
+      if (signal.aborted) return;
+      if (detail.status === "rejected") throw detail.reason;
+      setSelected(detail.value);
+      if (related.status === "fulfilled") setMatches(related.value);
+      else setEnquiryError("Could not load matching listings.");
+    } catch (error) {
+      if (!signal.aborted) setMsg(error instanceof Error ? error.message : "Could not open lead");
+    }
+  }, []);
+
+  function closeLead() {
+    detailRequest.current?.abort();
+    detailTarget.current = null;
+    setSelected(null);
+    setMatches([]);
   }
 
-  useEffect(() => {
-    if (!openLeadId || !leads.length) return;
-    openLead(openLeadId).catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openLeadId, leads.length]);
+  useEffect(() => () => detailRequest.current?.abort(), []);
 
   useEffect(() => {
-    if (search.get("add") === "1") setShowAddLead(true);
-  }, [search]);
-
-  useEffect(() => {
-    if (!channels.length) return;
-    setAddForm((f) => {
-      if (channels.some((c) => c.key === f.primarySource)) return f;
-      const manual = channels.find((c) => c.key === "manual");
-      return { ...f, primarySource: manual?.key || channels[0].key };
+    if (!openLeadId) return;
+    let active = true;
+    queueMicrotask(() => {
+      if (active) void openLead(openLeadId);
     });
-  }, [channels]);
+    return () => {
+      active = false;
+      detailRequest.current?.abort();
+    };
+  }, [openLeadId, openLead]);
 
   function clearMoneyFilters() {
     router.push("/app/leads");
@@ -343,13 +393,17 @@ export default function LeadsPage() {
 
   function openAddLead() {
     setAddError("");
-    setShowAddLead(true);
+    setAddingFromToolbar(true);
   }
 
   function closeAddLead() {
-    setShowAddLead(false);
+    setAddingFromToolbar(false);
     setAddError("");
-    if (search.get("add") === "1") router.replace("/app/leads");
+    if (search.get("add") === "1") {
+      const params = new URLSearchParams(search);
+      params.delete("add");
+      router.replace(params.size ? `/app/leads?${params}` : "/app/leads", { scroll: false });
+    }
   }
 
   async function createLead(e: React.FormEvent) {
@@ -363,7 +417,7 @@ export default function LeadsPage() {
           name: addForm.name.trim(),
           phone: addForm.phone.trim(),
           email: addForm.email.trim() || null,
-          primarySource: addForm.primarySource || "manual",
+          primarySource,
           listingId: addForm.listingId || null,
           budgetMax: addForm.budgetMax ? Number(addForm.budgetMax) : null,
           bedsWanted: addForm.bedsWanted ? Number(addForm.bedsWanted) : null,
@@ -378,7 +432,7 @@ export default function LeadsPage() {
         name: "",
         phone: "",
         email: "",
-        primarySource: channels.find((c) => c.key === "manual")?.key || channels[0]?.key || "manual",
+        primarySource: defaultSource,
         listingId: "",
         budgetMax: "",
         bedsWanted: "",
@@ -394,13 +448,28 @@ export default function LeadsPage() {
     }
   }
 
-  async function moveStage(id: string, stage: string) {
-    await api(`/api/leads/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ stage }),
-    });
-    await load();
-    if (selected?.id === id) await openLead(id);
+  async function runLeadAction(action: () => Promise<void>, fallback: string) {
+    if (actionBusy) return;
+    setActionBusy(true);
+    setActionError("");
+    try {
+      await action();
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : fallback);
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
+  function moveStage(id: string, stage: string) {
+    return runLeadAction(async () => {
+      await api(`/api/leads/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ stage }),
+      });
+      await load();
+      if (detailTarget.current === id) await openLead(id);
+    }, "Could not move lead");
   }
 
   async function logEnquiry(source: string) {
@@ -441,34 +510,38 @@ export default function LeadsPage() {
     }
   }
 
-  async function addNote() {
+  function addNote() {
     if (!selected || !note.trim()) return;
-    await api(`/api/leads/${selected.id}/notes`, {
-      method: "POST",
-      body: JSON.stringify({ body: note }),
-    });
-    setNote("");
-    await openLead(selected.id);
+    const leadId = selected.id;
+    return runLeadAction(async () => {
+      await api(`/api/leads/${leadId}/notes`, {
+        method: "POST",
+        body: JSON.stringify({ body: note.trim() }),
+      });
+      setDraft((current) => current?.leadId === leadId && current.text === note ? null : current);
+      if (detailTarget.current === leadId) await openLead(leadId);
+    }, "Could not add note");
   }
 
-  async function scheduleViewing() {
+  function scheduleViewing() {
     if (!selected) return;
-    const starts = new Date();
-    starts.setDate(starts.getDate() + 2);
-    starts.setHours(10, 0, 0, 0);
-    await api("/api/calendar", {
-      method: "POST",
-      body: JSON.stringify({
-        title: `Viewing · ${selected.listing?.title || selected.name}`,
-        type: "VIEWING",
-        startsAt: starts.toISOString(),
-        leadId: selected.id,
-        listingId: selected.listing?.id,
-      }),
-    });
-    setMsg("Viewing scheduled on calendar.");
-    await load();
-    await openLead(selected.id);
+    const lead = selected;
+    return runLeadAction(async () => {
+      const starts = new Date();
+      starts.setDate(starts.getDate() + 2);
+      starts.setHours(10, 0, 0, 0);
+      await api("/api/calendar", {
+        method: "POST",
+        body: JSON.stringify({
+          title: `Viewing · ${lead.listing?.title || lead.name}`,
+          type: "VIEWING",
+          startsAt: starts.toISOString(),
+          leadId: lead.id,
+          listingId: lead.listing?.id,
+        }),
+      });
+      setMsg("Viewing scheduled on calendar.");
+    }, "Could not schedule viewing");
   }
 
   function renderColumn(
@@ -537,7 +610,7 @@ export default function LeadsPage() {
                 <div className="pr-6 text-sm font-bold">{lead.name}</div>
                 <div className={`mt-1 text-xs ${active ? "text-white/70" : "text-muted"}`}>
                   {lead.listing?.title || "No listing"}
-                  {lead.dealValueAed ? ` · ${formatAed(lead.dealValueAed)}` : ""}
+                  {lead.dealValueAed ? ` · ${money(lead.dealValueAed)}` : ""}
                 </div>
                 <div className={`mt-0.5 text-[11px] ${active ? "text-white/60" : "text-muted/80"}`}>
                   {lead.assignedTo?.name || "Unassigned"}
@@ -564,6 +637,11 @@ export default function LeadsPage() {
 
   return (
     <div className="animate-rise space-y-4">
+      {loadError && (
+        <p role="alert" className="text-sm text-[var(--danger)]">
+          {loadError} <button type="button" className="underline" onClick={load}>Retry</button>
+        </p>
+      )}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="font-display text-[1.75rem] font-bold tracking-[-0.04em]">Leads</h1>
@@ -697,6 +775,7 @@ export default function LeadsPage() {
         </div>
       </div>
 
+      {actionError && <p role="alert" className="text-sm text-[var(--danger)]">{actionError}</p>}
       {enquiryError && <p role="alert" className="text-sm text-[var(--danger)]">{enquiryError}</p>}
       {(msg || undoEnquiry) && (
         <div className="rounded-[var(--radius)] border border-accent/20 bg-accent-soft px-3 py-2.5 text-sm font-medium text-accent">
@@ -779,7 +858,7 @@ export default function LeadsPage() {
               <button
                 type="button"
                 className="text-sm font-semibold text-muted"
-                onClick={() => setSelected(null)}
+                onClick={closeLead}
               >
                 Close
               </button>
@@ -792,6 +871,7 @@ export default function LeadsPage() {
                 <button
                   key={s}
                   type="button"
+                  disabled={actionBusy}
                   onClick={() => moveStage(selected.id, s)}
                   className={`rounded-[6px] px-2.5 py-1 text-[11px] font-bold ${
                     selected.stage === s ? "bg-accent text-white" : "bg-[#eef1f4] text-muted"
@@ -801,7 +881,7 @@ export default function LeadsPage() {
                 </button>
               ))}
             </div>
-            <button type="button" onClick={scheduleViewing} className="btn-primary mt-4">
+            <button type="button" onClick={scheduleViewing} disabled={actionBusy} className="btn-primary mt-4">
               Schedule viewing
             </button>
             <div className="mt-5">
@@ -817,12 +897,13 @@ export default function LeadsPage() {
               </div>
               <div className="mt-2 flex gap-2">
                 <input
-                  className="field flex-1"
+                  className="field min-w-0 flex-1"
+                  aria-label="Lead note"
                   value={note}
-                  onChange={(e) => setNote(e.target.value)}
+                  onChange={(e) => setDraft({ leadId: selected.id, text: e.target.value })}
                   placeholder="Add a note"
                 />
-                <button type="button" onClick={addNote} className="btn-ghost">
+                <button type="button" onClick={addNote} disabled={actionBusy || !note.trim()} className="btn-ghost">
                   Add
                 </button>
               </div>
@@ -876,7 +957,7 @@ export default function LeadsPage() {
                   <div>
                     <div className="text-sm font-bold">{m.listing.title}</div>
                     <div className="text-xs text-muted">
-                      {m.listing.community} · {formatAed(m.listing.priceAed)}
+                      {m.listing.community} · {money(m.listing.priceAed)}
                     </div>
                   </div>
                   <span className="rounded bg-accent-soft px-2 py-1 text-xs font-bold text-accent">
@@ -894,7 +975,7 @@ export default function LeadsPage() {
 
       {selectMode &&
         createPortal(
-        <div className="pointer-events-none fixed bottom-5 left-[212px] right-0 z-50 flex justify-center px-4">
+        <div className="pointer-events-none fixed bottom-5 left-0 right-0 md:left-[212px] z-50 flex justify-center px-4">
           <div
             role="toolbar"
             aria-label="Bulk actions"
@@ -1050,7 +1131,7 @@ export default function LeadsPage() {
                     </span>
                     <select
                       className="field w-full"
-                      value={addForm.primarySource}
+                      value={primarySource}
                       onChange={(e) => setAddForm({ ...addForm, primarySource: e.target.value })}
                     >
                       {(channels.length ? channels : [{ key: "manual", label: "Manual" } as OrgChannel]).map(

@@ -9,7 +9,6 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SHOTS = path.resolve(__dirname, "../../design/screenshots");
 const API_DIR = path.resolve(__dirname, "../../api");
 const WEB = process.env.WEB_URL || "http://localhost:3000";
-const API = process.env.API_URL || "http://localhost:4000";
 const ORG = "levante-demo";
 fs.mkdirSync(SHOTS, { recursive: true });
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "guides-ui-"));

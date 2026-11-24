@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
-import { MapPin, X } from "lucide-react";
+import { MapPin } from "lucide-react";
 import { api } from "@/lib/api";
 import { ClickPinMap } from "@/components/ListingMap";
 
@@ -26,10 +26,20 @@ type Hit = {
 
 /** Parse "19.12, 72.84" / "19.12 72.84" / Google Maps style pairs from phones. */
 export function parseLatLng(raw: string): { lat: number; lng: number } | null {
-  const cleaned = raw.trim().replace(/°/g, " ");
-  const m = cleaned.match(
-    /(-?\d{1,2}(?:\.\d+)?)\s*[,;\s]\s*(-?\d{1,3}(?:\.\d+)?)/,
-  );
+  const cleaned = raw.trim().replace(/°/g, "").trim();
+  const pair = /^([+-]?\d{1,3}(?:\.\d+)?)(?:\s*[,;]\s*|\s+)([+-]?\d{1,3}(?:\.\d+)?)$/;
+  let m = cleaned.match(pair);
+  if (!m) {
+    // Map URLs can include a coordinate pair in the path or a search parameter.
+    try {
+      const url = new URL(cleaned);
+      const query = url.searchParams.get("q") || url.searchParams.get("query");
+      const at = url.pathname.match(/@([^/]+?)(?:,\d+(?:\.\d+)?[za])?(?:\/|$)/);
+      m = (query || at?.[1] || "").match(pair);
+    } catch {
+      return null;
+    }
+  }
   if (!m) return null;
   const a = Number(m[1]);
   const b = Number(m[2]);
@@ -85,14 +95,14 @@ export function PlaceInput({
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [searchError, setSearchError] = useState("");
-  const [coordsText, setCoordsText] = useState(
-    value.lat != null && value.lng != null ? `${value.lat}, ${value.lng}` : "",
-  );
+  const coordsValue = value.lat != null && value.lng != null
+    ? `${value.lat.toFixed(6)}, ${value.lng.toFixed(6)}` : "";
+  const [coordsDraft, setCoordsDraft] = useState<{ base: string; text: string } | null>(null);
+  const coordsText = coordsDraft?.base === coordsValue ? coordsDraft.text : coordsValue;
   const [coordsError, setCoordsError] = useState("");
-  const [showPinMap, setShowPinMap] = useState(
-    value.lat != null && value.lng != null,
-  );
+  const [showPinMap, setShowPinMap] = useState(Boolean(coordsValue));
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const controller = useRef<AbortController | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -100,41 +110,42 @@ export function PlaceInput({
       if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
     }
     document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      if (timer.current) clearTimeout(timer.current);
+      controller.current?.abort();
+    };
   }, []);
-
-  useEffect(() => {
-    if (value.lat != null && value.lng != null) {
-      setCoordsText(`${value.lat.toFixed(6)}, ${value.lng.toFixed(6)}`);
-      setShowPinMap(true);
-    }
-  }, [value.lat, value.lng]);
 
   function search(q: string) {
     if (timer.current) clearTimeout(timer.current);
-    if (q.trim().length < 2) {
-      setHits([]);
-      setSearchError("");
-      return;
-    }
+    controller.current?.abort();
+    setHits([]);
+    setOpen(false);
+    setLoading(false);
+    setSearchError("");
+    if (q.trim().length < 2) return;
+    const request = new AbortController();
+    controller.current = request;
     timer.current = setTimeout(async () => {
       setLoading(true);
-      setSearchError("");
       try {
         const data = await api<{ results: Hit[] }>(
           `/api/places/search?q=${encodeURIComponent(q.trim())}`,
+          { signal: request.signal },
         );
-        const next = data.results || [];
-        setHits(next);
-        setOpen(true);
-        if (!next.length) {
+        if (request.signal.aborted) return;
+        setHits(data.results);
+        setOpen(Boolean(data.results.length) && wrapRef.current?.contains(document.activeElement) === true);
+        if (!data.results.length) {
           setSearchError("No matches. Try a shorter query, paste coordinates, or tap the map.");
         }
       } catch {
-        setHits([]);
-        setSearchError("Place search unavailable. Paste coordinates or tap the map instead.");
+        if (!request.signal.aborted) {
+          setSearchError("Place search unavailable. Paste coordinates or tap the map instead.");
+        }
       } finally {
-        setLoading(false);
+        if (!request.signal.aborted) setLoading(false);
       }
     }, 320);
   }
@@ -149,6 +160,8 @@ export function PlaceInput({
       placeId: hit.placeId,
     });
     setQuery(hit.label);
+    setCoordsDraft(null);
+    setCoordsError("");
     setOpen(false);
     setHits([]);
     setSearchError("");
@@ -162,6 +175,7 @@ export function PlaceInput({
       return;
     }
     setCoordsError("");
+    setCoordsDraft(null);
     onChange({
       ...value,
       lat: parsed.lat,
@@ -178,7 +192,7 @@ export function PlaceInput({
       lng: null,
       placeId: null,
     });
-    setCoordsText("");
+    setCoordsDraft(null);
     setCoordsError("");
   }
 
@@ -189,7 +203,7 @@ export function PlaceInput({
       lng,
       placeId: null,
     });
-    setCoordsText(`${lat.toFixed(6)}, ${lng.toFixed(6)}`);
+    setCoordsDraft(null);
     setCoordsError("");
   }
 
@@ -348,7 +362,7 @@ export function PlaceInput({
             aria-label="Paste coordinates"
             value={coordsText}
             onChange={(e) => {
-              setCoordsText(e.target.value);
+              setCoordsDraft({ base: coordsValue, text: e.target.value });
               setCoordsError("");
             }}
             onKeyDown={(e) => {
