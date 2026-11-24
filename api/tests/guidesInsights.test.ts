@@ -1,6 +1,15 @@
 import "dotenv/config";
-import test, { before } from "node:test";
+import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
+
+import { prisma } from "../src/lib/prisma.js";
+import { createUserWithPassword } from "../src/lib/createUserAccount.js";
+import { randomUUID } from "node:crypto";
+
+const fixture = `guide-insights-${randomUUID()}`;
+let organizationId = "";
+let userId = "";
+const fixturePassword = "Guide-insights-123!";
 
 const API = process.env.API_URL || "http://localhost:4000";
 let cookie = "";
@@ -31,16 +40,38 @@ function past(len: number) {
 }
 
 before(async () => {
+  organizationId = (await prisma.organization.create({ data: { name: fixture, slug: fixture } })).id;
+  userId = (await createUserWithPassword({ name: fixture, email: `${fixture}@example.com`, password: fixturePassword, role: "broker", organizationId })).id;
+  const at = new Date();
+  at.setDate(at.getDate() - 3);
+  const samples = [
+    { title: "Buyer handbook", audience: "BUYER" as const, gated: true, status: "PUBLISHED" as const },
+    { title: "Investor handbook", audience: "INVESTOR" as const, gated: false, status: "PUBLISHED" as const },
+    { title: "Seller draft", audience: "SELLER" as const, gated: true, status: "DRAFT" as const },
+  ];
+  for (const [index, sample] of samples.entries()) {
+    await prisma.guide.create({ data: {
+      ...sample, organizationId, slug: `sample-${index}`, summary: sample.title,
+      stats: { create: { date: key(at), views: 10 + index, downloads: sample.gated ? 0 : 3 } },
+      requests: { create: { token: `${fixture}-${index}`, name: fixture, email: `${fixture}@example.com`, createdAt: at, downloadCount: 1, firstDownloadedAt: at, utmSource: "website" } },
+    } });
+  }
   const login = await fetch(`${API}/api/auth/sign-in/email`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Origin: "http://localhost:3000" },
-    body: JSON.stringify({ email: "agent@atrium.demo", password: "demo1234" }),
+    body: JSON.stringify({ email: `${fixture}@example.com`, password: fixturePassword }),
   });
   assert.ok(login.ok, "login failed - is the API running and seeded?");
   cookie = login.headers
     .getSetCookie()
     .map((c) => c.split(";")[0])
     .join("; ");
+});
+
+after(async () => {
+  if (userId) await prisma.user.deleteMany({ where: { id: userId } });
+  if (organizationId) await prisma.organization.deleteMany({ where: { id: organizationId } });
+  await prisma.$disconnect();
 });
 
 const sum = (rows: any[], f: (r: any) => number) => rows.reduce((a, r) => a + f(r), 0);
@@ -55,7 +86,7 @@ test("library numbers add up: totals, rows, channels and the gated/open split", 
   assert.equal(t.newDownloads, sum(rows, (x) => x.newDownloads));
   assert.equal(t.gatedViews + t.openViews, t.views, "every view is either form first or open");
   assert.equal(sum(r.json.channels, (c) => c.requests), t.requests, "channels add up to requests");
-  assert.ok(t.views > 0 && t.requests > 0, "demo data present");
+  assert.ok(t.views > 0 && t.requests > 0, "isolated fixture data present");
   for (const c of r.json.channels) {
     assert.ok(c.downloaded <= c.requests && c.reachedViewing <= c.leads);
   }

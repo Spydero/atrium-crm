@@ -48,7 +48,6 @@ type Kpis = {
   pipelineAed: number;
   viewingsWeek: number;
   closeRate: number;
-  winRateOpen: number;
   won: number;
   lost: number;
   listingsActive: number;
@@ -173,8 +172,8 @@ export default function DashboardPage() {
     {
       label: "Close rate",
       value: `${kpis.closeRate}%`,
-      hint: `${kpis.winRateOpen}% of open+won`,
-      href: "/app/money",
+      hint: `All-time · ${kpis.won} won / ${kpis.won + kpis.lost} closed`,
+      href: "/app/leads?slice=closed",
       icon: TrendingUp,
       accent: true,
     },
@@ -218,11 +217,29 @@ export default function DashboardPage() {
           <Link href="/app/leads" className="btn-ghost text-sm">
             Open leads
           </Link>
-          <Link href="/app/listings" className="btn-primary text-sm">
-            Add listing
-          </Link>
+          {kpis.openLeads === 0 ? (
+            <Link href="/app/leads?add=1" className="btn-primary text-sm">
+              Add lead
+            </Link>
+          ) : (
+            <Link href="/app/listings" className="btn-primary text-sm">
+              Add listing
+            </Link>
+          )}
         </div>
       </div>
+
+      {kpis.openLeads === 0 && kpis.listingsActive > 0 && (
+        <div className="surface flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+          <p className="text-sm text-muted">
+            <span className="font-semibold text-ink">Inventory is live.</span> Pipeline stays at zero
+            until you log a lead.
+          </p>
+          <Link href="/app/leads?add=1" className="btn-primary shrink-0 text-sm">
+            Add lead
+          </Link>
+        </div>
+      )}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {kpisCards.map((card, i) => {

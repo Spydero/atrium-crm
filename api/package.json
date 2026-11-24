@@ -15,7 +15,8 @@
     "db:seed:demo": "tsx src/seed.ts && tsx scripts/seed-history.ts",
     "db:generate": "prisma generate",
     "test": "tsx --test tests/*.test.ts",
-    "test:unit": "tsx --test tests/leadTools.test.ts tests/guideTools.test.ts"
+    "test:chat": "node --env-file=.env --import tsx scripts/test-chat-browser.mjs",
+    "test:unit": "tsx --test tests/leadTools.test.ts tests/guideTools.test.ts tests/safeImage.test.ts"
   },
   "keywords": [],
   "author": "",

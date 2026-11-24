@@ -43,8 +43,17 @@ Folder names use UTC time (Prisma does this for new migrations). The three basel
 
 ## Migrations (newest first)
 
+### 20261031154500_lead_lost_at
+- Date applied: 2026-10-31 (see apply-log.md)
+- Purpose: Outcomes chart and Lost clocks — date when a lead entered LOST (mirrors `wonAt`)
+- Changes: `Lead.lostAt` (nullable DateTime) + index `(organizationId, lostAt)`
+- Data impact: backfilled `lostAt = updatedAt` for current LOST; `wonAt = updatedAt` where WON and `wonAt` was null
+- Risk: low
+- Reversal: drop column and index
+- Code that depends on it: `src/lib/leadStageClock.ts`, leads PATCH/bulk, `dashboard` Outcomes trend
+
 ### 20261031124641_platform_admin
-- Date applied: pending deploy
+- Date applied: 2026-10-31 (see apply-log.md)
 - Purpose: Platform operators + invite-only brokerage provisioning (separate admin app)
 - Changes: `User.platformRole`, `User.disabledAt`; `Organization.status`/`suspendedAt`; tables `Invitation`, `AccessRequest`; default role `broker`; backfill `agent` -> `broker`
 - Data impact: backfilled role rename only
@@ -129,3 +138,23 @@ Folder names use UTC time (Prisma does this for new migrations). The three basel
 ## Notes on versions that had no database change
 
 V1.2 (bulk actions and duplicate merge), V1.3 (consultation plan only) and V1.5 (dashboard trends) changed no tables or columns. V1.5 only added `prisma` reads and a seed script (`scripts/seed-history.ts`, demo data).
+
+## 20261124100000_messaging
+
+Adds conversations, text messages, read markers, and hashed client sign-in and session passes. Existing CRM rows are unchanged. Each staff pair has one DM per brokerage and each lead can have one client conversation. Restoring the pre-migration backup would remove chat data, so export anything needed before reverting.
+
+## 20261124110000_shareable_chat_links
+
+Replaces email-bound client chat invitations with one-time shareable links. Keeps conversations and messages intact, retires unused email invitations, and preserves active sessions except where the lead's email had already changed and invalidated access under the old rules. Reverting requires a backup for the removed email binding.
+
+## 20261124120000_chat_link_expiry
+
+Allows a null expiry for unused client chat links. Browser sessions still require an expiry. Existing links and sessions retain their original expiration dates. Before reversing, revoke any unused invitations with no expiry.
+
+## 20261124130000_client_chat_pin
+
+Adds an optional keyed PIN digest and failed-attempt count to client chat invitations. Existing invites and sessions keep their current behavior. Revoke any outstanding PIN-protected invitations before reverting so they cannot become open invitations.
+
+## 20261124140000_chat_attachments
+
+Adds private file attachments to chat messages. Existing text-only messages are unchanged. Attachment bytes are stored in PostgreSQL, fetched separately from conversation history, and deleted with their message. Export attachments before rolling back the table.

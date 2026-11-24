@@ -4,6 +4,10 @@ import { DEMO_PLACES, searchCatalog } from "../data/stockCatalog.js";
 
 export const testingRouter = Router();
 
+export function demoModeEnabled() {
+  return process.env.DEMO_MODE?.trim().toLowerCase() === "true";
+}
+
 function testingEnabled() {
   return String(process.env.TESTING_ENABLED || "").toLowerCase() === "true";
 }
@@ -11,6 +15,7 @@ function testingEnabled() {
 testingRouter.get("/status", (_req, res) => {
   res.json({
     testingEnabled: testingEnabled(),
+    demoMode: demoModeEnabled(),
     photoProvider: "local",
   });
 });

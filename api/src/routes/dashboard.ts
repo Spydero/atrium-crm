@@ -126,8 +126,6 @@ dashboardRouter.get("/kpis", async (req: AuthedRequest, res) => {
 
   const closed = won + lost;
   const closeRate = closed > 0 ? Math.round((won / closed) * 100) : 0;
-  const winRateOpen =
-    openLeads + won > 0 ? Math.round((won / (openLeads + won)) * 100) : 0;
 
   const chart = buildChartBuckets(
     range,
@@ -173,7 +171,6 @@ dashboardRouter.get("/kpis", async (req: AuthedRequest, res) => {
     pipelineAed: pipeline._sum.dealValueAed ?? 0,
     viewingsWeek: viewingsInRange,
     closeRate,
-    winRateOpen,
     won,
     lost,
     listingsActive,
@@ -215,7 +212,7 @@ dashboardRouter.get("/kpis", async (req: AuthedRequest, res) => {
   });
 });
 
-const METRICS: TrendMetric[] = ["leads", "viewings", "won"];
+const METRICS: TrendMetric[] = ["leads", "viewings", "won", "outcomes"];
 
 async function trendItems(
   organizationId: string,
@@ -231,12 +228,62 @@ async function trendItems(
     return viewingTrendItems(rows, new Date());
   }
   if (metric === "won") {
-    // The date a deal is counted is the last time the lead was updated while in WON.
     const rows = await prisma.lead.findMany({
-      where: { organizationId, stage: "WON", updatedAt: { gte: from, lte: to } },
-      select: { updatedAt: true, primarySource: true, dealValueAed: true },
+      where: {
+        organizationId,
+        stage: "WON",
+        OR: [
+          { wonAt: { gte: from, lte: to } },
+          { wonAt: null, updatedAt: { gte: from, lte: to } },
+        ],
+      },
+      select: { wonAt: true, updatedAt: true, primarySource: true, dealValueAed: true },
     });
-    return rows.map((r) => ({ at: r.updatedAt, key: r.primarySource, value: r.dealValueAed ?? 0 }));
+    const items: TrendItem[] = [];
+    for (const r of rows) {
+      const at = r.wonAt ?? r.updatedAt;
+      if (at < from || at > to) continue;
+      items.push({ at, key: r.primarySource, value: r.dealValueAed ?? 0 });
+    }
+    return items;
+  }
+  if (metric === "outcomes") {
+    const [wonRows, lostRows] = await Promise.all([
+      prisma.lead.findMany({
+        where: {
+          organizationId,
+          stage: "WON",
+          OR: [
+            { wonAt: { gte: from, lte: to } },
+            { wonAt: null, updatedAt: { gte: from, lte: to } },
+          ],
+        },
+        select: { wonAt: true, updatedAt: true, dealValueAed: true },
+      }),
+      prisma.lead.findMany({
+        where: {
+          organizationId,
+          stage: "LOST",
+          OR: [
+            { lostAt: { gte: from, lte: to } },
+            { lostAt: null, updatedAt: { gte: from, lte: to } },
+          ],
+        },
+        select: { lostAt: true, updatedAt: true },
+      }),
+    ]);
+    const items: TrendItem[] = [];
+    for (const r of wonRows) {
+      const at = r.wonAt ?? r.updatedAt;
+      if (at < from || at > to) continue;
+      items.push({ at, key: "WON", value: r.dealValueAed ?? 0 });
+    }
+    for (const r of lostRows) {
+      const at = r.lostAt ?? r.updatedAt;
+      if (at < from || at > to) continue;
+      items.push({ at, key: "LOST" });
+    }
+    return items;
   }
   const rows = await prisma.lead.findMany({
     where: { organizationId, createdAt: { gte: from, lte: to } },

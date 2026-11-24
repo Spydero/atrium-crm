@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   addMonths,
@@ -643,6 +644,14 @@ export default function CalendarPage() {
                     </option>
                   ))}
                 </select>
+                {leads.length === 0 && (
+                  <p className="text-xs text-muted">
+                    No leads in this office yet.{" "}
+                    <Link href="/app/leads?add=1" className="font-semibold text-accent hover:underline">
+                      Add a lead
+                    </Link>
+                  </p>
+                )}
               </label>
               <label className="block space-y-1">
                 <span className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted">Listing</span>

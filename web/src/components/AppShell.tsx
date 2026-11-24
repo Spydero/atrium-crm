@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { api } from "@/lib/api";
 import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
@@ -14,6 +16,7 @@ import {
   Settings,
   MapPinned,
   BookOpen,
+  MessageSquare,
 } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 
@@ -24,6 +27,7 @@ const groups = [
       { href: "/app", label: "Dashboard", icon: LayoutDashboard },
       { href: "/app/leads", label: "Leads", icon: Users },
       { href: "/app/calendar", label: "Calendar", icon: CalendarDays },
+      { href: "/app/messages", label: "Messages", icon: MessageSquare },
     ],
   },
   {
@@ -60,6 +64,25 @@ export function AppShell({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+
+  const [unread, setUnread] = useState(0);
+  useEffect(() => {
+    let active = true;
+    const refresh = () => {
+      if (document.visibilityState !== "visible") return;
+      void api<{ unread: number }>("/api/messages/unread").then(data => {
+        if (active) setUnread(data.unread);
+      }).catch(() => {});
+    };
+    refresh();
+    const timer = window.setInterval(refresh, 10000);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [pathname]);
 
   async function signOut() {
     await authClient.signOut();
@@ -99,6 +122,11 @@ export function AppShell({
                     >
                       <Icon size={16} strokeWidth={1.8} />
                       {label}
+                      {href === "/app/messages" && unread > 0 && (
+                        <span className="ml-auto rounded-full bg-white/20 px-2 text-xs" aria-label={`${unread} unread messages`}>
+                          {unread}
+                        </span>
+                      )}
                     </Link>
                   );
                 })}

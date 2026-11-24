@@ -88,14 +88,14 @@ before(async () => {
   const login = await fetch(`${API}/api/auth/sign-in/email`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Origin: "http://localhost:3000" },
-    body: JSON.stringify({ email: "agent@atrium.demo", password: "demo1234" }),
+    body: JSON.stringify({ email: "owner@atrium.demo", password: "demo1234" }),
   });
   assert.ok(login.ok, "login failed - is the API running and seeded?");
   cookie = login.headers
     .getSetCookie()
     .map((c) => c.split(";")[0])
     .join("; ");
-  const me = await prisma.user.findUniqueOrThrow({ where: { email: "agent@atrium.demo" } });
+  const me = await prisma.user.findUniqueOrThrow({ where: { email: "owner@atrium.demo" } });
   orgId = me.organizationId!;
   agentId = me.id;
   const org = await prisma.organization.findUniqueOrThrow({ where: { id: orgId } });

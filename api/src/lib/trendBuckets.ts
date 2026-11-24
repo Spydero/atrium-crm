@@ -1,7 +1,7 @@
 import { endOfDay, localKey, startOfDay, type ResolvedRange } from "./dateRange.js";
 
 export type TrendGroup = "day" | "week" | "month";
-export type TrendMetric = "leads" | "viewings" | "won";
+export type TrendMetric = "leads" | "viewings" | "won" | "outcomes";
 
 export type TrendItem = {
   at: Date;

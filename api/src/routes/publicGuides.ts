@@ -50,7 +50,7 @@ const publicGuide = {
 
 publicGuidesRouter.get("/guides/:orgSlug", async (req, res) => {
   const org = await prisma.organization.findUnique({
-    where: { slug: String(req.params.orgSlug) },
+    where: { slug: String(req.params.orgSlug), status: "ACTIVE" },
     select: {
       ...publicOrg,
       guides: {
@@ -67,13 +67,13 @@ publicGuidesRouter.get("/guides/:orgSlug", async (req, res) => {
 
 publicGuidesRouter.get("/guides/:orgSlug/:guideSlug", async (req, res) => {
   const org = await prisma.organization.findUnique({
-    where: { slug: String(req.params.orgSlug) },
+    where: { slug: String(req.params.orgSlug), status: "ACTIVE" },
     select: publicOrg,
   });
   if (!org) return res.status(404).json({ error: "Not found" });
   const guide = await prisma.guide.findFirst({
     where: {
-      organization: { slug: org.slug },
+      organization: { slug: org.slug, status: "ACTIVE" },
       slug: String(req.params.guideSlug),
       status: "PUBLISHED",
     },
@@ -91,7 +91,7 @@ publicGuidesRouter.get("/guides/:orgSlug/:guideSlug", async (req, res) => {
 publicGuidesRouter.post("/guides/:orgSlug/:guideSlug/view", async (req, res) => {
   const guide = await prisma.guide.findFirst({
     where: {
-      organization: { slug: String(req.params.orgSlug) },
+      organization: { slug: String(req.params.orgSlug), status: "ACTIVE" },
       slug: String(req.params.guideSlug),
       status: "PUBLISHED",
     },
@@ -129,12 +129,12 @@ const requestBody = z.object({
 
 publicGuidesRouter.post("/guides/:orgSlug/:guideSlug/request", async (req, res) => {
   const org = await prisma.organization.findUnique({
-    where: { slug: String(req.params.orgSlug) },
+    where: { slug: String(req.params.orgSlug), status: "ACTIVE" },
     select: { name: true, slug: true },
   });
   if (!org) return res.status(404).json({ error: "Not found" });
   const guide = await prisma.guide.findFirst({
-    where: { organization: { slug: org.slug }, slug: String(req.params.guideSlug), status: "PUBLISHED" },
+    where: { organization: { slug: org.slug, status: "ACTIVE" }, slug: String(req.params.guideSlug), status: "PUBLISHED" },
     select: { id: true, organizationId: true, title: true, ownerId: true, filePath: true },
   });
   if (!guide || !guideFilePath(guide.filePath)) return res.status(404).json({ error: "Not found" });
@@ -179,7 +179,7 @@ publicGuidesRouter.post("/guides/:orgSlug/:guideSlug/request", async (req, res) 
 /** Thank-you page data for a personal link. */
 publicGuidesRouter.get("/guide-requests/:token", async (req, res) => {
   const r = await prisma.guideRequest.findUnique({
-    where: { token: String(req.params.token) },
+    where: { token: String(req.params.token), guide: { organization: { status: "ACTIVE" } } },
     select: {
       name: true,
       guide: {
@@ -208,7 +208,7 @@ function sendPdf(res: import("express").Response, file: string, title: string) {
 /** Personal link: counts the download against the request. Links do not expire. */
 publicGuidesRouter.get("/guide-files/:token", async (req, res) => {
   const r = await prisma.guideRequest.findUnique({
-    where: { token: String(req.params.token) },
+    where: { token: String(req.params.token), guide: { organization: { status: "ACTIVE" } } },
     select: { id: true, guide: { select: { title: true, status: true, filePath: true } } },
   });
   if (!r) return res.status(404).json({ error: "Not found" });
@@ -226,7 +226,7 @@ publicGuidesRouter.get("/guide-files/:token", async (req, res) => {
 publicGuidesRouter.get("/guides/:orgSlug/:guideSlug/file", async (req, res) => {
   const guide = await prisma.guide.findFirst({
     where: {
-      organization: { slug: String(req.params.orgSlug) },
+      organization: { slug: String(req.params.orgSlug), status: "ACTIVE" },
       slug: String(req.params.guideSlug),
       status: "PUBLISHED",
     },

@@ -2,6 +2,9 @@ import { Router } from "express";
 import multer from "multer";
 import path from "node:path";
 import fs from "node:fs";
+import crypto from "node:crypto";
+import { checkImage } from "../lib/guideTools.js";
+import { mediaUrl } from "../lib/media.js";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
 import { requireAuth, type AuthedRequest } from "../middleware/requireAuth.js";
@@ -12,14 +15,8 @@ const uploadDir = path.join(process.cwd(), "uploads");
 fs.mkdirSync(uploadDir, { recursive: true });
 
 const upload = multer({
-  storage: multer.diskStorage({
-    destination: (_req, _file, cb) => cb(null, uploadDir),
-    filename: (_req, file, cb) => {
-      const safe = file.originalname.replace(/[^a-zA-Z0-9._-]/g, "_");
-      cb(null, `${Date.now()}-${safe}`);
-    },
-  }),
-  limits: { fileSize: 8 * 1024 * 1024 },
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
 });
 
 const listingBody = z.object({
@@ -267,6 +264,13 @@ listingsRouter.get("/:id/brochure.pdf", async (req: AuthedRequest, res) => {
 
 listingsRouter.post(
   "/:id/photos",
+  async (req: AuthedRequest, res, next) => {
+    const organizationId = orgId(req);
+    if (!organizationId) return res.status(400).json({ error: "No organization" });
+    const owned = await prisma.listing.findFirst({ where: { id: String(req.params.id), organizationId }, select: { id: true } });
+    if (!owned) return res.status(404).json({ error: "Not found" });
+    next();
+  },
   upload.single("photo"),
   async (req: AuthedRequest, res) => {
     const organizationId = orgId(req);
@@ -277,15 +281,26 @@ listingsRouter.post(
     if (!existing) return res.status(404).json({ error: "Not found" });
     if (!req.file) return res.status(400).json({ error: "No file" });
 
-    const url = `http://localhost:${process.env.PORT || 4000}/uploads/${req.file.filename}`;
-    const listing = await prisma.listing.update({
-      where: { id: existing.id },
-      data: {
-        coverUrl: existing.coverUrl ?? url,
-        photoUrls: [...existing.photoUrls, url],
-      },
-      include: { portals: true },
-    });
+    const image = checkImage(req.file.buffer);
+    if (!image.ok) return res.status(400).json({ error: image.error });
+    const filename = `${crypto.randomBytes(16).toString("hex")}.${image.ext}`;
+    const file = path.join(uploadDir, filename);
+    await fs.promises.writeFile(file, req.file.buffer, { flag: "wx" });
+    const url = mediaUrl(filename);
+    let listing;
+    try {
+      listing = await prisma.listing.update({
+        where: { id: existing.id },
+        data: {
+          coverUrl: existing.coverUrl ?? url,
+          photoUrls: [...existing.photoUrls, url],
+        },
+        include: { portals: true },
+      });
+    } catch (error) {
+      await fs.promises.unlink(file);
+      throw error;
+    }
     res.json(listing);
   },
 );

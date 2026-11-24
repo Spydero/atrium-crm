@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { mediaUrl } from "../lib/media.js";
 import multer from "multer";
 import path from "node:path";
 import fs from "node:fs";
@@ -338,7 +339,7 @@ guidesRouter.post("/:id/cover", memory.single("cover"), async (req: AuthedReques
   if (!check.ok) return res.status(400).json({ error: check.error });
   const name = `guide-cover-${crypto.randomBytes(8).toString("hex")}.${check.ext}`;
   fs.writeFileSync(path.join(coverDir, name), req.file.buffer);
-  const url = `http://localhost:${process.env.PORT || 4000}/uploads/${name}`;
+  const url = mediaUrl(name);
   const guide = await prisma.guide.update({ where: { id: g.id }, data: { coverUrl: url } });
   res.json(present(guide));
 });

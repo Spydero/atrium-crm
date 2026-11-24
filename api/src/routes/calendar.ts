@@ -135,9 +135,9 @@ calendarRouter.post("/", async (req: AuthedRequest, res) => {
       },
     });
     if (parsed.data.type === "VIEWING") {
-      await prisma.lead.update({
-        where: { id: parsed.data.leadId },
-        data: { stage: "VIEWING" },
+      await prisma.lead.updateMany({
+        where: { id: parsed.data.leadId, organizationId, stage: { in: ["NEW", "QUALIFIED"] } },
+        data: { stage: "VIEWING", wonAt: null, lostAt: null },
       });
     }
   }
@@ -184,10 +184,9 @@ calendarRouter.patch("/:id", async (req: AuthedRequest, res) => {
     const reason = data.cancelReason !== undefined ? data.cancelReason : existing.cancelReason;
     if (!reason) return res.status(400).json({ error: "Pick a cancel reason" });
   }
-  if (data.endsAt && data.startsAt && data.endsAt < data.startsAt) {
-    return res.status(400).json({ error: "End time must be after start time" });
-  }
-  if (data.endsAt && !data.startsAt && data.endsAt < existing.startsAt) {
+  const nextStart = data.startsAt ?? existing.startsAt;
+  const nextEnd = data.endsAt !== undefined ? data.endsAt : existing.endsAt;
+  if (nextEnd && nextEnd < nextStart) {
     return res.status(400).json({ error: "End time must be after start time" });
   }
 

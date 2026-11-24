@@ -137,3 +137,141 @@ migrations/
       
 All migrations have been successfully applied.
 ```
+
+## 2026-10-31 ~21:15 +05:30 - deploy - SUCCESS (manual `prisma migrate deploy`)
+- Database: atrium @ localhost:5432 (schema public)
+- Run by: jyothiranands (agent session; not via `npm run db:deploy`, so no backup row)
+- Pending before: 20261031154500_lead_lost_at
+- Applied: 20261031154500_lead_lost_at
+- Result: `prisma migrate status` → Database schema is up to date (8 migrations)
+- Data impact: LOST/WON clock backfill in migration SQL
+
+## 2026-11-24 16:33:24 +05:30 - deploy - SUCCESS
+- Database: atrium @ localhost:5432 (schema public)
+- Run by: jyothiranands@Jyothiranands-MacBook-Pro.local
+- Code version: e7b5c63 on main, uncommitted prisma changes: yes (uncommitted prisma changes)
+- Pending before: 20261124100000_messaging
+- Applied: 20261124100000_messaging
+- Backup: backups/2026-11-24-16-33-23-p05-30-before-20261124100000_messaging.sql (76 KB)
+- Duration: 1.6s
+
+```
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "atrium", schema "public" at "localhost:5432"
+
+9 migrations found in prisma/migrations
+
+Applying migration `20261124100000_messaging`
+
+The following migration(s) have been applied:
+
+migrations/
+  └─ 20261124100000_messaging/
+    └─ migration.sql
+
+All migrations have been successfully applied.
+```
+
+## 2026-11-24 16:58:11 +05:30 - deploy - SUCCESS
+- Database: atrium @ localhost:5432 (schema public)
+- Run by: jyothiranands@Jyothiranands-MacBook-Pro.local
+- Code version: e7b5c63 on main, uncommitted prisma changes: yes (uncommitted prisma changes)
+- Pending before: 20261124110000_shareable_chat_links
+- Applied: 20261124110000_shareable_chat_links
+- Backup: backups/2026-11-24-16-58-10-p05-30-before-20261124110000_shareable_chat_links.sql (89 KB)
+- Duration: 1.3s
+
+```
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "atrium", schema "public" at "localhost:5432"
+
+10 migrations found in prisma/migrations
+
+Applying migration `20261124110000_shareable_chat_links`
+
+The following migration(s) have been applied:
+
+migrations/
+  └─ 20261124110000_shareable_chat_links/
+    └─ migration.sql
+
+All migrations have been successfully applied.
+```
+
+## 2026-11-24 17:02:12 +05:30 - deploy - SUCCESS
+- Database: atrium @ localhost:5432 (schema public)
+- Run by: jyothiranands@Jyothiranands-MacBook-Pro.local
+- Code version: e7b5c63 on main, uncommitted prisma changes: yes (uncommitted prisma changes)
+- Pending before: 20261124120000_chat_link_expiry
+- Applied: 20261124120000_chat_link_expiry
+- Backup: backups/2026-11-24-17-02-11-p05-30-before-20261124120000_chat_link_expiry.sql (90 KB)
+- Duration: 1.5s
+
+```
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "atrium", schema "public" at "localhost:5432"
+
+11 migrations found in prisma/migrations
+
+Applying migration `20261124120000_chat_link_expiry`
+
+The following migration(s) have been applied:
+
+migrations/
+  └─ 20261124120000_chat_link_expiry/
+    └─ migration.sql
+
+All migrations have been successfully applied.
+```
+
+## 2026-11-24 17:16:40 +05:30 - deploy - SUCCESS
+- Database: atrium @ localhost:5432 (schema public)
+- Run by: jyothiranands@Jyothiranands-MacBook-Pro.local
+- Code version: e7b5c63 on main, uncommitted prisma changes: yes (uncommitted prisma changes)
+- Pending before: 20261124130000_client_chat_pin
+- Applied: 20261124130000_client_chat_pin
+- Backup: backups/2026-11-24-17-16-39-p05-30-before-20261124130000_client_chat_pin.sql (92 KB)
+- Duration: 1.2s
+
+```
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "atrium", schema "public" at "localhost:5432"
+
+12 migrations found in prisma/migrations
+
+Applying migration `20261124130000_client_chat_pin`
+
+The following migration(s) have been applied:
+
+migrations/
+  └─ 20261124130000_client_chat_pin/
+    └─ migration.sql
+
+All migrations have been successfully applied.
+```
+
+## 2026-11-24 17:24:47 +05:30 - deploy - SUCCESS
+- Database: atrium @ localhost:5432 (schema public)
+- Run by: jyothiranands@Jyothiranands-MacBook-Pro.local
+- Code version: e7b5c63 on main, uncommitted prisma changes: yes (uncommitted prisma changes)
+- Pending before: 20261124140000_chat_attachments
+- Applied: 20261124140000_chat_attachments
+- Backup: backups/2026-11-24-17-24-46-p05-30-before-20261124140000_chat_attachments.sql (94 KB)
+- Duration: 1.4s
+
+```
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "atrium", schema "public" at "localhost:5432"
+
+13 migrations found in prisma/migrations
+
+Applying migration `20261124140000_chat_attachments`
+
+The following migration(s) have been applied:
+
+migrations/
+  └─ 20261124140000_chat_attachments/
+    └─ migration.sql
+
+All migrations have been successfully applied.
+```

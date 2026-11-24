@@ -167,28 +167,7 @@ export function pageFooter(
   });
 }
 
-export async function fetchBuffer(
-  url: string | null | undefined,
-  maxBytes = 5_000_000,
-): Promise<Buffer | null> {
-  if (!url) return null;
-  try {
-    const res = await fetch(url, {
-      headers: { "User-Agent": "AtriumCRM/1.1 (pdf export)" },
-      signal: AbortSignal.timeout(6000),
-    });
-    if (!res.ok) return null;
-    const buf = Buffer.from(await res.arrayBuffer());
-    if (buf.length < 100 || buf.length > maxBytes) return null;
-    // pdfkit supports JPEG and PNG only
-    const isJpeg = buf[0] === 0xff && buf[1] === 0xd8;
-    const isPng = buf[0] === 0x89 && buf[1] === 0x50;
-    if (!isJpeg && !isPng) return null;
-    return buf;
-  } catch {
-    return null;
-  }
-}
+export { safeImageBuffer as fetchBuffer } from "./safeImage.js";
 
 export function docToBuffer(
   build: (doc: Doc) => Promise<void> | void,

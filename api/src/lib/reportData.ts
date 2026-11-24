@@ -68,7 +68,7 @@ export async function computeReportSummary(organizationId: string, range: Resolv
       where: {
         organizationId,
         stage: "WON",
-        updatedAt: { gte: range.from, lte: range.to },
+        wonAt: { gte: range.from, lte: range.to },
       },
       include: { sources: true },
     }),

@@ -12,6 +12,14 @@ Accounts are **invite-only**. Public self-signup is disabled. Platform operators
 
 ## Quick start
 
+Use a working Node.js runtime (the local setup was verified with Node 24).
+Set `PUBLIC_API_URL` in `api/.env` to the externally reachable API origin when deploying;
+uploaded image links use this origin. Historical localhost upload links are rebased in API responses.
+
+If port 4000 is occupied, run the API with `PORT=4100 BETTER_AUTH_URL=http://localhost:4100 PUBLIC_API_URL=http://localhost:4100 npm run dev`,
+and run both frontends with `NEXT_PUBLIC_API_URL=http://localhost:4100 npm run dev`.
+For API tests on this port, use `API_URL=http://localhost:4100 npm test` from `api/`.
+
 ### 1. Database
 
 Postgres running locally with database `atrium`:
@@ -109,3 +117,15 @@ Brokers, org admins, and owners work only in the CRM (`:3000`). Invite links alw
 Messaging (WhatsApp) is deferred until Meta Cloud API credentials - no mock inbox.
 
 See `docs/PRODUCT.md` and `docs/STACK.md`.
+
+**Demo tools**
+- The sample enquiry menu and API are off by default. Set `DEMO_MODE=true` in the API environment only on a dedicated demo deployment, then restart the API. The sample actions create real database records.
+- Lead details show saved enquiries. The assigned broker or a brokerage admin can remove an added enquiry, keeping the original source intact. The source badge clears when the last enquiry from that source is removed.
+
+**Messages**
+- Staff use **Messages → Team → New DM**. Open an assigned lead and choose **Client chat → Create chat link → Copy link**. Share the link directly with the intended client in any messaging app.
+- The link works once and grants access to that conversation without a CRM account. It expires after 7 days by default. Brokers can choose 1 day, 30 days, a custom duration of 1–30 days, or no expiry. A new link replaces any unused link. Client browser sessions last 30 days. **Revoke access** ends existing client sessions as well.
+- For sensitive conversations, select **Require PIN** and share the generated six-digit PIN separately from the link. Five incorrect PIN attempts invalidate the invitation. The client only needs the PIN when opening the invite.
+- Use the paperclip to send one attachment per message, with an optional caption. JPG, PNG, WebP, GIF, PDF, DOCX, XLSX, PPTX, TXT, and CSV files up to 10 MB are supported. Images can be previewed in chat, and downloads require access to the conversation.
+- Set the API's `CLIENT_ORIGIN` to the publicly reachable HTTPS CRM address before sharing links with clients. A localhost address works only on the development machine.
+- With local servers and Playwright Chromium installed, run `API_URL=http://localhost:4100 npm run test:chat` from `api/` to exercise both chat workflows with temporary brokerages.

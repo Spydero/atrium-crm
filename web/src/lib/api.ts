@@ -46,18 +46,10 @@ export async function downloadFile(path: string, fallbackName: string) {
   setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
-export async function api<T>(
-  path: string,
-  init?: RequestInit,
-): Promise<T> {
-  const res = await fetch(`${API}${path}`, {
-    ...init,
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers || {}),
-    },
-  });
+export async function apiResponse(path: string, init?: RequestInit): Promise<Response> {
+  const headers = new Headers(init?.headers);
+  if (!(init?.body instanceof FormData) && !headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+  const res = await fetch(`${API}${path}`, { ...init, credentials: "include", headers });
   if (!res.ok) {
     if (res.status === 401) {
       handleUnauthorized();
@@ -69,6 +61,11 @@ export async function api<T>(
       res.status,
     );
   }
+  return res;
+}
+
+export async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await apiResponse(path, init);
   if (res.status === 204 || res.headers.get("content-length") === "0") {
     return undefined as T;
   }

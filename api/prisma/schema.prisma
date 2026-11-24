@@ -94,6 +94,7 @@ model Organization {
   sourceSpends   SourceSpend[]
   guides         Guide[]
   channels       OrgChannel[]
+  conversations  Conversation[]
   invitations    Invitation[]
 }
 
@@ -262,15 +263,19 @@ model Lead {
   updatedAt      DateTime     @updatedAt
   firstRespondedAt DateTime?
   wonAt          DateTime?
+  /// Set when stage becomes LOST; cleared when leaving LOST (mirrors wonAt).
+  lostAt         DateTime?
   sources        LeadSourceEvent[]
   notes          LeadNote[]
   activities     ActivityEvent[]
   events         CalendarEvent[]
   guideRequests  GuideRequest[]
+  conversation   Conversation?
 
   @@index([organizationId, phone])
   @@index([organizationId, stage])
   @@index([organizationId, wonAt])
+  @@index([organizationId, lostAt])
 }
 
 model LeadSourceEvent {
@@ -493,4 +498,71 @@ model GuideDailyStat {
   downloads Int    @default(0)
 
   @@id([guideId, date])
+}
+
+model Conversation {
+  id             String @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  teamAId        String?
+  teamBId        String?
+  leadId         String? @unique
+  lead           Lead? @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  accessEnabled  Boolean @default(false)
+  accessVersion  Int @default(0)
+  updatedAt      DateTime @default(now()) @updatedAt
+  messages       ChatMessage[]
+  reads          ChatRead[]
+  passes         ClientChatPass[]
+
+  @@unique([organizationId, teamAId, teamBId])
+  @@index([organizationId, teamBId])
+  @@index([organizationId, updatedAt])
+}
+
+model ChatMessage {
+  id             Int @id @default(autoincrement())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId       String?
+  senderName     String
+  body           String
+  requestId      String
+  createdAt      DateTime @default(now())
+  attachment     ChatAttachment?
+
+  @@unique([conversationId, requestId])
+  @@index([conversationId, id])
+}
+
+model ChatAttachment {
+  messageId   Int @id
+  message     ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  fileName    String
+  contentType String
+  size        Int
+  digest      String
+  content     Bytes
+}
+
+model ChatRead {
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  readerId       String
+  lastMessageId  Int
+
+  @@id([conversationId, readerId])
+}
+
+model ClientChatPass {
+  hash           String @id
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  version        Int
+  isSession      Boolean @default(false)
+  expiresAt      DateTime?
+  pinDigest      String?
+  failedPinAttempts Int @default(0)
+
+  @@index([conversationId, expiresAt])
 }

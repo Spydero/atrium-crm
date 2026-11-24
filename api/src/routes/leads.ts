@@ -1,3 +1,6 @@
+import { randomUUID } from "node:crypto";
+import { demoModeEnabled } from "./testing.js";
+import { roleAtLeast } from "../lib/roles.js";
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
@@ -5,6 +8,7 @@ import { requireAuth, type AuthedRequest } from "../middleware/requireAuth.js";
 import { csvFilename, labelize, toCsv } from "../lib/csv.js";
 import { groupDuplicates, mergeLeadFields, mergedFromNote, suggestPrimary } from "../lib/leadTools.js";
 import { assertChannelEnabled, normalizeChannelKey } from "../lib/channels.js";
+import { stageClockPatch } from "../lib/leadStageClock.js";
 
 export const leadsRouter = Router();
 leadsRouter.use(requireAuth);
@@ -17,12 +21,24 @@ function userId(req: AuthedRequest) {
   return req.session?.user.id;
 }
 
+async function relationError(organizationId: string, data: { listingId?: string | null; assignedToId?: string | null }) {
+  if (data.listingId && !await prisma.listing.findFirst({ where: { id: data.listingId, organizationId }, select: { id: true } })) {
+    return "Listing not found in your organization";
+  }
+  if (data.assignedToId && !await prisma.user.findFirst({ where: { id: data.assignedToId, organizationId, disabledAt: null }, select: { id: true } })) {
+    return "Agent not found in your organization";
+  }
+  return null;
+}
+
 function normalizePhone(phone: string) {
   return phone.replace(/[^\d+]/g, "");
 }
 
 /** Log an inbound enquiry on an enabled org channel (replaces portal "simulate"). */
-leadsRouter.post("/enquiries", async (req: AuthedRequest, res) => {
+leadsRouter.post(["/enquiries", "/demo-enquiries"], async (req: AuthedRequest, res) => {
+  const demo = req.path.toLowerCase().replace(/\/$/, "") === "/demo-enquiries";
+  if (demo && !demoModeEnabled()) return res.status(404).json({ error: "Demo tools are disabled." });
   const organizationId = orgId(req);
   if (!organizationId) return res.status(400).json({ error: "No organization" });
 
@@ -35,8 +51,13 @@ leadsRouter.post("/enquiries", async (req: AuthedRequest, res) => {
     budgetMax: z.number().optional(),
     bedsWanted: z.number().optional(),
   });
-  const parsed = schema.safeParse(req.body);
+  const parsed = schema.safeParse(demo ? {
+    ...req.body, name: "Khalid Al Mansoori", phone: "+971501112233",
+    budgetMax: 2300000, bedsWanted: 2, email: undefined,
+  } : req.body);
   if (!parsed.success) return res.status(400).json(parsed.error.flatten());
+  const invalidRelation = await relationError(organizationId, parsed.data);
+  if (invalidRelation) return res.status(400).json({ error: invalidRelation });
 
   let channel;
   try {
@@ -52,22 +73,24 @@ leadsRouter.post("/enquiries", async (req: AuthedRequest, res) => {
   });
 
   if (existing) {
-    await prisma.leadSourceEvent.create({
+    const enquiryId = randomUUID();
+    await prisma.$transaction([prisma.leadSourceEvent.create({
       data: {
+        id: enquiryId,
         leadId: existing.id,
         source,
         listingId: parsed.data.listingId ?? existing.listingId,
         message: `Enquiry via ${channel.label}`,
       },
-    });
-    await prisma.activityEvent.create({
+    }), prisma.activityEvent.create({
       data: {
+        id: enquiryId,
         leadId: existing.id,
         actorId: userId(req),
         type: "fuse",
         body: `Lead Fuse: ${channel.label} enquiry merged (same phone ${phone}).`,
       },
-    });
+    })]);
     const fused = await prisma.lead.findUnique({
       where: { id: existing.id },
       include: {
@@ -76,7 +99,7 @@ leadsRouter.post("/enquiries", async (req: AuthedRequest, res) => {
         assignedTo: { select: { id: true, name: true } },
       },
     });
-    return res.json({ fused: true, lead: fused });
+    return res.json({ fused: true, lead: fused, enquiryId });
   }
 
   const listing = parsed.data.listingId
@@ -228,7 +251,14 @@ leadsRouter.post("/bulk", async (req: AuthedRequest, res) => {
   const ids = [...new Set(body.ids)];
   const leads = await prisma.lead.findMany({
     where: { id: { in: ids }, organizationId },
-    select: { id: true, stage: true, assignedToId: true, assignedTo: { select: { name: true } } },
+    select: {
+      id: true,
+      stage: true,
+      wonAt: true,
+      lostAt: true,
+      assignedToId: true,
+      assignedTo: { select: { name: true } },
+    },
   });
   if (leads.length !== ids.length) {
     return res.status(404).json({ error: "One or more leads were not found" });
@@ -239,13 +269,15 @@ leadsRouter.post("/bulk", async (req: AuthedRequest, res) => {
     const changed = leads.filter((l) => l.stage !== body.stage);
     if (changed.length) {
       await prisma.$transaction([
-        prisma.lead.updateMany({
-          where: { id: { in: changed.map((l) => l.id) }, organizationId },
-          data: {
-            stage: body.stage,
-            wonAt: body.stage === "WON" ? new Date() : null,
-          },
-        }),
+        ...changed.map((l) =>
+          prisma.lead.update({
+            where: { id: l.id },
+            data: {
+              stage: body.stage,
+              ...stageClockPatch(l.stage, body.stage, l),
+            },
+          }),
+        ),
         prisma.activityEvent.createMany({
           data: changed.map((l) => ({
             leadId: l.id,
@@ -262,7 +294,7 @@ leadsRouter.post("/bulk", async (req: AuthedRequest, res) => {
   let target: { id: string; name: string } | null = null;
   if (body.action === "assign") {
     target = await prisma.user.findFirst({
-      where: { id: body.assignedToId, organizationId },
+      where: { id: body.assignedToId, organizationId, disabledAt: null },
       select: { id: true, name: true },
     });
     if (!target) return res.status(400).json({ error: "That agent is not in your organization" });
@@ -315,6 +347,9 @@ leadsRouter.post("/merge", async (req: AuthedRequest, res) => {
   const found = await prisma.lead.findMany({ where: { id: { in: allIds }, organizationId } });
   if (found.length !== allIds.length) {
     return res.status(404).json({ error: "One or more leads were not found" });
+  }
+  if (await prisma.conversation.findFirst({ where: { leadId: { in: dupIds } }, select: { id: true } })) {
+    return res.status(409).json({ error: "A lead selected for removal has a private client chat. Keep that lead as the primary, or leave both leads separate." });
   }
   const primary = found.find((l) => l.id === parsed.data.primaryId)!;
   const dups = dupIds.map((id) => found.find((l) => l.id === id)!);
@@ -447,6 +482,49 @@ leadsRouter.get("/", async (req: AuthedRequest, res) => {
   res.json(leads);
 });
 
+type EnquirySource = { id: string; source: string; message: string | null };
+function removableEnquiryIds(primarySource: string, sources: EnquirySource[]) {
+  const original = sources.find(source => source.source === primarySource) ?? sources[0];
+  return new Set(sources.filter(source =>
+    source.id !== original?.id && source.source !== "guide" &&
+    (source.message?.startsWith("Enquiry via ") || source.message?.startsWith("Fused enquiry from ")),
+  ).map(source => source.id));
+}
+
+function mayRemoveEnquiries(req: AuthedRequest, lead: { assignedToId: string | null }) {
+  const user = req.session?.user;
+  return Boolean(user && (lead.assignedToId === user.id || roleAtLeast(user.role ?? "broker", "admin")));
+}
+
+leadsRouter.delete("/:id/enquiries/:sourceId", async (req: AuthedRequest, res) => {
+  const organizationId = orgId(req);
+  if (!organizationId) return res.status(400).json({ error: "No organization" });
+  const id = String(req.params.id);
+  const sourceId = String(req.params.sourceId);
+  const status = await prisma.$transaction(async tx => {
+    await tx.$queryRaw`SELECT "id" FROM "Lead" WHERE "id" = ${id} AND "organizationId" = ${organizationId} FOR UPDATE`;
+    const lead = await tx.lead.findFirst({
+      where: { id, organizationId },
+      select: { assignedToId: true, primarySource: true, sources: { orderBy: [{ createdAt: "asc" }, { id: "asc" }] } },
+    });
+    const source = lead?.sources.find(row => row.id === sourceId);
+    if (!lead || !source) return 404;
+    if (!mayRemoveEnquiries(req, lead)) return 403;
+    if (!removableEnquiryIds(lead.primarySource, lead.sources).has(sourceId)) return 409;
+    await tx.leadSourceEvent.delete({ where: { id: sourceId } });
+    await tx.activityEvent.deleteMany({ where: { id: sourceId, leadId: id, type: "fuse" } });
+    await tx.activityEvent.create({ data: {
+      leadId: id, actorId: userId(req), type: "enquiry removed",
+      body: `Removed ${labelize(source.source)} enquiry logged on ${source.createdAt.toISOString()}.`,
+    } });
+    return 204;
+  });
+  if (status === 204) return res.status(204).end();
+  if (status === 403) return res.status(403).json({ error: "Only the lead’s assigned broker or an admin can remove an enquiry." });
+  if (status === 409) return res.status(409).json({ error: "This enquiry cannot be removed." });
+  res.status(404).json({ error: "Enquiry not found." });
+});
+
 leadsRouter.get("/:id", async (req: AuthedRequest, res) => {
   const organizationId = orgId(req);
   if (!organizationId) return res.status(400).json({ error: "No organization" });
@@ -455,14 +533,15 @@ leadsRouter.get("/:id", async (req: AuthedRequest, res) => {
     include: {
       listing: true,
       assignedTo: { select: { id: true, name: true } },
-      sources: { orderBy: { createdAt: "desc" } },
+      sources: { orderBy: [{ createdAt: "asc" }, { id: "asc" }] },
       notes: { orderBy: { createdAt: "desc" }, include: { author: { select: { name: true } } } },
       activities: { orderBy: { createdAt: "desc" }, take: 50 },
       events: { orderBy: { startsAt: "desc" } },
     },
   });
   if (!lead) return res.status(404).json({ error: "Not found" });
-  res.json(lead);
+  const removable = mayRemoveEnquiries(req, lead) ? removableEnquiryIds(lead.primarySource, lead.sources) : new Set<string>();
+  res.json({ ...lead, sources: lead.sources.reverse().map(source => ({ ...source, removable: removable.has(source.id) })) });
 });
 
 leadsRouter.post("/", async (req: AuthedRequest, res) => {
@@ -484,6 +563,8 @@ leadsRouter.post("/", async (req: AuthedRequest, res) => {
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(parsed.error.flatten());
+  const invalidRelation = await relationError(organizationId, parsed.data);
+  if (invalidRelation) return res.status(400).json({ error: invalidRelation });
 
   const phone = normalizePhone(parsed.data.phone);
   let source = normalizeChannelKey(parsed.data.primarySource ?? "manual");
@@ -501,22 +582,24 @@ leadsRouter.post("/", async (req: AuthedRequest, res) => {
   });
 
   if (existing) {
-    await prisma.leadSourceEvent.create({
+    const enquiryId = randomUUID();
+    await prisma.$transaction([prisma.leadSourceEvent.create({
       data: {
+        id: enquiryId,
         leadId: existing.id,
         source,
         listingId: parsed.data.listingId ?? existing.listingId,
         message: `Fused enquiry from ${source}`,
       },
-    });
-    await prisma.activityEvent.create({
+    }), prisma.activityEvent.create({
       data: {
+        id: enquiryId,
         leadId: existing.id,
         actorId: userId(req),
         type: "fuse",
         body: `Lead Fuse: new ${source} enquiry merged into existing lead (same phone).`,
       },
-    });
+    })]);
     if (parsed.data.listingId && !existing.listingId) {
       await prisma.lead.update({
         where: { id: existing.id },
@@ -596,18 +679,18 @@ leadsRouter.patch("/:id", async (req: AuthedRequest, res) => {
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json(parsed.error.flatten());
+  const invalidRelation = await relationError(organizationId, parsed.data);
+  if (invalidRelation) return res.status(400).json({ error: invalidRelation });
 
   const stageChanged = parsed.data.stage && parsed.data.stage !== existing.stage;
-  const wonPatch =
-    stageChanged && parsed.data.stage === "WON"
-      ? { wonAt: existing.wonAt ?? new Date() }
-      : stageChanged && parsed.data.stage !== "WON"
-        ? { wonAt: null }
-        : {};
+  const clockPatch =
+    stageChanged && parsed.data.stage
+      ? stageClockPatch(existing.stage, parsed.data.stage, existing)
+      : {};
 
   const lead = await prisma.lead.update({
     where: { id: existing.id },
-    data: { ...parsed.data, ...wonPatch },
+    data: { ...parsed.data, ...clockPatch },
     include: {
       listing: true,
       sources: { orderBy: { createdAt: "desc" } },

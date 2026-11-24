@@ -65,18 +65,20 @@ export type TrendConfig = {
   metrics: MetricMeta[];
   /** Metric whose bucket value is money (shown as AED) */
   moneyMetric?: Metric;
-  /** Metric that draws stacked outcome bars from bucket.breakdown */
+  /** Metric that draws stacked outcome bars from bucket.breakdown (legacy single; prefer stackBands) */
   stackMetric?: Metric;
   breakdown: (metric: Metric) => { title: string; label: (key: string) => string };
 };
 
-const OUTCOME_LABEL: Record<string, string> = {
+const BREAKDOWN_LABEL: Record<string, string> = {
   SCHEDULED: "Scheduled",
   COMPLETED: "Completed",
   NO_SHOW: "No-show",
   CANCELLED: "Cancelled",
   UNLOGGED: "Unlogged",
   UPCOMING: "Upcoming",
+  WON: "Won",
+  LOST: "Lost",
 };
 
 const VIEWING_STACK: { key: string; color: string }[] = [
@@ -87,6 +89,24 @@ const VIEWING_STACK: { key: string; color: string }[] = [
   { key: "UPCOMING", color: "#cbd5e1" },
 ];
 
+const OUTCOMES_STACK: { key: string; color: string }[] = [
+  { key: "WON", color: "#15803d" },
+  { key: "LOST", color: "#c45c26" },
+];
+
+type OutcomeFocus = "both" | "won" | "lost";
+const OUTCOME_FOCUS: { id: OutcomeFocus; label: string }[] = [
+  { id: "both", label: "Won + Lost" },
+  { id: "won", label: "Won" },
+  { id: "lost", label: "Lost" },
+];
+
+function stackBands(metric: Metric) {
+  if (metric === "viewings") return VIEWING_STACK;
+  if (metric === "outcomes") return OUTCOMES_STACK;
+  return null;
+}
+
 export const DASHBOARD_TREND: TrendConfig = {
   endpoint: "/api/dashboard/trend",
   moneyMetric: "won",
@@ -94,12 +114,22 @@ export const DASHBOARD_TREND: TrendConfig = {
   metrics: [
     { id: "leads", label: "New leads", one: "new lead", many: "new leads", href: "/app/leads", cta: "Open leads" },
     { id: "viewings", label: "Viewings", one: "viewing", many: "viewings", href: "/app/calendar", cta: "Open calendar" },
-    { id: "won", label: "Deals won", one: "deal won", many: "deals won", href: "/app/leads", cta: "Open leads" },
+    { id: "won", label: "Deals won", one: "deal won", many: "deals won", href: "/app/leads?slice=won", cta: "Open won" },
+    {
+      id: "outcomes",
+      label: "Outcomes",
+      one: "closed deal",
+      many: "closed deals",
+      href: "/app/leads?slice=closed",
+      cta: "Open closed",
+    },
   ],
   breakdown: (m) =>
     m === "viewings"
-      ? { title: "Outcome", label: (k) => OUTCOME_LABEL[k] || k }
-      : { title: "Source", label: (k) => portalLabel(k) },
+      ? { title: "Outcome", label: (k) => BREAKDOWN_LABEL[k] || k }
+      : m === "outcomes"
+        ? { title: "Result", label: (k) => BREAKDOWN_LABEL[k] || k }
+        : { title: "Source", label: (k) => portalLabel(k) },
 };
 
 function withChannelLabels(
@@ -259,11 +289,11 @@ function Details({
                   style={{
                     width: `${(b.count / maxBreak) * 100}%`,
                     background:
-                      b.key === "COMPLETED"
+                      b.key === "COMPLETED" || b.key === "WON"
                         ? "#15803d"
                         : b.key === "NO_SHOW"
                           ? "#d97706"
-                          : b.key === "CANCELLED"
+                          : b.key === "CANCELLED" || b.key === "LOST"
                             ? "#c45c26"
                             : undefined,
                   }}
@@ -338,6 +368,8 @@ export function TrendChart({
   );
   const [metric, setMetric] = useState<Metric>(cfg.metrics[0].id);
   const [sort, setSort] = useState<Sort>("date");
+  /** Outcomes tab: show both series or focus Won / Lost (works with Sort by date/high/low). */
+  const [outcomeFocus, setOutcomeFocus] = useState<OutcomeFocus>("both");
   // A grouping you pick only applies to the date range it was picked on; a new range goes back to auto.
   const [choice, setChoice] = useState<{ rk: string; g: Group } | null>(null);
   const [compare, setCompare] = useState(false);
@@ -346,7 +378,9 @@ export function TrendChart({
   // A pinned bar belongs to one view of the data; changing range, metric or grouping unpins it.
   const [pin, setPin] = useState<{ q: string; key: string } | null>(null);
   const [result, setResult] = useState<{ key: string; trend?: Trend; error?: string } | null>(null);
-  const stackOn = cfg.stackMetric === metric;
+  const bands = stackBands(metric);
+  const stackOn = !!bands;
+  const outcomesOn = metric === "outcomes";
 
   useEffect(() => {
     api<OrgSettings>("/api/settings")
@@ -390,33 +424,75 @@ export function TrendChart({
     if (!trend) return [];
     const rows = trend.buckets.map((b) => {
       const parts: Record<string, number> = {};
-      for (const s of VIEWING_STACK) parts[s.key] = 0;
+      for (const s of bands || VIEWING_STACK) parts[s.key] = 0;
       for (const x of b.breakdown) parts[x.key] = (parts[x.key] || 0) + x.count;
       const cancelled = parts.CANCELLED || 0;
-      const displayCount =
-        stackOn && hideCancelled ? Math.max(0, b.count - cancelled) : b.count;
+      let won = parts.WON || 0;
+      let lost = parts.LOST || 0;
+      if (outcomesOn && outcomeFocus === "won") lost = 0;
+      if (outcomesOn && outcomeFocus === "lost") won = 0;
+      const displayCount = outcomesOn
+        ? won + lost
+        : stackOn && hideCancelled
+          ? Math.max(0, b.count - cancelled)
+          : b.count;
       return {
         ...b,
         count: displayCount,
         rawCount: b.count,
         avg: trend.totals.avgPerBucket,
         ...parts,
-        CANCELLED: stackOn && hideCancelled ? 0 : cancelled,
+        WON: outcomesOn ? won : parts.WON || 0,
+        LOST: outcomesOn ? lost : parts.LOST || 0,
+        CANCELLED: stackOn && hideCancelled && metric === "viewings" ? 0 : cancelled,
       };
     });
     if (sort === "date") return rows;
     return [...rows].sort(
       (a, b) => (sort === "high" ? b.count - a.count : a.count - b.count) || a.key.localeCompare(b.key),
     );
-  }, [trend, sort, stackOn, hideCancelled]);
+  }, [trend, sort, stackOn, hideCancelled, bands, outcomesOn, outcomeFocus, metric]);
 
   const selectedRow = trend?.buckets.find((b) => b.key === selected) ?? null;
   const t = trend?.totals;
   const displayTotal =
-    stackOn && hideCancelled && t
+    (outcomesOn || (stackOn && hideCancelled && metric === "viewings")) && t
       ? data.reduce((s, b) => s + b.count, 0)
       : t?.count ?? null;
   const delta = t?.deltaAbs ?? null;
+
+  const wonTotal = useMemo(
+    () => (outcomesOn ? data.reduce((s, b) => s + (b.WON || 0), 0) : 0),
+    [outcomesOn, data],
+  );
+  const lostTotal = useMemo(
+    () => (outcomesOn ? data.reduce((s, b) => s + (b.LOST || 0), 0) : 0),
+    [outcomesOn, data],
+  );
+  const closedTotal = wonTotal + lostTotal;
+  const winRate = closedTotal >= 5 ? Math.round((wonTotal / closedTotal) * 100) : null;
+
+  const ctaHref = useMemo(() => {
+    const from = trend?.range.from;
+    const to = trend?.range.to;
+    if (!from || !to) return meta.href;
+    if (metric === "leads") return `/app/leads?createdFrom=${from}&createdTo=${to}`;
+    if (metric === "won") return `/app/leads?slice=won&wonFrom=${from}&wonTo=${to}`;
+    if (metric === "outcomes") {
+      if (outcomeFocus === "lost") return `/app/leads?slice=lost&lostFrom=${from}&lostTo=${to}`;
+      if (outcomeFocus === "won") return `/app/leads?slice=won&wonFrom=${from}&wonTo=${to}`;
+      return `/app/leads?slice=closed&wonFrom=${from}&wonTo=${to}&lostFrom=${from}&lostTo=${to}`;
+    }
+    return meta.href;
+  }, [metric, meta.href, trend?.range.from, trend?.range.to, outcomeFocus]);
+
+  const ctaLabel = outcomesOn
+    ? outcomeFocus === "lost"
+      ? "Open lost"
+      : outcomeFocus === "won"
+        ? "Open won"
+        : "Open closed"
+    : meta.cta;
 
   return (
     <div className="surface p-5" data-testid="trend-card">
@@ -447,6 +523,14 @@ export function TrendChart({
             }}
           />
           <Seg label="Sort by" value={sort} options={SORTS} onChange={setSort} />
+          {outcomesOn && (
+            <Seg
+              label="Show outcomes"
+              value={outcomeFocus}
+              options={OUTCOME_FOCUS}
+              onChange={setOutcomeFocus}
+            />
+          )}
           <label className="flex cursor-pointer items-center gap-1.5 rounded-[8px] border border-line bg-paper px-2.5 py-1.5 text-xs font-bold text-muted hover:text-ink">
             <input
               type="checkbox"
@@ -456,7 +540,7 @@ export function TrendChart({
             />
             Compare to previous
           </label>
-          {stackOn && (
+          {metric === "viewings" && (
             <label className="flex cursor-pointer items-center gap-1.5 rounded-[8px] border border-line bg-paper px-2.5 py-1.5 text-xs font-bold text-muted hover:text-ink">
               <input
                 type="checkbox"
@@ -469,10 +553,10 @@ export function TrendChart({
             </label>
           )}
           <Link
-            href={meta.href}
+            href={ctaHref}
             className="inline-flex items-center gap-1 text-sm font-semibold text-accent hover:underline"
           >
-            {meta.cta} <ChevronRight size={14} />
+            {ctaLabel} <ChevronRight size={14} />
           </Link>
         </div>
       </div>
@@ -494,15 +578,43 @@ export function TrendChart({
           <div className="font-display text-3xl font-bold tracking-[-0.03em]">
             {displayTotal ?? t.count}
             <span className="ml-1.5 text-sm font-semibold text-muted">
-              {stackOn && hideCancelled
+              {metric === "viewings" && hideCancelled
                 ? (displayTotal ?? 0) === 1
                   ? "viewing held or due"
                   : "viewings held or due"
-                : (displayTotal ?? t.count) === 1
-                  ? meta.one
-                  : meta.many}
+                : outcomesOn
+                  ? (displayTotal ?? 0) === 1
+                    ? outcomeFocus === "won"
+                      ? "deal won"
+                      : outcomeFocus === "lost"
+                        ? "deal lost"
+                        : "closed deal"
+                    : outcomeFocus === "won"
+                      ? "deals won"
+                      : outcomeFocus === "lost"
+                        ? "deals lost"
+                        : "closed deals"
+                  : (displayTotal ?? t.count) === 1
+                    ? meta.one
+                    : meta.many}
             </span>
           </div>
+          {outcomesOn && (
+            <span
+              className="rounded bg-accent-soft px-2 py-0.5 text-xs font-bold text-accent"
+              data-testid="outcomes-win-rate"
+              title={
+                winRate == null
+                  ? "Win rate needs at least 5 closed deals in range"
+                  : "Won ÷ (won + lost) in this range"
+              }
+            >
+              Win rate {winRate == null ? "—" : `${winRate}%`}
+              <span className="ml-1 font-semibold opacity-70">
+                ({wonTotal}W · {lostTotal}L)
+              </span>
+            </span>
+          )}
           {cfg.moneyMetric === metric && (
             <div className="text-sm font-bold text-ink">{formatAed(t.value)}</div>
           )}
@@ -567,13 +679,20 @@ export function TrendChart({
                 allowEscapeViewBox={{ x: false, y: true }}
                 wrapperStyle={{ zIndex: 20, outline: "none" }}
               />
-              {stackOn ? (
-                VIEWING_STACK.filter((s) => !(hideCancelled && s.key === "CANCELLED")).map((s, i, arr) => (
+              {stackOn && bands ? (
+                bands
+                  .filter((s) => {
+                    if (metric === "viewings" && hideCancelled && s.key === "CANCELLED") return false;
+                    if (outcomesOn && outcomeFocus === "won" && s.key === "LOST") return false;
+                    if (outcomesOn && outcomeFocus === "lost" && s.key === "WON") return false;
+                    return true;
+                  })
+                  .map((s, i, arr) => (
                   <Bar
                     key={s.key}
                     dataKey={s.key}
-                    name={OUTCOME_LABEL[s.key]}
-                    stackId="viewings"
+                    name={BREAKDOWN_LABEL[s.key] || s.key}
+                    stackId="stack"
                     fill={s.color}
                     radius={i === arr.length - 1 ? [5, 5, 0, 0] : [0, 0, 0, 0]}
                     maxBarSize={data.length > 40 ? 14 : 48}
@@ -656,11 +775,18 @@ export function TrendChart({
       </div>
 
       <div className="mt-2 flex flex-wrap items-center gap-4 text-[11px] font-semibold text-muted">
-        {stackOn ? (
-          VIEWING_STACK.filter((s) => !(hideCancelled && s.key === "CANCELLED")).map((s) => (
+        {stackOn && bands ? (
+          bands
+            .filter((s) => {
+              if (metric === "viewings" && hideCancelled && s.key === "CANCELLED") return false;
+              if (outcomesOn && outcomeFocus === "won" && s.key === "LOST") return false;
+              if (outcomesOn && outcomeFocus === "lost" && s.key === "WON") return false;
+              return true;
+            })
+            .map((s) => (
             <span key={s.key} className="inline-flex items-center gap-1.5">
               <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: s.color }} />
-              {OUTCOME_LABEL[s.key]}
+              {BREAKDOWN_LABEL[s.key] || s.key}
             </span>
           ))
         ) : (

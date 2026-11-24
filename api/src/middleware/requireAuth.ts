@@ -40,10 +40,15 @@ export async function requireAuth(
         role: true,
         platformRole: true,
         disabledAt: true,
+        organization: { select: { status: true } },
       },
     });
     if (!dbUser || dbUser.disabledAt) {
       return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    if (dbUser.organization?.status === "SUSPENDED") {
+      return res.status(403).json({ error: "This brokerage is suspended" });
     }
 
     const user = session.user as SessionUser;
