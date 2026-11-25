@@ -24,6 +24,11 @@ If port 4000 is occupied, run the API with `PORT=4100 BETTER_AUTH_URL=http://loc
 and run both frontends with `NEXT_PUBLIC_API_URL=http://localhost:4100 npm run dev`.
 For API tests on this port, use `API_URL=http://localhost:4100 npm test` from `api/`.
 
+### Regression checks
+
+- From the repository root, run `uv run --with pytest --with Pillow pytest -q tests/test_screenshot_gallery.py` to check the tracked gallery paths and decode each linked screenshot. This check runs offline once its dependencies are installed.
+- With the local API and CRM running, the demo brokerage seeded with leads, and Playwright Chromium installed, run `npm run test:mobile` from `web/`. It checks all 11 workspace pages at four widths, plus mobile navigation, lead details, the add-lead dialog, and calendar selection.
+
 ### 1. Database
 
 Postgres running locally with database `atrium`:

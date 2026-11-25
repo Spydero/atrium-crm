@@ -342,7 +342,19 @@ function LeadsContent() {
 
   const detailRequest = useRef<AbortController | null>(null);
   const detailTarget = useRef<string | null>(null);
-  const openLead = useCallback(async (id: string) => {
+  const detailHeading = useRef<HTMLHeadingElement>(null);
+  const revealDetail = useRef(false);
+  useEffect(() => {
+    if (selected && revealDetail.current) {
+      revealDetail.current = false;
+      if (window.matchMedia("(max-width: 767px)").matches) {
+        detailHeading.current?.focus({ preventScroll: true });
+        detailHeading.current?.scrollIntoView({ block: "start" });
+      }
+    }
+  }, [selected]);
+
+  const openLead = useCallback(async (id: string, reveal = false) => {
     detailRequest.current?.abort();
     detailTarget.current = id;
     const controller = new AbortController();
@@ -358,6 +370,7 @@ function LeadsContent() {
       ]);
       if (signal.aborted) return;
       if (detail.status === "rejected") throw detail.reason;
+      revealDetail.current = reveal;
       setSelected(detail.value);
       if (related.status === "fulfilled") setMatches(related.value);
       else setEnquiryError("Could not load matching listings.");
@@ -379,7 +392,7 @@ function LeadsContent() {
     if (!openLeadId) return;
     let active = true;
     queueMicrotask(() => {
-      if (active) void openLead(openLeadId);
+      if (active) void openLead(openLeadId, true);
     });
     return () => {
       active = false;
@@ -588,7 +601,7 @@ function LeadsContent() {
                 data-lead-card={lead.id}
                 aria-pressed={selectMode ? checked : undefined}
                 onDragStart={(e) => e.dataTransfer.setData("text/lead", lead.id)}
-                onClick={() => (selectMode ? toggleSelected(lead.id) : openLead(lead.id))}
+                onClick={() => (selectMode ? toggleSelected(lead.id) : openLead(lead.id, true))}
                 className={`relative w-full rounded-[8px] border p-3 text-left transition ${
                   active
                     ? "border-ink bg-ink text-white"
@@ -674,7 +687,7 @@ function LeadsContent() {
                     : ""
                 } in pipeline`}
             {" · "}
-            {selectMode ? "click cards to select them" : "drag cards to move stages"}
+            {selectMode ? "Select lead cards" : <><span className="md:hidden">Open a lead to change its stage</span><span className="hidden md:inline">drag cards to move stages</span></>}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -848,7 +861,7 @@ function LeadsContent() {
           <div>
             <div className="flex items-start justify-between gap-2">
               <div>
-                <h2 className="font-display text-xl font-bold tracking-[-0.03em]">
+                <h2 ref={detailHeading} tabIndex={-1} className="scroll-mt-4 font-display text-xl font-bold tracking-[-0.03em]">
                   {selected.name}
                 </h2>
                 <p className="text-sm text-muted">
@@ -873,7 +886,7 @@ function LeadsContent() {
                   type="button"
                   disabled={actionBusy}
                   onClick={() => moveStage(selected.id, s)}
-                  className={`rounded-[6px] px-2.5 py-1 text-[11px] font-bold ${
+                  className={`min-h-11 md:min-h-0 rounded-[6px] px-2.5 py-1 text-[11px] font-bold ${
                     selected.stage === s ? "bg-accent text-white" : "bg-[#eef1f4] text-muted"
                   }`}
                 >

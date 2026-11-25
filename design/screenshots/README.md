@@ -1,6 +1,6 @@
 # Atrium screenshots
 
-The [current walkthrough](current/) was captured on 24 November 2026 from the local CRM and Ops builds using an isolated database and fictional accounts. The older captures in this folder document earlier versions and design explorations.
+The [current walkthrough](current/) was captured on 24–25 November 2026 from the local CRM and Ops builds using an isolated database and fictional accounts. The older captures in this folder document earlier versions and design explorations.
 
 ## CRM
 
@@ -32,7 +32,8 @@ The [current walkthrough](current/) was captured on 24 November 2026 from the lo
 - The public guide check submitted its form and downloaded the PDF. The Ops check created an invite and opened its acceptance page.
 - The CRM dashboard and public shortlist were checked for horizontal overflow at 390 px. Desktop captures are 1440 × 1000 px.
 - The separate chat regression suite passed, including link expiry, revocation, PIN lockout, and access handoff.
-- The API regression suite passed 145 of 146 checks. The dashboard won-deals trend test expected 26 deals and received 27. The test selects by the lead's last update, while the endpoint uses the recorded win date when available.
-- Money Map displayed AED for the fictional INR brokerage. Its API currently returns AED for every brokerage. The screenshot preserves the observed display.
+- On 25 November, all 147 API regression checks passed against the isolated database. The won-deals check uses the recorded win date, with a fallback for older records.
+- All 11 CRM workspace pages fit widths of 320, 390, 768, and 1280 px in Chromium. Phone checks covered the workspace menu, lead details, the add-lead form, and calendar day selection.
+- The updated Money Map and spend editor show the fictional brokerage’s INR figures. The mobile dashboard shows the workspace menu.
 
 Share tokens and PIN values are masked where displayed. The captures show representative states. [Planned buyer workflows](../../docs/WORKFLOWS.md) cover the proposed lead-linked shortlist and viewing request.

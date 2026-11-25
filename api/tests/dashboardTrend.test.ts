@@ -220,9 +220,13 @@ test("trend endpoint: viewings and won metrics", async () => {
   const pw = past(365);
   const wr = { from: new Date(pw.from.setHours(0, 0, 0, 0)), to: new Date(pw.to.setHours(23, 59, 59, 999)) };
   const w = await get(`/api/dashboard/trend?${pw.qs}&metric=won`);
-  const realW = await prisma.lead.findMany({
-    where: { organizationId: orgId, stage: "WON", updatedAt: { gte: wr.from, lte: wr.to } },
-    select: { dealValueAed: true },
+  const wonLeads = await prisma.lead.findMany({
+    where: { organizationId: orgId, stage: "WON" },
+    select: { wonAt: true, updatedAt: true, dealValueAed: true },
+  });
+  const realW = wonLeads.filter((lead) => {
+    const wonDate = lead.wonAt ?? lead.updatedAt;
+    return wonDate >= wr.from && wonDate <= wr.to;
   });
   assert.equal(w.json.totals.count, realW.length);
   assert.equal(

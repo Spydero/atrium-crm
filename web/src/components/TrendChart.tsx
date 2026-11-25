@@ -195,7 +195,7 @@ function Seg<T extends string>({
     <div
       role="group"
       aria-label={label}
-      className="flex items-center gap-0.5 rounded-[8px] border border-line bg-paper p-0.5"
+      className="flex flex-wrap items-center gap-0.5 rounded-[8px] border border-line bg-paper p-0.5"
     >
       {options.map((o) => {
         const off = disabled?.(o.id) ?? false;

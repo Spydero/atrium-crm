@@ -457,7 +457,7 @@ function CalendarContent() {
         <div>
           <div className="mb-1.5 grid grid-cols-7 gap-1.5">
             {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-              <div key={d} className="px-2 text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
+              <div key={d} className="text-center sm:px-2 sm:text-left text-[11px] font-bold uppercase tracking-[0.08em] text-muted">
                 {d}
               </div>
             ))}
@@ -487,7 +487,9 @@ function CalendarContent() {
                     setMode("view");
                   }}
                   onDoubleClick={() => openCreate(day)}
-                  className={`min-h-[108px] rounded-[var(--radius)] border p-1.5 text-left transition ${
+                  aria-pressed={active}
+                  aria-label={`${format(day, "EEEE, MMMM d, yyyy")}, ${live} active, ${cxl} cancelled`}
+                  className={`min-w-0 min-h-11 sm:min-h-[108px] rounded-[var(--radius)] border p-0.5 sm:p-1.5 text-left transition ${
                     active
                       ? "border-accent bg-accent-soft/40 shadow-[0_0_0_1px_var(--accent)]"
                       : inMonth
@@ -495,7 +497,7 @@ function CalendarContent() {
                         : "border-transparent bg-transparent opacity-40"
                   }`}
                 >
-                  <div className="mb-1 flex items-center justify-between gap-1">
+                  <div className="flex items-center justify-center sm:mb-1 sm:justify-between sm:gap-1">
                     <span
                       className={`inline-flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-xs font-bold ${
                         today ? "bg-accent text-white" : active ? "text-accent" : "text-ink"
@@ -504,13 +506,14 @@ function CalendarContent() {
                       {format(day, "d")}
                     </span>
                     {(live > 0 || cxl > 0) && (
-                      <span className="text-[10px] font-bold text-muted">
+                      <span className="hidden sm:inline text-[10px] font-bold text-muted">
                         {live}
                         {cxl > 0 ? ` · ${cxl} cxl` : ""}
                       </span>
                     )}
                   </div>
-                  <div className="space-y-1">
+                  {dayEvs.length > 0 && <span aria-hidden="true" className="mx-auto block size-1.5 rounded-full bg-accent sm:hidden" />}
+                  <div className="hidden space-y-1 sm:block">
                     {dayEvs.slice(0, 3).map((ev) => {
                       const overdue = ev.outcome === "SCHEDULED" && new Date(ev.startsAt) < now;
                       return (
@@ -539,7 +542,8 @@ function CalendarContent() {
               );
             })}
           </div>
-          <p className="mt-2 text-xs text-muted">Tip: double-click a day to schedule. Red struck-through pills are cancelled.</p>
+          <p className="mt-2 text-xs text-muted sm:hidden">Tap a day to see its agenda below.</p>
+          <p className="mt-2 hidden text-xs text-muted sm:block">Tip: double-click a day to schedule. Red struck-through pills are cancelled.</p>
         </div>
 
         <div className="space-y-3">

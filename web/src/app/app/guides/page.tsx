@@ -338,7 +338,7 @@ export default function GuidesPage() {
           <option value="gated">Form first</option>
           <option value="open">Open download</option>
         </select>
-        <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-1">
           <select
             className="field"
             aria-label="Sort guides by"
