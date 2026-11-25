@@ -17,3 +17,8 @@ storage/
 backups/
 design/exports/
 /.cursor/
+
+# Python test caches and Vercel project metadata
+.pytest_cache/
+__pycache__/
+.vercel/
