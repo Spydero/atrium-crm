@@ -16,3 +16,4 @@ api/skills-lock.json
 storage/
 backups/
 design/exports/
+/.cursor/
